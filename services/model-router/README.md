@@ -70,7 +70,7 @@ Set `PERSONA_TIERS_JSON` to a JSON object mapping agent/persona names to tier ke
 {"orchestrator": "claude-sonnet-4-6", "coder": "gpt-4o-mini"}
 ```
 
-The tier value must be a key present in `MODELS` at request time (i.e. a registered tier such as `gpt4o-mini`, `phi4`, or an optional tier you enabled — **not** the abstract `frontier`/`standard`/`economy` labels used in agent profiles). `persona-tiers.example.json` ships a working default that targets only the two always-registered tiers (`gpt4o-mini` for higher-value roles, `phi4` for economy roles), so it routes correctly on a vanilla Foundry-only stack; repoint roles at richer tiers (e.g. a `CLAUDE` tier) once you register them.
+The tier value must be a key present in `MODELS` at request time (i.e. a registered tier such as `gpt4o-mini`, `phi4`, or an optional tier you enabled — **not** the abstract `frontier`/`standard`/`economy` labels used in agent profiles). `persona-tiers.example.json` includes a Kimi example (`researcher` → `kimi-k2`) to show how to route a persona to another OpenAI-compatible provider; use it after registering the `KIMI` tier with `KIMI_BASE_URL`, `KIMI_API_KEY`, and `KIMI_MODEL=kimi-k2`, or change that role back to an always-registered tier on a vanilla Foundry-only stack.
 
 ### Fallback chain
 

@@ -1,6 +1,6 @@
 {
   "orchestrator": "gpt4o-mini",
-  "researcher": "gpt4o-mini",
+  "researcher": "kimi-k2",
   "strategy": "gpt4o-mini",
   "coder": "gpt4o-mini",
   "infrastructure": "gpt4o-mini",
