@@ -59,8 +59,9 @@ Still ahead:
 - Vendor the upstream PaperClip/Honcho/Hermes sources so the full image set builds, then the one-command full local stack (`docker compose --profile full up`).
 - Microsoft Teams integration: shipped as the `teams-bridge` service (a Bot Framework messaging endpoint that files inbound Teams messages as Orchestrator issues and replies with Adaptive Cards), gated by the `teams_enabled` variable at parity with Discord/Telegram ([`services/teams-bridge`](services/teams-bridge/), [`integrations/teams`](integrations/teams/)). Internal ingress by default; going live needs the Cloudflare-tunnel exposure + Bot Framework JWT validation noted in the service README.
 - Secret-expiry monitoring goes live: the watchdog detector that lists Key Vault secret/cert expiry and files an issue before a lapsed credential takes down the agents that depend on it. Detector + watchdog wiring shipped and **now unit-tested** (8 boundary tests in `services/watchdog/tests/test_secret_expiry.py`); opt-in via `WATCHDOG_KEY_VAULT_URI`, activates with the first deploy.
+- Observability surface in the monitoring module ([`infrastructure/modules/monitoring`](infrastructure/modules/monitoring/)): three Log Analytics alert rules (watchdog critical findings, Key Vault secret expiry, watchdog run failures) wired to an email action group, plus an Azure Monitor workbook for watchdog activity and gateway health. Queries match the services' existing console-log markers — no app changes. Both opt-in (`alert_emails`, `enable_observability_workbook`); the default footprint is unchanged. `terraform validate` clean.
 - First fully validated end-to-end Azure deploy from a clean subscription.
 
 ## Later
 
-Multi-tenant implementation (the [`roadmap/multi-tenant/`](roadmap/multi-tenant/) design). More chat surfaces. Observability pipeline.
+Multi-tenant implementation (the [`roadmap/multi-tenant/`](roadmap/multi-tenant/) design). More chat surfaces. A fuller observability pipeline (distributed tracing, SLO burn-rate alerts) building on the v1.2 alert rules + workbook.

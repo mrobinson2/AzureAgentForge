@@ -226,6 +226,25 @@ variable "log_daily_quota_gb" {
   default     = 1
 }
 
+# Observability: alerts + workbook (opt-in)
+variable "alert_emails" {
+  description = "Email recipients for the platform alert action group (watchdog critical findings, secret expiry, watchdog run failures). Empty = no action group / no alert rules created."
+  type        = list(string)
+  default     = []
+}
+
+variable "watchdog_app_name" {
+  description = "Container App/Job name to scope the alert + workbook log queries (e.g. caj-watchdog-dev). Empty matches across all apps on the unique [watchdog] log markers."
+  type        = string
+  default     = ""
+}
+
+variable "enable_observability_workbook" {
+  description = "Create the Azure Monitor observability workbook (watchdog activity, secret expiry, gateway health). Off by default."
+  type        = bool
+  default     = false
+}
+
 # Cloudflared ingress
 variable "cloudflared_enabled" {
   description = "Run the Cloudflared tunnel container for ingress (hardened). When false, use Azure Container Apps managed ingress."

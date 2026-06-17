@@ -169,6 +169,12 @@ module "monitoring" {
   tags                  = local.common_tags
   log_retention_in_days = var.log_retention_in_days
   log_daily_quota_gb    = var.log_daily_quota_gb
+
+  # Observability (opt-in). No alert_emails → no action group / alert rules;
+  # workbook off by default. Defaults keep the deploy footprint unchanged.
+  alert_emails                  = var.alert_emails
+  watchdog_app_name             = var.watchdog_app_name
+  enable_observability_workbook = var.enable_observability_workbook
 }
 
 # Outputs
