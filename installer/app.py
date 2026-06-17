@@ -84,6 +84,7 @@ class ConfigBody(BaseModel):
     ai_foundry_endpoint: str = ""
     ai_foundry_deployment_id: str = ""
     owner_email: str = ""
+    keyvault_admin_object_ids: list[str] = []
     preview_only: bool = False
 
 

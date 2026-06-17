@@ -56,7 +56,7 @@ resource "azurerm_container_app" "teams_bridge" {
   # The bridge attaches this as the bearer token when creating PaperClip issues.
   secret {
     name                = "paperclip-automation-jwt-secret"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-automation-jwt-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-jwt-secret"
     identity            = azurerm_user_assigned_identity.teams_bridge[0].id
   }
 

@@ -48,13 +48,13 @@ resource "azurerm_container_app" "honcho" {
   # Key Vault secret references
   secret {
     name                = "postgres-connection-string"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-postgresql-connection-string"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/postgres-connection-string"
     identity            = azurerm_user_assigned_identity.honcho.id
   }
 
   secret {
     name                = "openai-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-openai-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/openai-api-key"
     identity            = azurerm_user_assigned_identity.honcho.id
   }
 
@@ -287,13 +287,13 @@ resource "azurerm_container_app" "honcho_deriver" {
   # Share the same secrets as the API app
   secret {
     name                = "postgres-connection-string"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-postgresql-connection-string"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/postgres-connection-string"
     identity            = azurerm_user_assigned_identity.honcho.id
   }
 
   secret {
     name                = "openai-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-openai-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/openai-api-key"
     identity            = azurerm_user_assigned_identity.honcho.id
   }
 
@@ -505,13 +505,13 @@ resource "azurerm_container_app_job" "honcho_deriver" {
 
   secret {
     name                = "postgres-connection-string"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-postgresql-connection-string"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/postgres-connection-string"
     identity            = azurerm_user_assigned_identity.honcho.id
   }
 
   secret {
     name                = "openai-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-openai-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/openai-api-key"
     identity            = azurerm_user_assigned_identity.honcho.id
   }
 

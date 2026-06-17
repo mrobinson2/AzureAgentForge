@@ -62,6 +62,32 @@ def test_render_tfvars_optional_fields_and_quoting():
     assert kv["telegram_enabled"] == "true"
 
 
+def test_keyvault_admin_object_ids_valid_guid_passes():
+    cfg = core.DeployConfig(**GOOD,
+                            keyvault_admin_object_ids=["d4c41ac3-986d-4f52-95f4-22ca268cd058"])
+    assert cfg.validate() == []
+
+
+def test_keyvault_admin_object_ids_invalid_rejected():
+    cfg = core.DeployConfig(**GOOD, keyvault_admin_object_ids=["not-a-guid"])
+    errs = cfg.validate()
+    assert errs and any("keyvault_admin_object_ids" in e for e in errs)
+
+
+def test_render_tfvars_keyvault_admin_object_ids_as_hcl_list():
+    cfg = core.DeployConfig(**GOOD, keyvault_admin_object_ids=[
+        "d4c41ac3-986d-4f52-95f4-22ca268cd058",
+        "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"])
+    kv = _kv(core.render_tfvars(cfg))
+    assert kv["keyvault_admin_object_ids"] == (
+        '["d4c41ac3-986d-4f52-95f4-22ca268cd058", '
+        '"aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"]')
+
+
+def test_render_tfvars_omits_empty_keyvault_admin_object_ids():
+    assert "keyvault_admin_object_ids" not in _kv(core.render_tfvars(core.DeployConfig(**GOOD)))
+
+
 def test_render_tfvars_is_fmt_aligned():
     out = core.render_tfvars(core.DeployConfig(**GOOD))
     eq_cols = {line.index("=") for line in out.splitlines()

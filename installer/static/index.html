@@ -125,6 +125,8 @@
         <input type="text" id="foundry" placeholder="https://your-project.openai.azure.com/">
         <label>Foundry deployment id <span class="dim">(optional)</span></label>
         <input type="text" id="foundryDeployment" placeholder="grok-4-fast-reasoning">
+        <label>Key Vault admin object IDs <span class="dim">(your Azure AD object ID; comma-separated for more — needed to seed secrets)</span></label>
+        <input type="text" id="kvAdmins" placeholder="az ad signed-in-user show --query id -o tsv">
         <div class="chk"><input type="checkbox" id="telegram"><label for="telegram" style="margin:0">Enable Telegram surface</label></div>
         <div class="chk"><input type="checkbox" id="discord"><label for="discord" style="margin:0">Enable Discord surface</label></div>
         <div class="btns">
@@ -270,6 +272,7 @@ function configBody(previewOnly) {
     discord_enabled: $('discord').checked,
     ai_foundry_endpoint: $('foundry').value.trim(),
     ai_foundry_deployment_id: $('foundryDeployment').value.trim(),
+    keyvault_admin_object_ids: $('kvAdmins').value.split(',').map(s => s.trim()).filter(Boolean),
     preview_only: previewOnly,
   });
 }

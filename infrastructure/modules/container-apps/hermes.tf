@@ -58,7 +58,7 @@ resource "azurerm_container_app" "hermes" {
     for_each = var.telegram_enabled ? [1] : []
     content {
       name                = "telegram-bot-token"
-      key_vault_secret_id = "${var.key_vault_uri}secrets/platform-telegram-bot-token"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/telegram-bot-token"
       identity            = azurerm_user_assigned_identity.hermes.id
     }
   }
@@ -66,62 +66,62 @@ resource "azurerm_container_app" "hermes" {
   # Phi-4 on Azure AI Foundry
   secret {
     name                = "phi-base-url"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-phi4-uri-target"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/phi-base-url"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
   secret {
     name                = "phi-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-phi4-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/phi-api-key"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 
   # Kimi-K2.5 on Azure AI Foundry
   secret {
     name                = "kimi-base-url"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-kimi-k25-uri-target"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/kimi-base-url"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
   secret {
     name                = "kimi-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-kimi-k25-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/kimi-api-key"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 
   # grok-4-1-fast-reasoning on Azure AI Foundry (primary default tier)
   secret {
     name                = "grok-base-url"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-grok4-uri-target"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/grok-base-url"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
   secret {
     name                = "grok-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-grok4-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/grok-api-key"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 
   # Claude Sonnet 4.6 on Azure AI Foundry
   secret {
     name                = "claude-base-url"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-sonnet46-uri-target"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/claude-base-url"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
   secret {
     name                = "claude-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-sonnet46-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/claude-api-key"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 
   # GPT-4o-mini on Azure AI Foundry (primary default tier)
   secret {
     name                = "gpt4o-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-gpt4o-mini-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/gpt4o-api-key"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 
   # Google Workspace CLI credentials — never stored in image or plain env vars
   secret {
     name                = "gws-credentials"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-google-gsw-credentials"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/gws-credentials"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 
@@ -132,7 +132,7 @@ resource "azurerm_container_app" "hermes" {
   #   --name platform-paperclip-automation-token --value "<jwt>"
   secret {
     name                = "paperclip-automation-token"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-automation-token"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-token"
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 

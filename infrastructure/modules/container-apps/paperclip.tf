@@ -75,14 +75,14 @@ resource "azurerm_container_app" "paperclip" {
   # Never stored in plain env vars.
   secret {
     name                = "paperclip-db-url"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-db-url"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-db-url"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
   # JWT signing secret for authenticated mode (Better Auth / agent JWT)
   secret {
     name                = "paperclip-auth-secret"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-auth-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-auth-secret"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
@@ -90,7 +90,7 @@ resource "azurerm_container_app" "paperclip" {
   # Used by the Hermes agent adapter when Paperclip spawns agent processes.
   secret {
     name                = "ai-foundry-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-project-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/ai-foundry-api-key"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
@@ -98,19 +98,19 @@ resource "azurerm_container_app" "paperclip" {
   # Without this, all agent API calls return Unauthorized.
   secret {
     name                = "paperclip-agent-jwt-secret"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-agent-jwt-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-agent-jwt-secret"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
   # Paperclip admin seed credentials (first-run bootstrap only)
   secret {
     name                = "paperclip-admin-email"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-admin-email"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-admin-email"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
   secret {
     name                = "paperclip-admin-password"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-admin-password"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-admin-password"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
@@ -121,7 +121,7 @@ resource "azurerm_container_app" "paperclip" {
   # agent-to-Paperclip auth). Generate with: openssl rand -base64 48
   secret {
     name                = "paperclip-automation-jwt-secret"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-automation-jwt-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-jwt-secret"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
@@ -129,7 +129,7 @@ resource "azurerm_container_app" "paperclip" {
   # Used by the gws binary when agents invoke Google Workspace operations.
   secret {
     name                = "gws-credentials"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-google-gsw-credentials"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/gws-credentials"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
@@ -142,7 +142,7 @@ resource "azurerm_container_app" "paperclip" {
     for_each = var.brave_search_enabled ? [1] : []
     content {
       name                = "brave-search-api-key"
-      key_vault_secret_id = "${var.key_vault_uri}secrets/platform-brave-search-api-key"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/brave-search-api-key"
       identity            = azurerm_user_assigned_identity.paperclip.id
     }
   }
@@ -157,7 +157,7 @@ resource "azurerm_container_app" "paperclip" {
     for_each = var.discord_enabled ? [1] : []
     content {
       name                = "discord-bot-token"
-      key_vault_secret_id = "${var.key_vault_uri}secrets/platform-discord-bot-token"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/discord-bot-token"
       identity            = azurerm_user_assigned_identity.paperclip.id
     }
   }

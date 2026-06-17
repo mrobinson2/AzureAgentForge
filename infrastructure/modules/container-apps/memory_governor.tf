@@ -64,19 +64,19 @@ resource "azurerm_container_app" "memory_governor" {
 
   secret {
     name                = "postgres-connection-string"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-postgresql-connection-string"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/postgres-connection-string"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
   secret {
     name                = "governor-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/memory-governor-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/governor-api-key"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
   secret {
     name                = "gpt4o-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-gpt4o-mini-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/gpt4o-api-key"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
@@ -86,7 +86,7 @@ resource "azurerm_container_app" "memory_governor" {
   # sidecar 503s on /embeddings and Plane C silently falls back to trigram.
   secret {
     name                = "openai-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-openai-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/openai-api-key"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
@@ -94,19 +94,19 @@ resource "azurerm_container_app" "memory_governor" {
   # issues:read tokens to ask PaperClip whether task scopes have closed.
   secret {
     name                = "paperclip-automation-jwt-secret"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-automation-jwt-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-jwt-secret"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
   secret {
     name                = "phi-base-url"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-phi4-uri-target"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/phi-base-url"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
   secret {
     name                = "phi-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-azure-ai-foundry-phi4-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/phi-api-key"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
@@ -252,7 +252,7 @@ resource "azurerm_container_app_job" "memory_sweeper" {
 
   secret {
     name                = "postgres-connection-string"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-postgresql-connection-string"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/postgres-connection-string"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
@@ -310,19 +310,19 @@ resource "azurerm_container_app_job" "watchdog" {
 
   secret {
     name                = "postgres-connection-string"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-postgresql-connection-string"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/postgres-connection-string"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
   secret {
     name                = "paperclip-automation-jwt-secret"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-paperclip-automation-jwt-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-jwt-secret"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
   secret {
     name                = "governor-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/memory-governor-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/governor-api-key"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
@@ -416,7 +416,7 @@ resource "azurerm_container_app_job" "memory_digest" {
 
   secret {
     name                = "governor-api-key"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/memory-governor-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/governor-api-key"
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 

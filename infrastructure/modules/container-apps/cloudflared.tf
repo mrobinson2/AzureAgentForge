@@ -71,7 +71,7 @@ resource "azurerm_container_app" "cloudflared" {
   # cloudflared reads TUNNEL_TOKEN automatically when running `tunnel run`.
   secret {
     name                = "cf-tunnel-token"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/platform-cloudflared-token"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/cf-tunnel-token"
     identity            = azurerm_user_assigned_identity.cloudflared[0].id
   }
 

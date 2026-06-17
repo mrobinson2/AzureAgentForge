@@ -97,8 +97,10 @@ variables), each named for the Key Vault secret upper-cased with underscores:
 `CLAUDE_API_KEY`, `AI_FOUNDRY_API_KEY`, `OPENAI_API_KEY`, `BRAVE_SEARCH_API_KEY`,
 `TELEGRAM_BOT_TOKEN`, `DISCORD_BOT_TOKEN`, `CF_TUNNEL_TOKEN`,
 `POSTGRES_CONNECTION_STRING`, `PAPERCLIP_DB_URL`. Set only the ones your
-deployment uses; the rest are skipped. `scripts/seed-keyvault.sh --list` prints
-the full inventory.
+deployment uses; the rest are seeded as empty placeholders so every container's
+Key Vault reference resolves (an unset model tier or surface stays inert until
+you provide its value and re-run). `scripts/seed-keyvault.sh --list` prints the
+full inventory.
 
 ### 3. The approval gate - a GitHub **Environment**
 

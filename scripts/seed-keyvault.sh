@@ -13,8 +13,12 @@
 #   external  values that come from you (LLM/provider keys, bot tokens, the
 #             Postgres connection strings). Read from an env var named after the
 #             secret, upper-cased with dashes as underscores
-#             (claude-api-key -> CLAUDE_API_KEY). Unset ones are skipped with a
-#             note — you only need keys for the providers/surfaces you enable.
+#             (claude-api-key -> CLAUDE_API_KEY). Every external is referenced by
+#             a container's Key Vault mount, and ACA fails the deploy if a
+#             referenced secret is missing — so unset ones are seeded as an EMPTY
+#             placeholder (the feature/tier stays inert until you fill it in and
+#             re-run). You only need real values for the providers/surfaces you
+#             enable; a provided value always overwrites an earlier placeholder.
 #
 # The connection strings (postgres-connection-string, paperclip-db-url) are
 # external on purpose: build them from your `terraform output` after Postgres
@@ -30,11 +34,15 @@ GENERATE="postgres-admin-password governor-api-key paperclip-admin-password \
 paperclip-agent-jwt-secret paperclip-auth-secret paperclip-automation-jwt-secret \
 paperclip-automation-token"
 
-# Secrets sourced from the environment.
+# Secrets sourced from the environment. Every name here is referenced by a
+# container app's Key Vault secret mount (infrastructure/modules/container-apps),
+# so each must EXIST in the vault for `terraform apply` to succeed — see the
+# external loop below, which seeds an empty placeholder for any you don't set.
 EXTERNAL="ai-foundry-api-key brave-search-api-key cf-tunnel-token claude-api-key \
 claude-base-url discord-bot-token gpt4o-api-key grok-api-key grok-base-url \
-kimi-api-key kimi-base-url openai-api-key phi-api-key phi-base-url \
-telegram-bot-token postgres-connection-string paperclip-db-url"
+gws-credentials kimi-api-key kimi-base-url openai-api-key paperclip-admin-email \
+phi-api-key phi-base-url telegram-bot-token postgres-connection-string \
+paperclip-db-url"
 
 die() { echo "error: $*" >&2; exit 2; }
 
@@ -106,7 +114,7 @@ done
 echo "vault=$VAULT force=$FORCE dry_run=$DRY_RUN"
 echo
 
-generated=0 ; provided=0 ; kept=0 ; missing=""
+generated=0 ; provided=0 ; kept=0 ; placeheld=0 ; missing=""
 
 echo "generate:"
 for s in $GENERATE; do
@@ -121,15 +129,26 @@ echo "external:"
 for s in $EXTERNAL; do
   ev="$(env_name "$s")"
   val="$(printenv "$ev" || true)"
-  if [ -z "$val" ]; then
-    echo "    skip: $s (env $ev unset)"; missing="$missing $s"; continue
+  if [ -n "$val" ]; then
+    # Provided — set it, overwriting any prior value. This is what makes the
+    # two-pass flow work: a placeholder seeded on pass 1 is replaced by the real
+    # value (e.g. the connection strings from `terraform output`) on pass 2.
+    set_secret "$s" "$val"; provided=$((provided + 1)); continue
   fi
-  if [ "$FORCE" -eq 0 ] && [ "$DRY_RUN" -eq 0 ] && secret_exists "$s"; then
+  if [ "$DRY_RUN" -eq 0 ] && secret_exists "$s"; then
+    # Already present (real value set earlier or out-of-band) — never clobber it
+    # with an empty placeholder.
     echo "    keep: $s (exists)"; kept=$((kept + 1)); continue
   fi
-  set_secret "$s" "$val"; provided=$((provided + 1))
+  # Unset and absent — seed an EMPTY placeholder. Every external is referenced by
+  # a container's Key Vault secret mount, and ACA fails the deploy if a referenced
+  # secret does not exist; an empty value lets `terraform apply` succeed while the
+  # unconfigured feature/tier stays inert (the router treats an empty base-url or
+  # key as "tier not configured" and fail-soft skips it). Fill it in later and
+  # re-run to enable.
+  set_secret "$s" ""; placeheld=$((placeheld + 1)); missing="$missing $s"
 done
 
 echo
-echo "summary: generated=$generated provided=$provided kept=$kept"
-[ -z "$missing" ] || echo "unset external secrets (fine unless you use them):$missing"
+echo "summary: generated=$generated provided=$provided kept=$kept placeholders=$placeheld"
+[ -z "$missing" ] || echo "seeded EMPTY (set the matching env var + re-run to enable):$missing"
