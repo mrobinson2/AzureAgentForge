@@ -3,6 +3,8 @@ Window state lives in the module global `_rate_windows` (reset between tests
 by the autouse isolation fixture). The limit is `_RATE_LIMIT_RPM`; <= 0
 disables it entirely."""
 
+import time
+
 import pytest
 from fastapi import HTTPException
 
@@ -48,9 +50,13 @@ class TestCheckRateLimit:
         client that was saturated a minute ago is allowed again."""
         monkeypatch.setattr(router, "_RATE_LIMIT_RPM", 2)
         ip = "198.51.100.6"
-        # Pre-seed the window with two ancient timestamps (monotonic clock is
-        # always well above 0, so these are far outside the 60s window).
-        router._rate_windows[ip] = [0.0, 0.0]
+        # Pre-seed two timestamps well outside the 60s window, measured against
+        # the *live* monotonic clock. A literal like 0.0 is unsafe: monotonic's
+        # origin is arbitrary, so on a freshly-booted host where now < 60 the
+        # cutoff (now - 60) is negative and 0.0 sorts as "recent", leaving the
+        # entry inside the window (this exact case failed only in CI).
+        old = time.monotonic() - 120.0
+        router._rate_windows[ip] = [old, old]
         req = make_request(host=ip)
         # Ancient entries are pruned; this request is admitted, not rejected.
         assert router._check_rate_limit(req) is None
