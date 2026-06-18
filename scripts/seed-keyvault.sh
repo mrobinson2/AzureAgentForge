@@ -33,7 +33,7 @@ DRY_RUN=0
 # Internal secrets generated locally if missing.
 GENERATE="postgres-admin-password governor-api-key paperclip-admin-password \
 paperclip-agent-jwt-secret paperclip-auth-secret paperclip-automation-jwt-secret \
-paperclip-automation-token"
+paperclip-automation-token auth-password gateway-token"
 
 # Secrets sourced from the environment. Every name here is referenced by a
 # container app's Key Vault secret mount (infrastructure/modules/container-apps),

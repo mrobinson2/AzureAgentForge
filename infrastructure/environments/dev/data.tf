@@ -1,23 +1,23 @@
-# Data sources for Key Vault secrets
-# Naming convention: platform-<platform>-<purpose>
+# Data sources for Key Vault secrets.
+# Names match what scripts/seed-keyvault.sh seeds (sanitized, no platform- prefix).
 
 data "azurerm_key_vault_secret" "auth_password" {
-  name         = "platform-azureagentforge-auth-password"
+  name         = "auth-password"
   key_vault_id = module.keyvault.id
 }
 
 data "azurerm_key_vault_secret" "gateway_token" {
-  name         = "platform-azureagentforge-gateway-token"
+  name         = "gateway-token"
   key_vault_id = module.keyvault.id
 }
 
 data "azurerm_key_vault_secret" "telegram" {
   count        = var.telegram_enabled ? 1 : 0
-  name         = "platform-telegram-bot-token"
+  name         = "telegram-bot-token"
   key_vault_id = module.keyvault.id
 }
 
 data "azurerm_key_vault_secret" "cf_tunnel_token" {
-  name         = "platform-cloudflared-token"
+  name         = "cf-tunnel-token"
   key_vault_id = module.keyvault.id
 }
