@@ -15,10 +15,11 @@
 #             secret, upper-cased with dashes as underscores
 #             (claude-api-key -> CLAUDE_API_KEY). Every external is referenced by
 #             a container's Key Vault mount, and ACA fails the deploy if a
-#             referenced secret is missing — so unset ones are seeded as an EMPTY
-#             placeholder (the feature/tier stays inert until you fill it in and
-#             re-run). You only need real values for the providers/surfaces you
-#             enable; a provided value always overwrites an earlier placeholder.
+#             referenced secret is missing — so unset ones are seeded with a
+#             non-empty placeholder (`az` rejects an empty value), and the
+#             feature/tier stays inert until you fill it in and re-run. You only
+#             need real values for the providers/surfaces you enable; a provided
+#             value always overwrites an earlier placeholder.
 #
 # The connection strings (postgres-connection-string, paperclip-db-url) are
 # external on purpose: build them from your `terraform output` after Postgres
@@ -37,12 +38,16 @@ paperclip-automation-token"
 # Secrets sourced from the environment. Every name here is referenced by a
 # container app's Key Vault secret mount (infrastructure/modules/container-apps),
 # so each must EXIST in the vault for `terraform apply` to succeed — see the
-# external loop below, which seeds an empty placeholder for any you don't set.
+# external loop below, which seeds a placeholder value for any you don't set.
 EXTERNAL="ai-foundry-api-key brave-search-api-key cf-tunnel-token claude-api-key \
 claude-base-url discord-bot-token gpt4o-api-key grok-api-key grok-base-url \
 gws-credentials kimi-api-key kimi-base-url openai-api-key paperclip-admin-email \
 phi-api-key phi-base-url telegram-bot-token postgres-connection-string \
 paperclip-db-url"
+
+# Value seeded for any external you don't set. Non-empty because `az keyvault
+# secret set` rejects an empty --value; consumers treat it as "unconfigured".
+PLACEHOLDER_VALUE="__unset__"
 
 die() { echo "error: $*" >&2; exit 2; }
 
@@ -140,15 +145,16 @@ for s in $EXTERNAL; do
     # with an empty placeholder.
     echo "    keep: $s (exists)"; kept=$((kept + 1)); continue
   fi
-  # Unset and absent — seed an EMPTY placeholder. Every external is referenced by
-  # a container's Key Vault secret mount, and ACA fails the deploy if a referenced
-  # secret does not exist; an empty value lets `terraform apply` succeed while the
-  # unconfigured feature/tier stays inert (the router treats an empty base-url or
-  # key as "tier not configured" and fail-soft skips it). Fill it in later and
-  # re-run to enable.
-  set_secret "$s" ""; placeheld=$((placeheld + 1)); missing="$missing $s"
+  # Unset and absent — seed a non-empty PLACEHOLDER so the container's Key Vault
+  # reference resolves (ACA fails the deploy on a missing secret). `az keyvault
+  # secret set` REJECTS an empty --value, so the placeholder must be non-empty;
+  # consumers treat it as unconfigured (a model tier with a placeholder base-url/
+  # key fails-soft and goes unused; the two DB connection strings are the ones
+  # you'll most likely fill on a second pass from `terraform output`). A provided
+  # value overwrites this on re-run.
+  set_secret "$s" "$PLACEHOLDER_VALUE"; placeheld=$((placeheld + 1)); missing="$missing $s"
 done
 
 echo
 echo "summary: generated=$generated provided=$provided kept=$kept placeholders=$placeheld"
-[ -z "$missing" ] || echo "seeded EMPTY (set the matching env var + re-run to enable):$missing"
+[ -z "$missing" ] || echo "seeded placeholder '$PLACEHOLDER_VALUE' (set the matching env var + re-run to enable):$missing"
