@@ -25,7 +25,19 @@ resource "azurerm_role_assignment" "honcho_kv_reader" {
 }
 
 # --- Honcho Container App ---
+# Gate the upstream-image apps (hermes, honcho, paperclip) — their images must be
+# vendored + built before they can deploy. Off by default so a clean subscription
+# applies the infra + self-contained services without these failing on a missing
+# image. Flip to true once apps/<project>/ sources are vendored and pushed.
+variable "deploy_upstream_apps" {
+  description = "Deploy the upstream-dependent container apps (hermes, honcho, paperclip). Requires their images to exist in the registry (vendor + build first)."
+  type        = bool
+  default     = false
+}
+
 resource "azurerm_container_app" "honcho" {
+  count = var.deploy_upstream_apps ? 1 : 0
+
   name                         = "ca-honcho-${var.environment}"
   container_app_environment_id = local.container_app_environment_id
   resource_group_name          = var.resource_group_name
@@ -266,7 +278,7 @@ resource "azurerm_container_app" "honcho" {
 # Shares the same managed identity, secrets, and DB as the Honcho API app.
 # No ingress — this is a long-running worker, not an HTTP service.
 resource "azurerm_container_app" "honcho_deriver" {
-  count = var.honcho_deriver_enabled ? 1 : 0
+  count = var.deploy_upstream_apps && var.honcho_deriver_enabled ? 1 : 0
 
   name                         = "ca-honcho-deriver-${var.environment}"
   container_app_environment_id = local.container_app_environment_id
@@ -464,7 +476,7 @@ resource "azurerm_container_app" "honcho_deriver" {
   tags = var.tags
 
   depends_on = [
-    azurerm_container_app.honcho,
+    azurerm_container_app.honcho[0],
     azurerm_role_assignment.honcho_acr_pull,
     azurerm_role_assignment.honcho_kv_reader,
   ]
@@ -476,7 +488,7 @@ resource "azurerm_container_app" "honcho_deriver" {
 # so each run is cheap (~10 min of 0.25 vCPU + 0.5 GiB ≈ $0.005/run, ~$0.12/day).
 # Trade-off: up to one schedule-interval of recall lag for new sessions.
 resource "azurerm_container_app_job" "honcho_deriver" {
-  count = var.honcho_deriver_job_enabled ? 1 : 0
+  count = var.deploy_upstream_apps && var.honcho_deriver_job_enabled ? 1 : 0
 
   name                         = "caj-honcho-deriver-${var.environment}"
   container_app_environment_id = local.container_app_environment_id
@@ -653,7 +665,7 @@ resource "azurerm_container_app_job" "honcho_deriver" {
   tags = var.tags
 
   depends_on = [
-    azurerm_container_app.honcho,
+    azurerm_container_app.honcho[0],
     azurerm_role_assignment.honcho_acr_pull,
     azurerm_role_assignment.honcho_kv_reader,
   ]
@@ -666,7 +678,7 @@ output "honcho_identity_principal_id" {
 }
 
 output "honcho_fqdn" {
-  value       = azurerm_container_app.honcho.ingress[0].fqdn
+  value       = var.deploy_upstream_apps ? azurerm_container_app.honcho[0].ingress[0].fqdn : ""
   description = "Internal FQDN of Honcho Container App"
 }
 

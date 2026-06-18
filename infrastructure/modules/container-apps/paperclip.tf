@@ -54,6 +54,8 @@ resource "azurerm_role_assignment" "paperclip_kv_reader" {
 # ── Paperclip Container App ───────────────────────────────────────────────────
 
 resource "azurerm_container_app" "paperclip" {
+  count = var.deploy_upstream_apps ? 1 : 0
+
   name                         = "ca-paperclip-${var.environment}"
   container_app_environment_id = local.container_app_environment_id
   resource_group_name          = var.resource_group_name
@@ -305,7 +307,7 @@ resource "azurerm_container_app" "paperclip" {
       # Same config as the standalone Hermes on ca-agent-runtime.
       env {
         name  = "HONCHO_BASE_URL"
-        value = "https://${azurerm_container_app.honcho.ingress[0].fqdn}"
+        value = "https://${azurerm_container_app.honcho[0].ingress[0].fqdn}"
       }
       env {
         name  = "HONCHO_API_KEY"
@@ -472,7 +474,7 @@ resource "azurerm_container_app" "paperclip" {
 # ── Outputs ───────────────────────────────────────────────────────────────────
 
 output "paperclip_fqdn" {
-  value       = azurerm_container_app.paperclip.ingress[0].fqdn
+  value       = var.deploy_upstream_apps ? azurerm_container_app.paperclip[0].ingress[0].fqdn : ""
   description = "Internal ACA FQDN of Paperclip (not publicly routable). Public access is via https://app.example.com (Cloudflare Tunnel)."
 }
 

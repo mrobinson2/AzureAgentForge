@@ -36,6 +36,8 @@ resource "azurerm_role_assignment" "hermes_kv_reader" {
 
 # --- Hermes + Router Container App ---
 resource "azurerm_container_app" "hermes" {
+  count = var.deploy_upstream_apps ? 1 : 0
+
   name                         = "ca-hermes-${var.environment}"
   container_app_environment_id = local.container_app_environment_id
   resource_group_name          = var.resource_group_name
@@ -204,7 +206,7 @@ resource "azurerm_container_app" "hermes" {
       }
       env {
         name  = "HONCHO_BASE_URL"
-        value = "https://${azurerm_container_app.honcho.ingress[0].fqdn}"
+        value = "https://${azurerm_container_app.honcho[0].ingress[0].fqdn}"
       }
       # _honcho_should_activate() requires a truthy api_key even for self-hosted.
       # Self-hosted Honcho runs with AUTH_USE_AUTH=false so the value is not validated.
@@ -278,7 +280,7 @@ resource "azurerm_container_app" "hermes" {
       }
       env {
         name  = "PAPERCLIP_BASE_URL"
-        value = "https://${azurerm_container_app.paperclip.ingress[0].fqdn}"
+        value = "https://${azurerm_container_app.paperclip[0].ingress[0].fqdn}"
       }
       env {
         name  = "PAPERCLIP_ORIGIN"
@@ -488,7 +490,7 @@ resource "azurerm_container_app" "hermes" {
   depends_on = [
     azurerm_role_assignment.hermes_acr_pull,
     azurerm_role_assignment.hermes_kv_reader,
-    azurerm_container_app.honcho,
+    azurerm_container_app.honcho[0],
     azurerm_container_app_environment_storage.hermes_data,
   ]
 }
