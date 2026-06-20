@@ -267,3 +267,30 @@ and Azure, and secret seeding are manual today and become a single command in
 the v1.1 CLI installer. The cloud prerequisites (your Azure subscription, an AI
 Foundry project or substitute endpoint, and Terraform state storage) are yours to
 provide. Cost figures are estimates pending your own bill.
+
+## Deployment walkthrough (Forge Console)
+
+A full end-to-end deploy of the cloud stack from a **clean subscription** via the
+Forge Console (`PYTHON=python3.13 ./forge`). Image builds run server-side in ACR
+(`az acr build`), so no local Docker is required.
+
+1. **Build & push the images** — `scripts/build-and-push.sh` (server-side `az acr build`; run `--list` first to preview the seven images):
+   ![Image build to ACR](assets/deploy-1-acr-build.png)
+2. **Preflight checks** — Terraform, `az` login, and subscription detection:
+   ![Forge Console preflight](assets/deploy-2-preflight.png)
+3. **Configuration wizard** — the tfvars form with live preview:
+   ![tfvars wizard](assets/deploy-3-config-wizard.png)
+4. **Plan** — live-streamed `terraform plan`:
+   ![terraform plan](assets/deploy-4-plan.png)
+5. **Destroy-aware apply gate** — typed confirmation; routine changes apply, any delete/replace blocks:
+   ![apply gate](assets/deploy-5-apply-gate.png)
+6. **Apply complete** — infrastructure provisioned:
+   ![apply complete](assets/deploy-6-apply-complete.png)
+7. **Running stack** — the resource group with the Container Apps environment and the deployed apps:
+   ![resource group](assets/deploy-7-resource-group.png)
+8. **Post-deploy smoke + live UI** — `scripts/smoke-test.sh` PASS and the PaperClip UI over the Cloudflare tunnel:
+   ![smoke pass and PaperClip UI](assets/deploy-8-smoke-and-ui.png)
+
+> Key Vault is seeded with `scripts/seed-keyvault.sh` (the generate-class secrets,
+> incl. `postgres-admin-password`, must exist before the first `terraform apply`).
+> The same flow runs unattended via the [reference deploy pipeline](deploy-pipeline.md).

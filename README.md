@@ -464,13 +464,13 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 
 ### Coming in v1.2
 
-- ⬜ Image build and push automation
-- ⬜ Key Vault secret seeding
-- ⬜ Full service deployment automation
-- ⬜ Smoke tests after deployment
+- ✅ Image build and push automation
+- ✅ Key Vault secret seeding
+- ✅ Full service deployment automation
+- ✅ Smoke tests after deployment
 - ✅ One-command full local stack (`docker compose --profile full up`)
-- ⬜ Full Microsoft Teams integration
-- ⬜ First fully validated end-to-end Azure deployment from a clean subscription
+- ✅ Full Microsoft Teams integration
+- ✅ First fully validated end-to-end Azure deployment from a clean subscription ([walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console))
 
 ### Future releases
 
