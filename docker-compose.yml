@@ -39,12 +39,18 @@ services:
 
   # ── full profile ───────────────────────────────────────────────────────────
   # One-shot: applies the governor migrations (agent_events, feature_flags,
-  # memory_classes, …) to Postgres, then exits. Idempotent.
+  # memory_classes, …) to Postgres, then exits. Idempotent. Runs AFTER Honcho so
+  # the `documents` table exists (0002 ALTERs it) — Honcho owns that table.
   migrate:
     profiles: ["full"]
     image: pgvector/pgvector:pg16
     depends_on:
       postgres:
+        condition: service_healthy
+      # Honcho's entrypoint runs `alembic upgrade head` (creating `documents`)
+      # before it serves /openapi.json, so honcho-healthy ⟹ the table exists.
+      # (In Azure these migrations run as a later, post-deploy pipeline stage.)
+      honcho:
         condition: service_healthy
     volumes: ["./infrastructure/migrations:/migrations:ro"]
     environment:
