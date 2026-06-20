@@ -83,6 +83,13 @@ services:
       # psycopg3 scheme — NOT DATABASE_URL. Wrong/unset → it falls back to its
       # localhost default and exits 1.
       DB_CONNECTION_URI: postgresql+psycopg://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD:-localdev}@postgres:5432/${POSTGRES_DB:-aaf}
+      # Honcho constructs an LLM client per specialist AT IMPORT (deriver/summary
+      # default to google, dream to anthropic) and raises "Missing client" if the
+      # key is absent. Placeholder keys let it BOOT with no creds; the deriver's
+      # actual memory processing needs real keys (override to drive it).
+      LLM_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-localdev-honcho-placeholder}
+      LLM_OPENAI_API_KEY: ${OPENAI_API_KEY:-localdev-honcho-placeholder}
+      LLM_GEMINI_API_KEY: ${GEMINI_API_KEY:-localdev-honcho-placeholder}
     ports: ["${HONCHO_PORT:-8000}:8000"]
 
   # Bundles the Hermes runtime (the adapter spawns it per task in-container).
