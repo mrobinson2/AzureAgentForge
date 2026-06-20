@@ -47,7 +47,9 @@ jobs:
         run: bash scripts/smoke-local.sh
       - name: Logs on failure
         if: failure()
-        run: docker compose logs
+        run: |
+          docker compose --profile full ps -a
+          docker compose --profile full logs --no-color
       - name: Teardown
         if: always()
         run: docker compose --profile full down -v
