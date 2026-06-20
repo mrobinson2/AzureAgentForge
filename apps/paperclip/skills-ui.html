@@ -287,9 +287,9 @@ function renderTable(skills) {
     (drifted ? `<span style="color:var(--yellow)"><strong>${drifted}</strong> drift</span>` : "");
 
   tbody.innerHTML = skills.map(s => {
-    const srcBadge = `<span class="badge badge-${s.source}">${s.source}</span>`;
-    const tierBadge = s.tier ? `<span class="badge badge-tier">T${s.tier}</span>` : '<span style="color:var(--fg2)">-</span>';
-    const agents = s.agents.map(a => `<span class="badge badge-agent">${a}</span>`).join(" ");
+    const srcBadge = `<span class="badge badge-${esc(s.source)}">${esc(s.source)}</span>`;
+    const tierBadge = s.tier ? `<span class="badge badge-tier">T${esc(s.tier)}</span>` : '<span style="color:var(--fg2)">-</span>';
+    const agents = s.agents.map(a => `<span class="badge badge-agent">${esc(a)}</span>`).join(" ");
     let status = s.deployed
       ? '<span class="badge-deployed">deployed</span>'
       : '<span class="badge-missing">missing</span>';
@@ -315,7 +315,7 @@ async function openSkill(id) {
   const skill = await res.json();
 
   const panel = document.getElementById("detailPanel");
-  const srcBadge = `<span class="badge badge-${skill.source}">${skill.source}</span>`;
+  const srcBadge = `<span class="badge badge-${esc(skill.source)}">${esc(skill.source)}</span>`;
   const editableNote = skill.editable ? "" : " (read-only)";
 
   // Build agent checkboxes
@@ -324,7 +324,7 @@ async function openSkill(id) {
     const checked = skill.agents.includes(a) ? "checked" : "";
     const label = roster[a]?.displayName || a;
     return `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 8px 2px 0;font-size:12px;cursor:pointer">
-      <input type="checkbox" value="${a}" ${checked} style="cursor:pointer"> ${esc(label)}
+      <input type="checkbox" value="${esc(a)}" ${checked} style="cursor:pointer"> ${esc(label)}
     </label>`;
   }).join("");
 
@@ -473,7 +473,7 @@ function closePanel() { document.getElementById("detailOverlay").classList.remov
 
 function esc(s) {
   if (!s) return "";
-  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
 }
 
 function toast(msg, isErr) {
