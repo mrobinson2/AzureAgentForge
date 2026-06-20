@@ -14,7 +14,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
         with:
-          submodules: recursive
+          # Do NOT init submodules: the AAF secret scan covers AAF-authored code
+          # and history only. Vendored upstreams (apps/*/src) carry their own
+          # test fixtures/example tokens and are governed by their own upstreams
+          # (the internal-ref scanner excludes them for the same reason).
+          submodules: false
           fetch-depth: 0 # full history so the history scan below is meaningful
       - name: gitleaks (working tree + history)
         run: |
