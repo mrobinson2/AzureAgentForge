@@ -1,0 +1,53 @@
+name: local-stack-smoke
+
+# Heavy (~5 image builds), so scoped to paths that affect the local stack.
+on:
+  push:
+    paths:
+      - 'docker-compose.yml'
+      - 'services/**'
+      - 'apps/**'
+      - 'infrastructure/migrations/**'
+      - 'scripts/smoke-local.sh'
+      - 'scripts/local-stack.sh'
+      - '.env.example'
+      - '.github/workflows/local-stack-smoke.yml'
+  pull_request:
+    paths:
+      - 'docker-compose.yml'
+      - 'services/**'
+      - 'apps/**'
+      - 'infrastructure/migrations/**'
+      - 'scripts/smoke-local.sh'
+      - 'scripts/local-stack.sh'
+      - '.env.example'
+      - '.github/workflows/local-stack-smoke.yml'
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - name: Bring up full stack (no model creds)
+        run: docker compose --profile full up -d --build
+      - name: Wait for healthy
+        run: |
+          deadline=$(( $(date +%s) + 600 ))
+          while :; do
+            unhealthy="$(docker compose ps --format '{{.Service}} {{.Health}}' | awk '$2!="" && $2!="healthy"{print $1}')"
+            [ -z "$unhealthy" ] && break
+            if [ "$(date +%s)" -ge "$deadline" ]; then
+              echo "timeout; unhealthy: $unhealthy"; docker compose ps; docker compose logs; exit 1
+            fi
+            sleep 10
+          done
+      - name: Smoke
+        run: bash scripts/smoke-local.sh
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs
+      - name: Teardown
+        if: always()
+        run: docker compose --profile full down -v

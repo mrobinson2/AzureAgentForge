@@ -7,11 +7,12 @@
 
 # Local development
 
-`docker compose up` starts two services: Postgres and the model-router. That is
-the v1.0 working slice, enough to develop and test LLM routing without the
-rest of the stack. PaperClip and Honcho need `docker compose --profile full up`
-plus upstream project sources; that becomes one-command in v1.1. You need Docker
-Desktop and an LLM endpoint: Azure AI Foundry or anything OpenAI-compatible.
+`docker compose up` starts two services: Postgres and the model-router — the
+working slice, enough to develop and test LLM routing. The **whole platform**
+runs locally with one command: `scripts/local-stack.sh up` (or
+`docker compose --profile full up`). It comes up healthy with **no credentials**;
+to drive agents, point it at any OpenAI-compatible endpoint. You need Docker
+Desktop; an LLM endpoint is optional until you want to run agents.
 
 ---
 
@@ -58,6 +59,42 @@ Postgres data persists in the `pgdata` named volume between restarts.
 
 ---
 
+## Full local stack (no Azure)
+
+```bash
+scripts/local-stack.sh up
+```
+
+This initializes the upstream submodules if needed, creates `.env` from
+`.env.example`, builds and starts the `full` profile, waits for health, runs the
+smoke gate, and prints the URLs:
+
+| Service | URL | Notes |
+|---|---|---|
+| PaperClip UI / API | http://localhost:3100 | bundles the Hermes runtime |
+| Model router | http://localhost:8080 | |
+| Honcho (memory) | http://localhost:8000 | |
+| Memory governor | http://localhost:8090 | flag-off / idle (`/admit` → `disabled`) |
+
+The stack comes up **healthy with no credentials**. The watchdog runs once, sees
+its flag off, and exits cleanly. To actually **drive agents**, set ONE
+OpenAI-compatible endpoint in `.env` and restart:
+
+```bash
+# .env  (Ollama / LM Studio run on your host → use host.docker.internal)
+OPENAI_COMPAT_BASE_URL=https://api.openai.com/v1
+OPENAI_COMPAT_API_KEY=sk-...
+```
+
+```bash
+scripts/local-stack.sh down && scripts/local-stack.sh up
+```
+
+Other wrapper commands: `scripts/local-stack.sh smoke` (re-run the health gate),
+`logs [service]`, and `down -v` (drop volumes). Ports are overridable in `.env`.
+
+---
+
 ## Iterating on a service
 
 To rebuild a single service after editing its code:
@@ -85,14 +122,16 @@ They build from upstream base images. If an upstream image changes its
 interface, the build may break. Check `services/<name>/Dockerfile` for the
 exact base and pin if you need reproducibility.
 
-PaperClip and Honcho are behind the `full` Compose profile
-(`docker compose --profile full up`). Their Dockerfiles reference upstream
-projects (paperclipai/paperclip, plastic-labs/honcho) not vendored in this
-repo; you need to clone those sources before building. The one-command full
-local stack is v1.1.
+PaperClip, Honcho, the memory-governor, and the watchdog are behind the `full`
+Compose profile (`docker compose --profile full up`). The Hermes and Honcho
+upstream sources are vendored as git submodules under `apps/*/src` and the
+wrapper auto-initializes them; PaperClip is pulled at build time from the pinned
+upstream. No manual cloning is needed.
 
-The `agent-runtime` service has a Dockerfile in `services/agent-runtime/`
-but no entry in `docker-compose.yml`. It is not part of the local stack.
+The `agent-runtime` service (the standalone Hermes / Telegram gateway) has a
+Dockerfile in `services/agent-runtime/` but is **not** part of the local stack:
+the PaperClip image already bundles the Hermes runtime it spawns per task, and
+the gateway needs a bot token.
 
 There is no hot-reload. After changing source files in a service, you need
 to rebuild that container (`docker compose up --build <service>`).

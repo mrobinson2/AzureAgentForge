@@ -300,7 +300,7 @@ As of v1.1, AzureAgentForge includes:
 - Governed memory: governor service, retrieval planner, background loops, hybrid vector retrieval, and self-improvement watchdog (shipped, flag-gated off)
 - Multi-tenant architecture design and early scaffolding
 
-The current local quickstart brings up PostgreSQL and the model router. The full one-command local stack and full end-to-end Azure installer are planned for v1.2.
+The current local quickstart brings up PostgreSQL and the model router; the full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The full end-to-end Azure installer is planned for v1.2.
 
 ---
 
@@ -374,7 +374,7 @@ docker compose --profile full up
 
 plus upstream sources.
 
-A one-command full local stack is planned for v1.2.
+A one-command full local stack is available: `scripts/local-stack.sh up` (see [`docs/local-development.md`](docs/local-development.md)).
 
 See [`docs/getting-started.md`](docs/getting-started.md) for the full local walkthrough.
 
@@ -468,7 +468,7 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ⬜ Key Vault secret seeding
 - ⬜ Full service deployment automation
 - ⬜ Smoke tests after deployment
-- ⬜ One-command full local stack (`docker compose --profile full up`)
+- ✅ One-command full local stack (`docker compose --profile full up`)
 - ⬜ Full Microsoft Teams integration
 - ⬜ First fully validated end-to-end Azure deployment from a clean subscription
 
