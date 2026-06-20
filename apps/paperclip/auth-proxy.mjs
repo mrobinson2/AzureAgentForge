@@ -29,7 +29,7 @@ import { createServer, request as httpRequest } from "node:http";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { readFileSync, readdirSync, statSync, existsSync, writeFileSync,
          mkdirSync, rmSync, appendFileSync } from "node:fs";
-import { join, resolve, relative, basename, dirname, sep } from "node:path";
+import { join, resolve, relative, basename, dirname, sep, posix } from "node:path";
 import { pathToFileURL } from "node:url";
 
 // ── Configuration ───────────────────────────────────────────────────────────
@@ -263,6 +263,27 @@ function checkScope(method, path, scopes) {
     }
   }
   return scopes.includes("*");
+}
+
+// Constrain the memory-governor passthrough to its documented surface. The
+// governor host is fixed, so this is not classic SSRF — but a crafted path like
+// "/api/memory/../admit" (raw or percent-encoded) would, once the governor
+// normalises it, reach a DIFFERENT route. Validate against the decoded +
+// normalised path and reject anything that escapes /memory or /digest. Returns
+// the original "<path><query>" to forward, or null to reject (→ 400).
+function governorTargetPath(rawUrl) {
+  const qIdx = rawUrl.indexOf("?");
+  const rawPath = qIdx === -1 ? rawUrl : rawUrl.slice(0, qIdx);
+  const query = qIdx === -1 ? "" : rawUrl.slice(qIdx);
+  const govPath = rawPath.replace(/^\/api/, "");
+  let decoded;
+  try { decoded = decodeURIComponent(govPath); } catch { return null; }
+  const norm = posix.normalize(decoded);
+  if (norm === "/memory" || norm.startsWith("/memory/") ||
+      norm === "/digest" || norm.startsWith("/digest/")) {
+    return govPath + query;
+  }
+  return null;
 }
 
 // ── Plain proxy pass-through (no auth manipulation) ─────────────────────────
@@ -1129,9 +1150,16 @@ async function handleRequest(clientReq, clientRes) {
       return;
     }
 
-    // /api/memory[...] -> governor /memory[...]
+    // /api/memory[...] -> governor /memory[...]; reject path-traversal that
+    // escapes the /memory|/digest surface (defense-in-depth: host is fixed and
+    // the route is already memory:admin + governor-key gated).
     const target = new URL(GOVERNOR_BASE_URL);
-    const govPath = clientReq.url.replace(/^\/api/, "");
+    const govPath = governorTargetPath(clientReq.url);
+    if (govPath === null) {
+      clientRes.writeHead(400, { "Content-Type": "application/json" });
+      clientRes.end(JSON.stringify({ error: "Invalid memory path" }));
+      return;
+    }
     const fwdHeaders = { ...clientReq.headers };
     delete fwdHeaders.authorization;
     fwdHeaders.host = target.hostname;
@@ -1538,6 +1566,7 @@ if (isMainModule) {
 export {
   verifyJwt,
   checkScope,
+  governorTargetPath,
   safePath,
   parseFrontmatter,
   stripBom,
