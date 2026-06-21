@@ -32,17 +32,27 @@ DRY_RUN=0
 # Internal secrets generated locally if missing.
 GENERATE="postgres-admin-password governor-api-key paperclip-admin-password \
 paperclip-agent-jwt-secret paperclip-auth-secret paperclip-automation-jwt-secret \
-paperclip-automation-token"
+paperclip-automation-token auth-password gateway-token"
 
 # Secrets sourced from the environment. Every name here is referenced by a
 # container app's Key Vault secret mount (infrastructure/modules/container-apps),
 # so each must EXIST in the vault for `terraform apply` to succeed — see the
-# external loop below, which seeds an empty placeholder for any you don't set.
+# external loop below, which seeds a non-empty placeholder for any you don't set.
 EXTERNAL="ai-foundry-api-key brave-search-api-key cf-tunnel-token claude-api-key \
 claude-base-url discord-bot-token gpt4o-api-key grok-api-key grok-base-url \
 gws-credentials kimi-api-key kimi-base-url openai-api-key paperclip-admin-email \
 phi-api-key phi-base-url telegram-bot-token postgres-connection-string \
 paperclip-db-url"
+
+# Non-empty sentinel seeded for any unset external. `az keyvault secret set`
+# REJECTS an empty --value, so we cannot seed "" — yet every external above is
+# referenced by a container's Key Vault mount and must EXIST for `terraform apply`
+# to succeed. CAVEAT: consumers do not yet treat this value as "unconfigured"
+# (the model-router registers a tier whenever its *_BASE_URL / *_API_KEY are
+# truthy), so an unset OPTIONAL tier registers against this placeholder and fails
+# at request time rather than fail-soft skipping. Follow-up: teach the router (and
+# other readers) to treat PLACEHOLDER_VALUE as empty.
+PLACEHOLDER_VALUE="__unset__"
 
 die() { echo "error: $*" >&2; exit 2; }
 
@@ -140,15 +150,16 @@ for s in $EXTERNAL; do
     # with an empty placeholder.
     echo "    keep: $s (exists)"; kept=$((kept + 1)); continue
   fi
-  # Unset and absent — seed an EMPTY placeholder. Every external is referenced by
-  # a container's Key Vault secret mount, and ACA fails the deploy if a referenced
-  # secret does not exist; an empty value lets `terraform apply` succeed while the
-  # unconfigured feature/tier stays inert (the router treats an empty base-url or
-  # key as "tier not configured" and fail-soft skips it). Fill it in later and
-  # re-run to enable.
-  set_secret "$s" ""; placeheld=$((placeheld + 1)); missing="$missing $s"
+  # Unset and absent — seed a non-empty placeholder ($PLACEHOLDER_VALUE). Every
+  # external is referenced by a container's Key Vault secret mount, and ACA fails
+  # the deploy if a referenced secret does not exist. We cannot seed "" because
+  # `az keyvault secret set` rejects an empty --value and aborts the whole run on
+  # the first unset external. The placeholder lets `terraform apply` succeed; fill
+  # the real value in later and re-run to enable. See PLACEHOLDER_VALUE above for
+  # the consumer-side caveat.
+  set_secret "$s" "$PLACEHOLDER_VALUE"; placeheld=$((placeheld + 1)); missing="$missing $s"
 done
 
 echo
 echo "summary: generated=$generated provided=$provided kept=$kept placeholders=$placeheld"
-[ -z "$missing" ] || echo "seeded EMPTY (set the matching env var + re-run to enable):$missing"
+[ -z "$missing" ] || echo "seeded placeholder '$PLACEHOLDER_VALUE' (set the matching env var + re-run to enable):$missing"
