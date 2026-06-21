@@ -38,10 +38,11 @@ Pick a path:
 | Docker Desktop | Path A; Docker Compose ships with it |
 | LLM endpoint | Azure AI Foundry (primary) or any OpenAI-compatible base URL |
 
-The stack defaults to Azure AI Foundry with grok-4-fast-reasoning as its
-primary model. If you do not have an AI Foundry project yet, set
-`LLM_PROVIDER=openai_compat` and point `OPENAI_COMPAT_BASE_URL` at any
-compatible endpoint (Ollama, vLLM, or a hosted API) instead.
+The local router registers a `gpt4o-mini` primary tier when you provide either
+the `AZURE_FOUNDRY_*` pair or the direct `GPT4O_*` pair (the former is aliased
+to the latter in `docker-compose.yml`) — point either at any OpenAI-compatible
+endpoint: Azure AI Foundry, Ollama, vLLM, or a hosted API. Optional tiers
+(Grok, Kimi, Claude, Phi) register only when their own env vars are set.
 
 ---
 
@@ -62,12 +63,11 @@ AZURE_FOUNDRY_ENDPOINT=https://<your-project>.openai.azure.com/
 AZURE_FOUNDRY_API_KEY=<your-key>
 ```
 
-Or, for any OpenAI-compatible endpoint:
+Or point the primary tier at any OpenAI-compatible endpoint:
 
 ```
-LLM_PROVIDER=openai_compat
-OPENAI_COMPAT_BASE_URL=http://localhost:11434/v1   # example: local Ollama
-OPENAI_COMPAT_API_KEY=ollama                        # placeholder if not required
+GPT4O_BASE_URL=http://localhost:11434/v1   # example: local Ollama/vLLM
+GPT4O_API_KEY=ollama                        # placeholder if not required
 ```
 
 The Postgres defaults (`POSTGRES_USER=aaf`, `POSTGRES_PASSWORD=localdev`,
