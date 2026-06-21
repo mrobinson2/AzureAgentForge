@@ -30,6 +30,8 @@ VALID_PROFILES = ("cost-optimized", "hardened")
 _LOCATION_RE = re.compile(r"^[a-z0-9]{3,30}$")
 _ENVIRONMENT_RE = re.compile(r"^[a-z][a-z0-9]{1,11}$")
 _SUBSCRIPTION_RE = re.compile(r"^[0-9a-fA-F-]{36}$")
+# Docker image tag / git SHA: alnum-or-underscore start, then alnum . _ - (<=128).
+_IMAGE_TAG_RE = re.compile(r"^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$")
 
 
 # ---------------------------------------------------------------------------
@@ -135,6 +137,9 @@ class DeployConfig:
     discord_enabled: bool = False
     ai_foundry_endpoint: str = ""
     ai_foundry_deployment_id: str = ""
+    # A single container image tag applied to all four service images
+    # (hermes/honcho/router/paperclip). Empty -> terraform's "latest" default.
+    image_tag: str = ""
     owner_email: str = ""
     # Azure AD object IDs granted Key Vault Secrets Officer, so the operator (and
     # any CI principal) can seed secrets into the RBAC-authorized vault. Without
@@ -155,6 +160,8 @@ class DeployConfig:
             errs.append("ai_foundry_endpoint must be an https:// URL")
         if self.owner_email and ("@" not in self.owner_email or '"' in self.owner_email):
             errs.append("owner_email doesn't look like an email address")
+        if self.image_tag and not _IMAGE_TAG_RE.match(self.image_tag):
+            errs.append("image_tag must be a valid container tag (alphanumerics, '.', '_', '-')")
         for oid in self.keyvault_admin_object_ids:
             if not _SUBSCRIPTION_RE.match(oid or ""):
                 errs.append(f"keyvault_admin_object_ids entry {oid!r} must be a GUID")
@@ -182,6 +189,9 @@ def render_tfvars(cfg: DeployConfig) -> str:
         pairs.append(("ai_foundry_endpoint", _hcl_str(cfg.ai_foundry_endpoint)))
     if cfg.ai_foundry_deployment_id:
         pairs.append(("ai_foundry_deployment_id", _hcl_str(cfg.ai_foundry_deployment_id)))
+    if cfg.image_tag:
+        for svc in ("hermes", "honcho", "router", "paperclip"):
+            pairs.append((f"{svc}_image_tag", _hcl_str(cfg.image_tag)))
     if cfg.owner_email:
         pairs.append(("owner_email", _hcl_str(cfg.owner_email)))
     if cfg.keyvault_admin_object_ids:

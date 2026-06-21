@@ -123,7 +123,7 @@ variable "ai_foundry_endpoint" {
 variable "ai_foundry_deployment_id" {
   description = "Azure AI Foundry model deployment ID (used by Honcho for memory ops)"
   type        = string
-  default     = "Phi-4"
+  default     = "gpt-4o-mini"
 }
 
 # Container Image Tags

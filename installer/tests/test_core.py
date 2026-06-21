@@ -88,6 +88,27 @@ def test_render_tfvars_omits_empty_keyvault_admin_object_ids():
     assert "keyvault_admin_object_ids" not in _kv(core.render_tfvars(core.DeployConfig(**GOOD)))
 
 
+def test_render_tfvars_image_tag_fans_out_to_all_services():
+    cfg = core.DeployConfig(**GOOD, image_tag="9bf1a51")
+    kv = _kv(core.render_tfvars(cfg))
+    for svc in ("hermes", "honcho", "router", "paperclip"):
+        assert kv[f"{svc}_image_tag"] == '"9bf1a51"'
+
+
+def test_render_tfvars_omits_image_tag_when_blank():
+    kv = _kv(core.render_tfvars(core.DeployConfig(**GOOD)))
+    assert not any(k.endswith("_image_tag") for k in kv)
+
+
+def test_invalid_image_tag_rejected():
+    errs = core.DeployConfig(**GOOD, image_tag="bad tag!").validate()
+    assert errs and any("image_tag" in e for e in errs)
+
+
+def test_valid_image_tag_passes():
+    assert core.DeployConfig(**GOOD, image_tag="v1.2.3-rc1").validate() == []
+
+
 def test_render_tfvars_is_fmt_aligned():
     out = core.render_tfvars(core.DeployConfig(**GOOD))
     eq_cols = {line.index("=") for line in out.splitlines()
