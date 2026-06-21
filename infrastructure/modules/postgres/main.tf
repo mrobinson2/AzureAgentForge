@@ -53,7 +53,10 @@ resource "azurerm_postgresql_flexible_server_database" "databases" {
 resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
   name      = "azure.extensions"
   server_id = azurerm_postgresql_flexible_server.main.id
-  value     = "uuid-ossp,pgcrypto,vector" # Enable pgvector for embeddings if needed locally
+  # pgvector (vector) for embeddings; pg_trgm + fuzzystrmatch are required by
+  # Paperclip's company-search migrations (0079/0080) — Azure Flexible Server
+  # rejects CREATE EXTENSION unless the extension is allow-listed here.
+  value = "uuid-ossp,pgcrypto,vector,pg_trgm,fuzzystrmatch"
 }
 
 # NOTE: Row Level Security setup must be done manually or via a container in the VNet
