@@ -93,3 +93,61 @@ class TestRegisterFoundryTier:
             "NOTOOLS", default_budget=0.25, supports_tools=False
         )
         assert router.MODELS["notools-test"]["supports_tools"] is False
+
+    def test_noop_when_base_url_is_kv_placeholder(self, router, monkeypatch):
+        # seed-keyvault.sh seeds "__unset__" for unprovided externals; an
+        # unconfigured tier must be skipped, not registered against the
+        # placeholder (which would 5xx at request time).
+        monkeypatch.setenv("PHURL_BASE_URL", "__unset__")
+        monkeypatch.setenv("PHURL_API_KEY", "real-key")
+        monkeypatch.setenv("PHURL_MODEL", "phurl-test")
+        before = set(router.MODELS.keys())
+        router._register_foundry_tier("PHURL", default_budget=0.25)
+        assert set(router.MODELS.keys()) == before
+
+    def test_noop_when_api_key_is_kv_placeholder(self, router, monkeypatch):
+        monkeypatch.setenv("PHKEY_BASE_URL", "https://host/openai/v1/")
+        monkeypatch.setenv("PHKEY_API_KEY", "__unset__")
+        monkeypatch.setenv("PHKEY_MODEL", "phkey-test")
+        before = set(router.MODELS.keys())
+        router._register_foundry_tier("PHKEY", default_budget=0.25)
+        assert set(router.MODELS.keys()) == before
+
+    def test_noop_when_placeholder_has_surrounding_whitespace(self, router, monkeypatch):
+        # The sentinel matches after strip(), so "  __unset__  " also skips.
+        monkeypatch.setenv("PHWS_BASE_URL", "  __unset__  ")
+        monkeypatch.setenv("PHWS_API_KEY", "k")
+        monkeypatch.setenv("PHWS_MODEL", "phws-test")
+        before = set(router.MODELS.keys())
+        router._register_foundry_tier("PHWS", default_budget=0.25)
+        assert set(router.MODELS.keys()) == before
+
+
+class TestTierEnv:
+    """`_tier_env` normalizes the Key Vault unset-placeholder and blank/
+    whitespace values to "" so the truthy tier-gating skips an unconfigured
+    tier instead of registering it against a bogus endpoint."""
+
+    def test_real_value_passes_through(self, router, monkeypatch):
+        monkeypatch.setenv("TE_BASE_URL", "https://real.example/v1")
+        assert router._tier_env("TE_BASE_URL") == "https://real.example/v1"
+
+    def test_real_value_is_stripped(self, router, monkeypatch):
+        monkeypatch.setenv("TE_KEY", "  sk-abc  ")
+        assert router._tier_env("TE_KEY") == "sk-abc"
+
+    def test_kv_placeholder_normalizes_to_empty(self, router, monkeypatch):
+        monkeypatch.setenv("TE_KEY", "__unset__")
+        assert router._tier_env("TE_KEY") == ""
+
+    def test_whitespace_padded_placeholder_normalizes_to_empty(self, router, monkeypatch):
+        monkeypatch.setenv("TE_KEY", "  __unset__ ")
+        assert router._tier_env("TE_KEY") == ""
+
+    def test_blank_normalizes_to_empty(self, router, monkeypatch):
+        monkeypatch.setenv("TE_KEY", "   ")
+        assert router._tier_env("TE_KEY") == ""
+
+    def test_absent_returns_empty_default(self, router, monkeypatch):
+        monkeypatch.delenv("TE_MISSING", raising=False)
+        assert router._tier_env("TE_MISSING") == ""

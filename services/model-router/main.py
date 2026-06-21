@@ -107,18 +107,34 @@ def _validate_request(body: dict) -> None:
     if max_tokens is not None and (not isinstance(max_tokens, int) or max_tokens < 1):
         raise HTTPException(status_code=400, detail="max_tokens must be a positive integer")
 
+# ─── Key Vault unset-secret sentinel ─────────────────────────────────────────
+# scripts/seed-keyvault.sh seeds this non-empty placeholder for any external
+# secret you did not provide — `az keyvault secret set` rejects an empty value,
+# so an unconfigured tier's *_BASE_URL / *_API_KEY arrives here as "__unset__"
+# rather than "". Treat it (and blank/whitespace) as "not configured" so the
+# tier is skipped, not registered against a bogus endpoint that 5xxs at request
+# time. Keep in sync with PLACEHOLDER_VALUE in scripts/seed-keyvault.sh.
+_KV_UNSET_SENTINEL = "__unset__"
+
+
+def _tier_env(name: str, default: str = "") -> str:
+    """Read a tier-config env var, normalizing the Key Vault unset-placeholder
+    and blank/whitespace to "" so the truthy tier-gating below skips it."""
+    val = os.environ.get(name, default)
+    if val is None:
+        return ""
+    val = val.strip()
+    return "" if val == _KV_UNSET_SENTINEL else val
+
+
 # ─── GPT-4o-mini Configuration (primary) ─────────────────────────────────────
 # Primary tier activates when either GPT4O_BASE_URL/GPT4O_API_KEY or
 # AZURE_FOUNDRY_ENDPOINT/AZURE_FOUNDRY_API_KEY are set (the latter are the
 # compose-level vars so `docker compose up` with Foundry creds brings it up).
-_GPT4O_BASE_URL = os.environ.get(
-    "GPT4O_BASE_URL",
-    os.environ.get("AZURE_FOUNDRY_ENDPOINT", ""),  # set AZURE_FOUNDRY_ENDPOINT or GPT4O_BASE_URL
-)
-_GPT4O_API_KEY = os.environ.get(
-    "GPT4O_API_KEY",
-    os.environ.get("AZURE_FOUNDRY_API_KEY", ""),   # alias: AZURE_FOUNDRY_API_KEY activates primary tier
-)
+# A placeholder/blank in the GPT4O_* pair falls through to AZURE_FOUNDRY_* via
+# the `or` chain (and the two are aliased in docker-compose.yml).
+_GPT4O_BASE_URL = _tier_env("GPT4O_BASE_URL") or _tier_env("AZURE_FOUNDRY_ENDPOINT")
+_GPT4O_API_KEY = _tier_env("GPT4O_API_KEY") or _tier_env("AZURE_FOUNDRY_API_KEY")
 
 MODELS: dict[str, dict[str, Any]] = {}
 
@@ -136,8 +152,8 @@ if _GPT4O_BASE_URL and _GPT4O_API_KEY:
 else:
     log.info("tier gpt4o-mini not configured (GPT4O_BASE_URL/GPT4O_API_KEY or AZURE_FOUNDRY_ENDPOINT/AZURE_FOUNDRY_API_KEY); skipping")
 
-_PHI_BASE_URL = os.environ.get("PHI_BASE_URL", "")
-_PHI_API_KEY = os.environ.get("PHI_API_KEY", "")
+_PHI_BASE_URL = _tier_env("PHI_BASE_URL")
+_PHI_API_KEY = _tier_env("PHI_API_KEY")
 if _PHI_BASE_URL and _PHI_API_KEY:
     MODELS["phi4"] = {
         "litellm_model": f"openai/{os.environ.get('PHI_MODEL', 'Phi-4')}",
@@ -190,9 +206,9 @@ def _register_foundry_tier(
     KV-secret format across providers), we rewrite to `/anthropic` for the
     Anthropic prefix automatically.
     """
-    base_url = os.environ.get(f"{env_prefix}_BASE_URL")
-    api_key = os.environ.get(f"{env_prefix}_API_KEY")
-    deployment = os.environ.get(f"{env_prefix}_MODEL")
+    base_url = _tier_env(f"{env_prefix}_BASE_URL")
+    api_key = _tier_env(f"{env_prefix}_API_KEY")
+    deployment = _tier_env(f"{env_prefix}_MODEL")
     if not (base_url and api_key and deployment):
         log.info(
             "Foundry tier %s_* not configured — env vars missing, skipping",
@@ -1331,7 +1347,7 @@ async def messages(request: Request):
 # Disabled (503) unless an embedding key is set. EMBEDDING_BASE_URL unset ->
 # OpenAI.com; set it to point at an Azure/Foundry deployment of the same model.
 _EMBED_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
-_EMBED_API_KEY = os.environ.get("EMBEDDING_API_KEY") or os.environ.get("OPENAI_API_KEY")
+_EMBED_API_KEY = _tier_env("EMBEDDING_API_KEY") or _tier_env("OPENAI_API_KEY")
 _EMBED_API_BASE = os.environ.get("EMBEDDING_BASE_URL") or None
 _EMBED_TIMEOUT_S = int(os.environ.get("EMBEDDING_TIMEOUT_SECONDS", "20"))
 _EMBED_MAX_INPUTS = int(os.environ.get("EMBEDDING_MAX_INPUTS", "256"))
