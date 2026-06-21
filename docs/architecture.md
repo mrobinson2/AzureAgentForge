@@ -252,7 +252,7 @@ subscription and credentials are not bundled here.
 | Reference deploy pipeline (destroy-aware approval gate) | reference | [`deploy-pipeline.md`](deploy-pipeline.md) + `.github/workflows/deploy.yml`; adopters wire to their own subscription |
 
 **Status vocabulary:**
-- `proven`: deployed and running in the maintainer's production Azure environment. This repository is the sanitized version; standing up your own instance takes manual setup (subscription, IAM/auth, building and deploying the OSS components, secret seeding), automated by the v1.1 CLI installer.
+- `proven`: deployed and running in the maintainer's production Azure environment. This repository is the sanitized version; standing up your own instance takes manual setup (subscription, IAM/auth, building and deploying the OSS components, secret seeding), automated by the v1.2 deploy scripts, Forge Console, and reference pipeline.
 - `design target`: design is substantially complete; implementation is partial or a scaffold; not yet deployed.
 - `design reference`: a complete, implementable architecture is documented here, but the implementing code is intentionally not bundled in this repository.
 - `shipped (flag-gated off)`: the implementing code is bundled, sanitized, and unit-tested in CI, but ships disabled (every feature flag seeds OFF) and has not been deployed or verified end-to-end against a live database. An honest middle ground between `design reference` and `proven`.

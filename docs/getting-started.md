@@ -96,7 +96,7 @@ tiers but still accepts requests on port 8080.
 PaperClip and Honcho sit behind the `full` Compose profile. Their Dockerfiles
 build from upstream sources (paperclipai/paperclip, plastic-labs/honcho) not
 included in this repo; you need to clone those first. The full local stack with
-PaperClip at localhost:3099 is a one-command experience in v1.1.
+PaperClip at localhost:3099 is a one-command experience (`scripts/local-stack.sh up`).
 See [ROADMAP.md](../ROADMAP.md).
 
 ### 3. Add agents and connect chat surfaces
@@ -214,8 +214,8 @@ fresh subscription.
 > exactly what runs. See [docs/security.md](security.md) for the rationale.
 
 This step provisions infrastructure. It does not build or push service images.
-Image builds, push, and service startup are v1.1, delivered by the CLI
-installer. See [ROADMAP.md](../ROADMAP.md).
+Image build, push, and service startup are automated in v1.2 via
+`scripts/build-and-push.sh` and the Forge Console. See [ROADMAP.md](../ROADMAP.md).
 
 ### 6. Seed Key Vault secrets
 
@@ -261,10 +261,11 @@ This stack runs in production on Azure; it is a proven platform, and this repo
 is its sanitized, reusable version. What's left to you is setup, not whether it
 works: a clean clone validates and plans without errors; `docker compose up`
 starts postgres and model-router (the full local stack needs `--profile full`
-and upstream sources, one-command in v1.1); and `terraform apply` provisions the
-infrastructure. Building and pushing the service images, IAM/auth between GitHub
-and Azure, and secret seeding are manual today and become a single command in
-the v1.1 CLI installer. The cloud prerequisites (your Azure subscription, an AI
+and upstream sources, brought up with one command via `scripts/local-stack.sh up`);
+and `terraform apply` provisions the infrastructure. Building and pushing the
+service images and seeding secrets are automated in v1.2 (`scripts/build-and-push.sh`,
+`scripts/seed-keyvault.sh`, and the Forge Console / reference deploy pipeline);
+wiring GitHub-to-Azure IAM (OIDC) is the one piece still yours to set up once. The cloud prerequisites (your Azure subscription, an AI
 Foundry project or substitute endpoint, and Terraform state storage) are yours to
 provide. Cost figures are estimates pending your own bill.
 

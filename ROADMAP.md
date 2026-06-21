@@ -43,18 +43,18 @@ flag seeds off, so it stays inert until you enable it. The explicitly-not-built
 long tail (reflection pass, inspector UI, in-channel controls, contradiction
 auto-resolve) stays design-only.
 
-## v1.2 — next
+## v1.2 — shipped
 
 Closing the path from "infrastructure provisioned" to "fully running stack in one command".
 
-Shipped as the reference deploy pipeline (validated offline; see [deploy-pipeline.md](docs/deploy-pipeline.md)):
+Shipped as the reference deploy pipeline, now validated end-to-end against a clean subscription (see [deploy-pipeline.md](docs/deploy-pipeline.md) and the [deployment walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console)):
 
 - Service deployment automation: a `build → seed → plan → gate → apply → smoke` pipeline ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)) wrapping the destroy-aware approval gate.
 - Image build and push via `az acr build`, no local Docker needed ([`scripts/build-and-push.sh`](scripts/build-and-push.sh)). The self-contained images (model-router, memory-governor, watchdog) build from this repo; the upstream-dependent three (paperclip, honcho, agent-runtime) build once their `apps/` sources are vendored, and the script skips them with a logged reason until then.
 - Key Vault secret seeding, idempotent: internal secrets generated, external ones read from the environment ([`scripts/seed-keyvault.sh`](scripts/seed-keyvault.sh)).
 - Post-deploy smoke tests with offline unit-tested verdict logic ([`scripts/smoke-test.sh`](scripts/smoke-test.sh) feeding `installer.smoke`).
 
-Still ahead:
+Also in v1.2:
 
 - ✅ **Done:** vendored the upstream PaperClip/Honcho/Hermes sources so the full image set builds, and shipped the one-command full local stack (`docker compose --profile full up`).
 - Microsoft Teams integration: shipped as the `teams-bridge` service (a Bot Framework messaging endpoint that files inbound Teams messages as Orchestrator issues and replies with Adaptive Cards), gated by the `teams_enabled` variable at parity with Discord/Telegram ([`services/teams-bridge`](services/teams-bridge/), [`integrations/teams`](integrations/teams/)). Internal ingress by default; going live needs the Cloudflare-tunnel exposure + Bot Framework JWT validation noted in the service README.

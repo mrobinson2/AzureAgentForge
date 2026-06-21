@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.1-blue" alt="Release v1.1"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.2-blue" alt="Release v1.2"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
@@ -59,6 +59,14 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 
 ## What's new
 
+New in v1.2 (since v1.1):
+
+- **End-to-end Azure deploy, now validated**: a full deploy from a clean subscription — server-side image build/push (`az acr build`), Key Vault seeding, `terraform apply`, and post-deploy smoke — with a [step-by-step walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console).
+- **One-command full local stack**: the upstream PaperClip/Honcho/Hermes sources are vendored so the full image set builds and runs with `scripts/local-stack.sh up` (or `docker compose --profile full up`).
+- **Microsoft Teams integration**: the `teams-bridge` Bot Framework service files inbound Teams messages as Orchestrator issues and replies with Adaptive Cards, gated by `teams_enabled` at parity with Telegram/Discord ([`services/teams-bridge`](services/teams-bridge/)).
+- **Hardened model-router tests**: 146 offline tests covering auth, rate limiting, per-tier budget/fallback, Foundry registration, and the OpenAI↔Anthropic translation layer — guarding the silent-downgrade and budget-exhaustion paths.
+- **Observability module**: opt-in Log Analytics alert rules (watchdog findings, secret expiry, run failures) plus an Azure Monitor workbook, no app changes ([`infrastructure/modules/monitoring`](infrastructure/modules/monitoring/)).
+
 New in v1.1 (since the v1.0 open-source release):
 
 - **Governance &amp; blast-radius walkthrough**: a destructive request traced through every control that refuses it, backed by reproducible replay fixtures and the demos above.
@@ -103,7 +111,7 @@ The platform gives your agents a place to work, remember, call tools, stay withi
                     |                    PaperClip                      |
                     |          Orchestrator, UI, task dashboard          |
                     |      Optional Telegram / Discord chat bridges      |
-                    |      Microsoft Teams integration planned in v1.2   |
+                    |      Optional Microsoft Teams chat bridge (v1.2)   |
                     +----------------------+----------------------------+
                                            |
                                            | dispatches work
@@ -246,7 +254,7 @@ discord_enabled  = true
 
 Both are off by default.
 
-Full Microsoft Teams integration is planned for v1.2 so agent teams can move closer to the place many organizations already coordinate work.
+Full Microsoft Teams integration shipped in v1.2 — the `teams-bridge` Bot Framework service — so agent teams can move closer to the place many organizations already coordinate work.
 
 ### Voice as a first-class interface
 
@@ -280,7 +288,7 @@ AzureAgentForge gives you the starting foundation: orchestration, runtime, memor
 
 ## What is included today
 
-As of v1.1, AzureAgentForge includes:
+As of v1.2, AzureAgentForge includes:
 
 - Full Terraform IaC for the Azure foundation
 - Two infrastructure cost profiles
@@ -293,14 +301,16 @@ As of v1.1, AzureAgentForge includes:
 - Log Analytics integration
 - Private VNet design
 - Local working slice with PostgreSQL and the model router
-- Optional Telegram and Discord surfaces
+- Optional Telegram, Discord, and Microsoft Teams surfaces
 - Governance & blast-radius walkthrough with reproducible replay fixtures
 - Destroy-aware approval gate (Forge Console + reference CI/CD pipeline)
 - 14 golden orchestration replay fixtures (agent-behavior regression tests)
 - Governed memory: governor service, retrieval planner, background loops, hybrid vector retrieval, and self-improvement watchdog (shipped, flag-gated off)
+- Automated end-to-end Azure deploy: image build/push, Key Vault seeding, and post-deploy smoke tests
+- One-command full local stack (`scripts/local-stack.sh up`)
 - Multi-tenant architecture design and early scaffolding
 
-The current local quickstart brings up PostgreSQL and the model router; the full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The full end-to-end Azure installer is planned for v1.2.
+The current local quickstart brings up PostgreSQL and the model router; the full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The full end-to-end Azure deploy is automated in v1.2 (`scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline).
 
 ---
 
@@ -308,9 +318,9 @@ The current local quickstart brings up PostgreSQL and the model router; the full
 
 AzureAgentForge is not a one-click SaaS product.
 
-The v1.1 release gives you the architecture, Terraform, model router, role schema, Docker/config scaffolding, a working local slice, the Forge Console, and a reference deploy pipeline. Standing up the full Azure deployment still takes real setup work: Azure subscription, GitHub-to-Azure IAM, image build and push, Key Vault seeding, and environment configuration.
+v1.2 gives you the architecture, Terraform, model router, role schema, Docker/config scaffolding, the full local stack, the Forge Console, a reference deploy pipeline, and automated image build/push + Key Vault seeding for the full Azure deploy. Standing up your own instance still takes real setup work: an Azure subscription, GitHub-to-Azure IAM (OIDC), and a handful of environment-specific configuration values.
 
-Full end-to-end deploy automation is planned for v1.2.
+Full end-to-end deploy automation shipped in v1.2 and is validated against a clean subscription — but it is not a one-click product: expect to wire IAM and supply a handful of environment values.
 
 If you want magic, this is not magic.
 
@@ -409,7 +419,7 @@ terraform -chdir=infrastructure/environments/dev apply \
 
 This provisions infrastructure. It does not yet build and push all service images or seed every runtime secret.
 
-A complete end-to-end deploy flow is planned for v1.2.
+The complete end-to-end deploy flow shipped in v1.2 — see the [deployment walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console).
 
 See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walkthrough, including Key Vault secret seeding.
 
@@ -462,7 +472,7 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Governed-memory architecture reference ([`docs/design/memory-system.md`](docs/design/memory-system.md))
 - ✅ Measured Azure cost figures based on real bills
 
-### Coming in v1.2
+### Shipped in v1.2
 
 - ✅ Image build and push automation
 - ✅ Key Vault secret seeding
