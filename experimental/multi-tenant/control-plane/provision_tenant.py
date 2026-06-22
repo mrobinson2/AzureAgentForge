@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Reference design — NOT deployed. Part of the multi-tenant roadmap
-# (see roadmap/multi-tenant/README.md). Not wired into the runnable stack;
+# (see experimental/multi-tenant/README.md). Not wired into the runnable stack;
 # provided to illustrate the intended design.
 """
 Tenant Provisioning Script for AzureAgentForge Platform
