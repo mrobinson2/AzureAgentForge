@@ -265,3 +265,15 @@ variable "memory_planner_agent_allowlist" {
   default     = ""
 }
 
+
+variable "existing_vnet_name" {
+  description = "Bring-your-own-VNet: deploy into this existing VNet (e.g. an ALZ-vended one) instead of creating one. Empty creates a new VNet."
+  type        = string
+  default     = ""
+}
+
+variable "existing_vnet_resource_group" {
+  description = "Resource group of existing_vnet_name, if different from the deployment RG."
+  type        = string
+  default     = ""
+}

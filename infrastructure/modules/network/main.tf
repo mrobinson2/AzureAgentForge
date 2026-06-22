@@ -1,7 +1,20 @@
 # Network Module
-# Creates VNet, subnets, and private DNS zones for secure internal communication
+# Creates a VNet (or uses an existing one via existing_vnet_name) plus the
+# delegated subnets and private DNS zones the platform needs.
+
+locals {
+  # Level-1 bring-your-own-VNet: set existing_vnet_name to deploy the platform's
+  # subnets into a pre-existing VNet (e.g. an ALZ-vended one) instead of creating
+  # one. The app/db subnets are always module-managed because Container Apps and
+  # Postgres Flexible Server each require their own delegated subnet.
+  create_vnet = var.existing_vnet_name == ""
+  vnet_rg     = var.existing_vnet_resource_group != "" ? var.existing_vnet_resource_group : var.resource_group_name
+  vnet_name   = local.create_vnet ? one(azurerm_virtual_network.main[*].name) : one(data.azurerm_virtual_network.existing[*].name)
+  vnet_id     = local.create_vnet ? one(azurerm_virtual_network.main[*].id) : one(data.azurerm_virtual_network.existing[*].id)
+}
 
 resource "azurerm_virtual_network" "main" {
+  count               = local.create_vnet ? 1 : 0
   name                = "${var.prefix}-vnet"
   address_space       = var.vnet_address_space
   location            = var.location
@@ -9,14 +22,19 @@ resource "azurerm_virtual_network" "main" {
   tags                = var.tags
 }
 
-# Subnet for Container Apps
+data "azurerm_virtual_network" "existing" {
+  count               = local.create_vnet ? 0 : 1
+  name                = var.existing_vnet_name
+  resource_group_name = local.vnet_rg
+}
+
+# Subnet for Container Apps (delegated)
 resource "azurerm_subnet" "app" {
   name                 = "app-subnet"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.main.name
+  resource_group_name  = local.vnet_rg
+  virtual_network_name = local.vnet_name
   address_prefixes     = var.subnet_app_address_prefixes
 
-  # Delegate to Container Apps
   delegation {
     name = "container-apps"
     service_delegation {
@@ -26,14 +44,13 @@ resource "azurerm_subnet" "app" {
   }
 }
 
-# Subnet for PostgreSQL
+# Subnet for PostgreSQL (delegated)
 resource "azurerm_subnet" "database" {
   name                 = "db-subnet"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.main.name
+  resource_group_name  = local.vnet_rg
+  virtual_network_name = local.vnet_name
   address_prefixes     = var.subnet_db_address_prefixes
 
-  # Delegate to PostgreSQL Flexible Server
   delegation {
     name = "postgres"
     service_delegation {
@@ -46,21 +63,17 @@ resource "azurerm_subnet" "database" {
 # Subnet for Private Endpoints
 resource "azurerm_subnet" "private_endpoint" {
   name                 = "pe-subnet"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.main.name
+  resource_group_name  = local.vnet_rg
+  virtual_network_name = local.vnet_name
   address_prefixes     = var.subnet_pe_address_prefixes
-
-  # Private endpoints don't need delegation
 }
 
 # Subnet for Admin / Jump Box / Build Agents
 resource "azurerm_subnet" "admin" {
   name                 = "admin-subnet"
-  resource_group_name  = var.resource_group_name
-  virtual_network_name = azurerm_virtual_network.main.name
+  resource_group_name  = local.vnet_rg
+  virtual_network_name = local.vnet_name
   address_prefixes     = var.subnet_admin_address_prefixes
-
-  # No delegation — general-purpose VM subnet
 }
 
 # Private DNS Zone for PostgreSQL
@@ -74,7 +87,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "postgres" {
   name                  = "${var.prefix}-postgres-dns-link"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.postgres.name
-  virtual_network_id    = azurerm_virtual_network.main.id
+  virtual_network_id    = local.vnet_id
 }
 
 # Private DNS Zone for Key Vault (only created when KV uses private access)
@@ -90,7 +103,7 @@ resource "azurerm_private_dns_zone_virtual_network_link" "keyvault" {
   name                  = "${var.prefix}-kv-dns-link"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.keyvault[0].name
-  virtual_network_id    = azurerm_virtual_network.main.id
+  virtual_network_id    = local.vnet_id
 }
 
 # Network Security Group for Container Apps subnet
@@ -100,7 +113,6 @@ resource "azurerm_network_security_group" "app" {
   resource_group_name = var.resource_group_name
   tags                = var.tags
 
-  # Allow HTTPS inbound from VNet only
   security_rule {
     name                       = "AllowHTTPS"
     priority                   = 100
@@ -113,7 +125,6 @@ resource "azurerm_network_security_group" "app" {
     destination_address_prefix = "*"
   }
 
-  # Deny all other inbound
   security_rule {
     name                       = "DenyAllInbound"
     priority                   = 4096
@@ -134,7 +145,7 @@ resource "azurerm_subnet_network_security_group_association" "app" {
 
 # Outputs
 output "vnet_id" {
-  value = azurerm_virtual_network.main.id
+  value = local.vnet_id
 }
 
 output "app_subnet_id" {
