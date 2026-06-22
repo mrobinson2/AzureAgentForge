@@ -147,6 +147,20 @@ resource "azurerm_container_app" "paperclip" {
     }
   }
 
+  # Exa API key — feeds the exa-search wrapper (semantic web search alongside
+  # brave-search). Free tier ~1,000 searches/month. Provision the KV secret
+  # before flipping exa_search_enabled = true:
+  #   az keyvault secret set --vault-name aaf-dev-kv \
+  #     --name exa-api-key --value "<api key>"
+  dynamic "secret" {
+    for_each = var.exa_search_enabled ? [1] : []
+    content {
+      name                = "exa-api-key"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/exa-api-key"
+      identity            = azurerm_user_assigned_identity.paperclip.id
+    }
+  }
+
   # Discord plugin bot token — injected as DISCORD_BOT_TOKEN env var so the
   # paperclip-plugin-discord worker can read it directly without going through
   # ctx.secrets.resolve() (which is gated behind PaperClip's secret-bindings
@@ -384,6 +398,18 @@ resource "azurerm_container_app" "paperclip" {
         content {
           name        = "BRAVE_SEARCH_API_KEY"
           secret_name = "brave-search-api-key"
+        }
+      }
+
+      # ── Exa Search ──────────────────────────────────────────────────────
+      # Feeds /usr/local/bin/exa-search. When exa_search_enabled = false the
+      # wrapper is still on disk (baked into the image) but exits with a clear
+      # error if invoked, since EXA_API_KEY will be unset.
+      dynamic "env" {
+        for_each = var.exa_search_enabled ? [1] : []
+        content {
+          name        = "EXA_API_KEY"
+          secret_name = "exa-api-key"
         }
       }
 

@@ -336,6 +336,12 @@ variable "brave_search_enabled" {
   default     = true
 }
 
+variable "exa_search_enabled" {
+  description = "Enable the exa-search wrapper inside paperclip (mounts EXA_API_KEY from the KV secret exa-api-key). Semantic web search alongside brave-search; opt-in because it needs an Exa key seeded into Key Vault first. Default off."
+  type        = bool
+  default     = false
+}
+
 variable "telegram_enabled" {
   type        = bool
   description = "Enable the Telegram chat surface (agent-runtime Telegram gateway)."

@@ -263,6 +263,13 @@ RUN chmod +x /usr/local/bin/brave-search
 COPY apps/paperclip/web-read-wrapper.sh /usr/local/bin/web-read
 RUN chmod +x /usr/local/bin/web-read
 
+# Exa search wrapper — research-grade semantic web search alongside brave-search
+# (exa for conceptual/semantic, brave for fresh/news). Same call shape as
+# brave-search; emits ddgs-compatible JSON. Requires EXA_API_KEY in the container
+# env (KV-backed); the wrapper exits with a clear error if unset.
+COPY apps/paperclip/exa-search-wrapper.sh /usr/local/bin/exa-search
+RUN chmod +x /usr/local/bin/exa-search
+
 # Hermes skills: pip install doesn't include skills/, copy them separately.
 # Placed at /opt/hermes-skills so they're baked into the image. The entrypoint
 # syncs these to ~/.hermes/skills on the persistent volume.
