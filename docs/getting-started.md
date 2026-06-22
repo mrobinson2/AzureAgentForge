@@ -295,3 +295,35 @@ Forge Console (`PYTHON=python3.13 ./forge`). Image builds run server-side in ACR
 > Key Vault is seeded with `scripts/seed-keyvault.sh` (the generate-class secrets,
 > incl. `postgres-admin-password`, must exist before the first `terraform apply`).
 > The same flow runs unattended via the [reference deploy pipeline](deploy-pipeline.md).
+
+### Deploy inputs — how to obtain each one
+
+Everything the Forge form (and `terraform.tfvars`) asks for, and where each value
+comes from — fill these in and you won't need to hand-edit `terraform.tfvars`:
+
+| Input | What it is | How to get it |
+|---|---|---|
+| `subscription_id` | Your Azure subscription GUID | `az account show --query id -o tsv` |
+| `ai_foundry_endpoint` | The Azure AI Foundry project endpoint URL | Portal → your Foundry / AI Services resource → **Endpoint**, e.g. `https://<name>.cognitiveservices.azure.com/` |
+| `ai_foundry_deployment_id` | The **name of a model deployment** you created in Foundry (e.g. `gpt-4o-mini`) — a deployment name, **not** a GUID. Defaults to `gpt-4o-mini`. | `az cognitiveservices account deployment list -n <foundry> -g <rg> -o table` |
+| `keyvault_admin_object_ids` | Your Entra **object id**, granted Key Vault Secrets Officer so the seed step can write secrets (without it the seed 403s) | `az ad signed-in-user show --query id -o tsv` (or a service principal's object id) |
+| Container image tag | The commit short-SHA `scripts/build-and-push.sh` pushes (e.g. `9bf1a51`); blank uses `latest`. The Forge **Container image tag** field fans one tag out to all four service images. | `git rev-parse --short HEAD`, or `az acr repository show-tags -n <registry> --repository paperclip --orderby time_desc --top 1 -o tsv` |
+
+### Defaults you must override for a real deploy
+
+A few config defaults are tuned for **local development** and are replaced with
+real values automatically when you deploy to Azure (Terraform sets them on the
+Container Apps), so you normally don't touch them. Know about these if you wire a
+container up by hand outside the provided Terraform:
+
+- **`PAPERCLIP_PUBLIC_URL`** / **`PAPERCLIP_ALLOWED_HOSTNAMES`** default to
+  `localhost` for the local stack; the Azure deploy sets them to your real public
+  URL (the Cloudflare-tunnel hostname). Point them at your FQDN for any hand-rolled
+  deploy.
+- **Service endpoints** (`OPENAI_BASE_URL`, `HONCHO_BASE_URL`, `GOVERNOR_BASE_URL`)
+  default to `localhost` ports under Compose and to cluster-internal names on
+  Azure; the deploy wires the cluster-internal names for you.
+
+Key Vault secret names are kept consistent across what `scripts/seed-keyvault.sh`
+seeds, what the container-apps modules reference, and what `data.tf` reads — so a
+fresh deploy resolves every secret reference without manual reconciliation.
