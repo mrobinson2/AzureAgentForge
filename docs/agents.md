@@ -7,7 +7,7 @@
 
 # Agent Roles
 
-AzureAgentForge uses a 13-role model. Each role is defined by a YAML profile in [`../agents/profiles/`](../agents/profiles/), validated against a JSON schema, and resolved to a concrete model deployment at runtime by the model router.
+AzureAgentForge uses a 14-role model. Each role is defined by a YAML profile in [`../agents/profiles/`](../agents/profiles/), validated against a JSON schema, and resolved to a concrete model deployment at runtime by the model router.
 
 ## Role hierarchy
 
@@ -17,6 +17,7 @@ Orchestrator  (frontier)
 │   └── QA  (economy)
 ├── CostGuardian  (economy)
 ├── Curator  (economy)
+├── Generalist  (economy)
 ├── Infrastructure  (standard)
 │   └── Security  (standard)
 └── Strategy  (standard)
@@ -37,6 +38,7 @@ Orchestrator  (frontier)
 | Coder          | coder           | standard | terminal, file, browser | Orchestrator   |
 | CostGuardian   | cost-guardian   | economy  | terminal, file          | Orchestrator   |
 | Curator        | curator         | economy  | terminal, file          | Orchestrator   |
+| Generalist     | generalist      | economy  | terminal, file          | Orchestrator   |
 | Infrastructure | infrastructure  | standard | terminal, file          | Orchestrator   |
 | Strategy       | strategy        | standard | terminal, file          | Orchestrator   |
 | QA             | qa              | economy  | terminal, file          | Coder          |
