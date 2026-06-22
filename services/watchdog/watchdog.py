@@ -33,6 +33,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
@@ -91,6 +92,50 @@ def _fetch_kv_secret_expiries(vault_uri: str) -> list[dict]:
         print(f"[watchdog] Key Vault secret list failed: {e}", file=sys.stderr)
         return []
     return out
+
+
+def _probe_research_backends() -> list[dict]:
+    """Best-effort reachability/auth probes of the HTTP research backends the
+    watchdog container can reach. Only CONFIGURED backends are probed -- an unset
+    key means the backend isn't in use in this deployment, not that it's down, so
+    it's skipped (no false alarm). Returns [{name, ok, detail}]. yt-dlp /
+    video-transcript runs only inside the paperclip image, so it's covered by
+    research-doctor.sh there, not here."""
+    probes: list[dict] = []
+
+    def _probe(name: str, req: "urllib.request.Request") -> None:
+        try:
+            with urllib.request.urlopen(req, timeout=15) as r:
+                code = r.getcode()
+            ok = 200 <= code < 300
+            probes.append({"name": name, "ok": ok,
+                           "detail": "" if ok else f"HTTP {code}"})
+        except urllib.error.HTTPError as e:
+            probes.append({"name": name, "ok": False, "detail": f"HTTP {e.code}"})
+        except Exception as e:  # noqa: BLE001 -- network probe is best-effort
+            probes.append({"name": name, "ok": False, "detail": str(e)[:120]})
+
+    # web-read (Jina Reader) -- anonymous, always checkable.
+    _probe("web-read", urllib.request.Request(
+        "https://r.jina.ai/https://example.com",
+        headers={"User-Agent": "azureagentforge-watchdog/1.0"}))
+
+    # exa-search -- only when a key is configured.
+    exa_key = os.getenv("EXA_API_KEY", "").strip()
+    if exa_key:
+        body = json.dumps({"query": "health check", "numResults": 1}).encode("utf-8")
+        _probe("exa-search", urllib.request.Request(
+            "https://api.exa.ai/search", data=body, method="POST",
+            headers={"x-api-key": exa_key, "Content-Type": "application/json"}))
+
+    # brave-search -- only when a key is configured.
+    brave_key = os.getenv("BRAVE_SEARCH_API_KEY", "").strip()
+    if brave_key:
+        _probe("brave-search", urllib.request.Request(
+            "https://api.search.brave.com/res/v1/web/search?q=health&count=1",
+            headers={"X-Subscription-Token": brave_key, "Accept": "application/json"}))
+
+    return probes
 
 DEFAULT_BASE = "https://app.example.com"
 # Per-agent monthly caps in dollars (illustrative defaults).
@@ -263,6 +308,15 @@ def main() -> int:
         secrets = _fetch_kv_secret_expiries(vault_uri)
         findings += detectors.detect_expiring_secrets(secrets, now=datetime.now(timezone.utc))
         print(f"[watchdog] key-vault secrets checked={len(secrets)}")
+
+    # Research-backend health (opt-in via WATCHDOG_RESEARCH_PROBE). A down
+    # search/page-read backend makes researcher agents fail indirectly (empty
+    # results, silent fallback), so probe the reachable ones and flag any down.
+    if os.getenv("WATCHDOG_RESEARCH_PROBE", "").lower() in ("1", "true", "yes"):
+        probes = _probe_research_backends()
+        findings += detectors.detect_research_backends(probes)
+        print(f"[watchdog] research backends probed={len(probes)} "
+              f"down={sum(1 for p in probes if not p['ok'])}")
 
     seen = _load_seen(state)
     fresh = detectors.dedup(findings, seen)

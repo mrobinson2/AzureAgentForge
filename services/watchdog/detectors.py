@@ -266,6 +266,34 @@ def detect_expiring_secrets(secrets: Iterable[dict], *, now: datetime,
     return out
 
 
+def detect_research_backends(probes: Iterable[dict]) -> list[Finding]:
+    """Research backends (web search / page-read / video-transcript) that failed
+    their health probe.
+
+    `probes` is [{name, ok, detail}] -- ok is a bool, detail a short reason
+    string. Each not-ok backend becomes one `high` finding: when a researcher
+    agent loses a backend it usually fails INDIRECTLY (empty results misread as
+    'nothing found', or a silent fallback/cancel) rather than with an obvious
+    error, so surfacing it to an operator is the point. Pure: the caller runs the
+    probes (watchdog.py) and supplies the results."""
+    out = []
+    for p in probes:
+        if p.get("ok"):
+            continue
+        name = p.get("name", "?")
+        detail = (p.get("detail") or "").strip()
+        out.append(_ev(
+            "high", f"research-backend-down:{name}",
+            f"Research backend '{name}' is unavailable",
+            f"The '{name}' research backend failed its health probe"
+            + (f": {detail}" if detail else "") + ". Researcher agents lose this "
+            "capability until it's restored, and it tends to surface as empty "
+            "results or a silent fallback rather than an obvious error. Check the "
+            "API key/quota and the upstream service.",
+            {"backend": name, "detail": detail}, "Infrastructure"))
+    return out
+
+
 ALL_DETECTORS = (
     detect_adapter_failures,
     detect_stuck_wakes,

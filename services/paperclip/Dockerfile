@@ -303,7 +303,9 @@ COPY apps/hermes/overrides/skills /opt/hermes-skills
 RUN chmod +x /opt/hermes-skills/playbooks/agent-delegate/scripts/pc-delegate.sh \
  && ln -sf /opt/hermes-skills/playbooks/agent-delegate/scripts/pc-delegate.sh /usr/local/bin/pc-delegate \
  && chmod +x /opt/hermes-skills/playbooks/honcho-memory/scripts/pc-honcho.sh \
- && ln -sf /opt/hermes-skills/playbooks/honcho-memory/scripts/pc-honcho.sh /usr/local/bin/pc-honcho
+ && ln -sf /opt/hermes-skills/playbooks/honcho-memory/scripts/pc-honcho.sh /usr/local/bin/pc-honcho \
+ && chmod +x /opt/hermes-skills/playbooks/web-research/scripts/research-doctor.sh \
+ && ln -sf /opt/hermes-skills/playbooks/web-research/scripts/research-doctor.sh /usr/local/bin/research-doctor
 
 # Optional skills: staged by Stage-Skills.ps1, copied alongside built-in ones.
 # Kept in a separate image directory so the entrypoint can distinguish
