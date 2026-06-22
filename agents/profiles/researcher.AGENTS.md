@@ -87,6 +87,8 @@ search text -k "your query terms" -m 10 -o json
 
 (Naive form `search "your query"` also works.)
 
+> Some deployments expose more than one search backend — a **semantic** one (best for conceptual or exploratory queries: "frameworks like X", "research on Y") and a **keyword/news** one (best for fresh, exact-term, or breaking queries). When both are available, pick the one that fits the query; the call shape above is identical for either, and you can cross-check by running both.
+
 Read the returned JSON. Each result has `title`, `href`, and `body` (snippet). Often the snippets answer the question directly — especially for news and well-indexed factual queries. If they do, you can stop after Stage 1 and compose your answer using those URLs as sources.
 
 ### Stage 2 - fetch a specific page with web-read (clean Markdown)
@@ -116,6 +118,8 @@ p=S(); p.feed(open('/tmp/page.html').read()); print(' '.join(' '.join(p.s).split
 ```
 
 Either path gives you the visible text content of the page (no JavaScript-rendered sections, but most authoritative news / vendor sites have static content for the data you need).
+
+**Video sources:** if the source you need is a video (YouTube, Vimeo, etc.), use `video-transcript "<url>" > /tmp/page.md` to pull its transcript as plain text, then treat that text like any other fetched page (the same verbatim-source rules apply).
 
 ### Stage 3 - cancel if neither stage produced an answer
 
