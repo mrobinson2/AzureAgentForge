@@ -14,7 +14,8 @@ import { resolve } from "node:path";
 process.env.PAPERCLIP_AUTOMATION_JWT_ISSUER = "test-issuer";
 process.env.PAPERCLIP_AUTOMATION_JWT_AUDIENCE = "test-audience";
 
-const { verifyJwt, checkScope, governorTargetPath, fenceUntrustedContent, safePath, parseFrontmatter, stripBom } =
+const { verifyJwt, checkScope, governorTargetPath, fenceUntrustedContent, safePath, parseFrontmatter, stripBom,
+        isOriginAllowed, cookieMaxAgeMs, sessionCacheExpiry } =
   await import("../../apps/paperclip/auth-proxy.mjs");
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -140,6 +141,69 @@ test("safePath allows the base itself", () => {
 test("stripBom removes a leading BOM and is a no-op otherwise", () => {
   assert.equal(stripBom("﻿hi"), "hi");
   assert.equal(stripBom("hi"), "hi");
+});
+
+// ── isOriginAllowed (CSRF fail-closed Origin guard, issue #21) ───────────────
+// The pass-through (browser cookie) path used to launder Origin -> PUBLIC_URL
+// unconditionally, defeating PaperClip's CSRF guard. isOriginAllowed validates
+// the *incoming* Origin against the public host + PAPERCLIP_ALLOWED_HOSTNAMES
+// before any rewrite, and fails CLOSED when the allow-list is unset.
+const ORIGIN_CFG = { publicUrl: "https://forge.example.com", allowedHostnames: "forge.example.com, admin.example.com" };
+
+test("isOriginAllowed: no Origin header is allowed (not a tagged cross-origin request)", () => {
+  assert.equal(isOriginAllowed(undefined, ORIGIN_CFG), true);
+  assert.equal(isOriginAllowed("", ORIGIN_CFG), true);
+  assert.equal(isOriginAllowed(null, ORIGIN_CFG), true);
+});
+test("isOriginAllowed: an Origin matching the public URL host is allowed", () => {
+  assert.equal(isOriginAllowed("https://forge.example.com", ORIGIN_CFG), true);
+});
+test("isOriginAllowed: an Origin in PAPERCLIP_ALLOWED_HOSTNAMES is allowed", () => {
+  assert.equal(isOriginAllowed("https://admin.example.com", ORIGIN_CFG), true);
+});
+test("isOriginAllowed: a cross-origin request is rejected", () => {
+  assert.equal(isOriginAllowed("https://evil.com", ORIGIN_CFG), false);
+});
+test("isOriginAllowed: host match is case-insensitive and ignores port/path", () => {
+  assert.equal(isOriginAllowed("https://FORGE.example.com:443", ORIGIN_CFG), true);
+});
+test("isOriginAllowed: a malformed Origin is rejected (fail-closed)", () => {
+  assert.equal(isOriginAllowed("not a url", ORIGIN_CFG), false);
+});
+test("isOriginAllowed: fails CLOSED when allowedHostnames is unset — only the public host passes", () => {
+  const cfg = { publicUrl: "https://forge.example.com", allowedHostnames: "" };
+  assert.equal(isOriginAllowed("https://forge.example.com", cfg), true);
+  assert.equal(isOriginAllowed("https://evil.com", cfg), false);
+});
+
+// ── cookieMaxAgeMs / sessionCacheExpiry (session TTL hardening, issue #18) ────
+// The bootstrapped admin session was cached for a flat 23h. These helpers cap
+// the cache TTL, honor the cookie's own Max-Age when shorter, and subtract a
+// refresh skew so the proxy re-auths before the upstream session lapses.
+test("cookieMaxAgeMs parses Max-Age (case-insensitive) and returns null when absent", () => {
+  assert.equal(cookieMaxAgeMs("__Secure-x.session_token=abc; Path=/; Max-Age=3600; HttpOnly"), 3600 * 1000);
+  assert.equal(cookieMaxAgeMs("x.session_token=abc; path=/; max-age=120"), 120 * 1000);
+  assert.equal(cookieMaxAgeMs("x.session_token=abc; Path=/; HttpOnly"), null);
+});
+test("sessionCacheExpiry: no Max-Age falls back to the TTL cap minus skew", () => {
+  const now = 1_000_000;
+  const exp = sessionCacheExpiry(now, "x.session_token=abc", { ttlCapMs: 3600_000, skewMs: 60_000 });
+  assert.equal(exp, now + 3600_000 - 60_000);
+});
+test("sessionCacheExpiry: a shorter cookie Max-Age wins over the cap", () => {
+  const now = 1_000_000;
+  const exp = sessionCacheExpiry(now, "x.session_token=abc; Max-Age=600", { ttlCapMs: 3600_000, skewMs: 60_000 });
+  assert.equal(exp, now + 600_000 - 60_000);
+});
+test("sessionCacheExpiry: a longer cookie Max-Age is capped by the configured TTL", () => {
+  const now = 1_000_000;
+  const exp = sessionCacheExpiry(now, "x.session_token=abc; Max-Age=86400", { ttlCapMs: 3600_000, skewMs: 60_000 });
+  assert.equal(exp, now + 3600_000 - 60_000);
+});
+test("sessionCacheExpiry: never returns a past timestamp (1s floor)", () => {
+  const now = 1_000_000;
+  const exp = sessionCacheExpiry(now, "x.session_token=abc; Max-Age=5", { ttlCapMs: 3600_000, skewMs: 60_000 });
+  assert.equal(exp, now + 1000);
 });
 
 // ── parseFrontmatter ─────────────────────────────────────────────────────────

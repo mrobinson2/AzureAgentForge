@@ -79,7 +79,20 @@ const BACKEND_PORT = parseInt(process.env.PAPERCLIP_INTERNAL_PORT || "3099", 10)
 const BACKEND_HOST = "127.0.0.1";
 const ADMIN_EMAIL = process.env.PAPERCLIP_ADMIN_EMAIL || "";
 const ADMIN_PASSWORD = process.env.PAPERCLIP_ADMIN_PASSWORD || "";
+const PUBLIC_URL_CONFIGURED = !!process.env.PAPERCLIP_PUBLIC_URL;
 const PUBLIC_URL = process.env.PAPERCLIP_PUBLIC_URL || `http://localhost:${PROXY_PORT}`;
+// Hostnames the browser pass-through path will accept as the request Origin, in
+// addition to PUBLIC_URL's host (issue #21). Mirrors PAPERCLIP_ALLOWED_HOSTNAMES
+// that PaperClip's own CSRF guard uses; comma-separated.
+const ALLOWED_HOSTNAMES = process.env.PAPERCLIP_ALLOWED_HOSTNAMES || "";
+// Bootstrapped admin-session cache lifetime (issue #18). A flat 23h was far too
+// long for a single shared admin cookie; cap it (default 1h, overridable) and
+// honor the cookie's own Max-Age when shorter. Held in memory only, never logged.
+const SESSION_TTL_CAP_MS =
+  Math.max(1, parseInt(process.env.PAPERCLIP_SESSION_TTL_SECONDS || "3600", 10) || 3600) * 1000;
+const SESSION_REFRESH_SKEW_MS = 60 * 1000;
+// HTTP methods that mutate state and therefore require the CSRF Origin check.
+const STATE_CHANGING_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
 
 // ── Skills API Configuration ───────────────────────────────────────────────
 const HERMES_HOME = process.env.HERMES_HOME || "/paperclip/.hermes";
@@ -146,6 +159,25 @@ function verifyJwt(token, secret) {
 
 // ── Session Cookie Cache ────────────────────────────────────────────────────
 
+// Parse a Set-Cookie line's Max-Age (in ms) when present and numeric, else null.
+function cookieMaxAgeMs(setCookieLine) {
+  const m = /(?:^|;)\s*max-age\s*=\s*(-?\d+)/i.exec(String(setCookieLine || ""));
+  if (!m) return null;
+  const secs = parseInt(m[1], 10);
+  return Number.isFinite(secs) ? secs * 1000 : null;
+}
+
+// Cache-expiry timestamp for the bootstrapped admin session (issue #18): the
+// sooner of (now + TTL cap) and the cookie's own Max-Age, minus a refresh skew
+// so the proxy re-auths before the upstream session lapses. Floored to now+1s so
+// a short or negative Max-Age never yields an already-expired cache entry.
+function sessionCacheExpiry(now, setCookieLine, { ttlCapMs, skewMs }) {
+  let horizon = now + ttlCapMs;
+  const maxAge = cookieMaxAgeMs(setCookieLine);
+  if (maxAge != null) horizon = Math.min(horizon, now + maxAge);
+  return Math.max(now + 1000, horizon - skewMs);
+}
+
 let cachedSession = null; // { cookie, expiresAt }
 
 async function getSessionCookie() {
@@ -163,7 +195,7 @@ async function getSessionCookie() {
 
   const loginBody = JSON.stringify({ email: ADMIN_EMAIL, password: ADMIN_PASSWORD });
 
-  const cookie = await new Promise((resolve, reject) => {
+  const setCookieLine = await new Promise((resolve, reject) => {
     const req = httpRequest(
       {
         hostname: BACKEND_HOST,
@@ -190,15 +222,16 @@ async function getSessionCookie() {
           // `paperclip-dev`, yielding `__Secure-paperclip-dev.session_token`;
           // older PaperClip versions used the default `better-auth` prefix).
           // Matching on the suffix keeps the proxy resilient to prefix changes.
-          const sessionCookie = setCookies
-            .map((c) => c.split(";")[0])
-            .find((c) => /\.session_token=/.test(c));
-          if (!sessionCookie) {
+          // Keep the FULL Set-Cookie line (not just `name=value`) so we can read
+          // its Max-Age when capping the cache TTL below (issue #18).
+          const sessionSetCookie = setCookies
+            .find((c) => /\.session_token=/.test(c.split(";")[0]));
+          if (!sessionSetCookie) {
             const names = setCookies.map((c) => c.split("=")[0]).join(", ");
             reject(new Error(`No session_token cookie in login response (set-cookie names: ${names || "<none>"})`));
             return;
           }
-          resolve(sessionCookie);
+          resolve(sessionSetCookie);
         });
       }
     );
@@ -207,12 +240,18 @@ async function getSessionCookie() {
     req.end();
   });
 
+  const cookie = setCookieLine.split(";")[0]; // forward only `name=value`
+  const now = Date.now();
   cachedSession = {
     cookie,
-    expiresAt: Date.now() + 23 * 60 * 60 * 1000, // 23 hours
+    expiresAt: sessionCacheExpiry(now, setCookieLine, {
+      ttlCapMs: SESSION_TTL_CAP_MS,
+      skewMs: SESSION_REFRESH_SKEW_MS,
+    }),
   };
 
-  console.log("[auth-proxy] Session cookie obtained and cached (23h TTL)");
+  const ttlMin = Math.round((cachedSession.expiresAt - now) / 60000);
+  console.log(`[auth-proxy] Session cookie obtained and cached (~${ttlMin}m TTL, in-memory only)`);
   return cookie;
 }
 
@@ -307,7 +346,41 @@ function fenceUntrustedContent(text, source = "external") {
 
 // ── Plain proxy pass-through (no auth manipulation) ─────────────────────────
 
+// CSRF fail-closed Origin guard (issue #21). The pass-through path below rewrites
+// Host/Origin to PUBLIC_URL so PaperClip's board-mutation guard accepts legit
+// cloudflared traffic — but rewriting Origin UNCONDITIONALLY also launders a
+// cross-site attacker's Origin into a trusted value, defeating CSRF protection.
+// Validate the INCOMING Origin against the public host + PAPERCLIP_ALLOWED_HOSTNAMES
+// before any rewrite. A missing Origin (same-origin or non-browser client) is
+// allowed; a present-but-mismatched or malformed Origin is rejected. With no
+// allow-list configured, only the public host passes — fail closed.
+function isOriginAllowed(origin, { publicUrl, allowedHostnames }) {
+  if (!origin) return true;
+  let host;
+  try { host = new URL(origin).hostname.toLowerCase(); } catch { return false; }
+  const allowed = new Set();
+  try { allowed.add(new URL(publicUrl).hostname.toLowerCase()); } catch { /* unparseable publicUrl */ }
+  for (const h of String(allowedHostnames || "").split(",")) {
+    const t = h.trim().toLowerCase();
+    if (t) allowed.add(t);
+  }
+  return allowed.has(host);
+}
+
 function proxyPassThrough(clientReq, clientRes) {
+  // Reject cross-origin state-changing requests BEFORE laundering Origin/Host to
+  // the public URL (issue #21) — otherwise the rewrite would hand PaperClip's
+  // CSRF guard a forged-but-trusted Origin.
+  if (STATE_CHANGING_METHODS.has(clientReq.method) &&
+      !isOriginAllowed(clientReq.headers.origin, { publicUrl: PUBLIC_URL, allowedHostnames: ALLOWED_HOSTNAMES })) {
+    console.warn(`[auth-proxy] CSRF: rejected ${clientReq.method} ${clientReq.url} from origin '${clientReq.headers.origin}'`);
+    clientRes.writeHead(403, { "Content-Type": "application/json" });
+    clientRes.end(JSON.stringify({
+      error: "Forbidden",
+      message: "Cross-origin request rejected (CSRF protection)",
+    }));
+    return;
+  }
   // Strip both automation identity headers so pass-through callers can't spoof
   // the values the auth-proxy injects after JWT validation.
   const headers = { ...clientReq.headers };
@@ -1569,6 +1642,12 @@ if (isMainModule) {
     console.warn("[auth-proxy] JWT bearer auth disabled — browser session auth still works");
   }
 
+  if (!PUBLIC_URL_CONFIGURED) {
+    console.warn("[auth-proxy] WARNING: PAPERCLIP_PUBLIC_URL not set — using localhost fallback. " +
+      "Browser CSRF enforcement trusts only the localhost origin plus any PAPERCLIP_ALLOWED_HOSTNAMES; " +
+      "set PAPERCLIP_PUBLIC_URL to your public hostname in any real deploy.");
+  }
+
   server.listen(PROXY_PORT, "0.0.0.0", () => {
     console.log(`[auth-proxy] Listening on :${PROXY_PORT} → Paperclip :${BACKEND_PORT}`);
     console.log(`[auth-proxy] Browser traffic: pass-through (session cookies)`);
@@ -1590,6 +1669,9 @@ export {
   safePath,
   parseFrontmatter,
   stripBom,
+  isOriginAllowed,
+  cookieMaxAgeMs,
+  sessionCacheExpiry,
   handleRequest,
   guardedHandler,
   server,
