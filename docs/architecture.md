@@ -76,7 +76,7 @@ PaperClip is the entry point for all chat surfaces. It accepts requests from the
 
 ### Agent runtime (Hermes)
 
-**Role:** executes agent tasks using the 13-role hierarchy.  
+**Role:** executes agent tasks using the 14-role hierarchy.  
 **Azure resource:** `azurerm_container_app` (`hermes`).
 
 Hermes runs the agents defined under `agents/`. Each agent carries a YAML profile that assigns it a `model_tier` (`frontier`, `standard`, or `economy`) and a set of capability `toolsets`. The Model Router resolves those tiers to concrete model deployments at call time. Hermes reads and writes conversational memory through Honcho.

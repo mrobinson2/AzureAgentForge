@@ -30,7 +30,7 @@ def test_bad_profile_fails():
 def test_all_shipped_profiles_valid():
     v = Draft202012Validator(_schema())
     files = sorted(PROFILES.glob("*.yaml"))
-    assert len(files) == 13, f"expected 13 profiles, found {len(files)}"
+    assert len(files) == 14, f"expected 14 profiles, found {len(files)}"
     for f in files:
         data = yaml.safe_load(f.read_text())
         errs = list(v.iter_errors(data))

@@ -567,7 +567,7 @@ Multi-tenant support is designed and partially scaffolded.
 | [`docs/cost.md`](docs/cost.md) | Per-service infrastructure estimates for both profiles |
 | [`docs/security.md`](docs/security.md) | Secrets, network posture, and pre-production checklist |
 | [`docs/why-azure.md`](docs/why-azure.md) | The case for building agents on Azure |
-| [`docs/agents.md`](docs/agents.md) | The 13-role model and how to add your own |
+| [`docs/agents.md`](docs/agents.md) | The 14-role model and how to add your own |
 | [`docs/design/memory-system.md`](docs/design/memory-system.md) | Governed-memory architecture (four planes, six classes, trust model, self-improvement loop); shipped flag-gated off; code under [`services/memory-governor/`](services/memory-governor/) + [`services/watchdog/`](services/watchdog/) |
 | [`docs/deploy-pipeline.md`](docs/deploy-pipeline.md) | Reference GitHub Actions deploy pipeline with a destroy-aware approval gate (OIDC, no stored secrets) |
 

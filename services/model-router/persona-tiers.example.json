@@ -11,5 +11,6 @@
   "psychology": "phi4",
   "qa": "phi4",
   "cost-guardian": "phi4",
-  "curator": "phi4"
+  "curator": "phi4",
+  "generalist": "phi4"
 }

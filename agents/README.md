@@ -20,6 +20,7 @@ Orchestrator  (frontier)
 │   └── QA  (economy)
 ├── CostGuardian  (economy)
 ├── Curator  (economy)
+├── Generalist  (economy)
 ├── Infrastructure  (standard)
 │   └── Security  (standard)
 └── Strategy  (standard)
@@ -40,6 +41,7 @@ Orchestrator  (frontier)
 | Coder         | coder           | standard | terminal, file, browser | Orchestrator |
 | CostGuardian  | cost-guardian   | economy  | terminal, file        | Orchestrator  |
 | Curator       | curator         | economy  | terminal, file        | Orchestrator  |
+| Generalist    | generalist      | economy  | terminal, file        | Orchestrator  |
 | Infrastructure| infrastructure  | standard | terminal, file        | Orchestrator  |
 | Strategy      | strategy        | standard | terminal, file        | Orchestrator  |
 | QA            | qa              | economy  | terminal, file        | Coder         |
@@ -80,6 +82,7 @@ Each role's `toolsets` (above) are the coarse capability grants; within those gr
 | Security      | Security scanners (`trivy`, `gitleaks`, `semgrep`, OWASP ZAP); `az` (read-only); `terminal` (read-only); `file` read/write for findings and threat models; `pc-honcho ask`. |
 | CostGuardian  | `az` cost and billing queries (read-only: `az consumption`, `az costmanagement`); `terminal` (read-only); `file` read/write for cost reports; `pc-honcho ask`. |
 | Curator       | `pc-honcho ask` / `record` for memory curation; `terminal`; `file` read/write for documentation and durable-notes entries. |
+| Generalist    | `terminal`; `file` read/write for well-scoped general tasks that do not require a narrower specialist; routes specialist work back to Orchestrator. |
 
 Read each role's `.AGENTS.md` for the authoritative tool list, including the matching **Forbidden tools** section (for example, specialists never `terraform apply` or `git push --force`).
 
