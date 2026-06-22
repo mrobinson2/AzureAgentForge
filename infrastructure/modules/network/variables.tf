@@ -45,3 +45,15 @@ variable "key_vault_private_access" {
   type        = bool
   default     = false
 }
+
+variable "existing_vnet_name" {
+  description = "Deploy the platform's subnets into this pre-existing VNet (e.g. an ALZ-vended one) instead of creating a new VNet. Empty (default) creates a new VNet. The VNet must have free address space for the subnet_*_address_prefixes ranges."
+  type        = string
+  default     = ""
+}
+
+variable "existing_vnet_resource_group" {
+  description = "Resource group of existing_vnet_name, if it differs from this deployment's resource group. Ignored when existing_vnet_name is empty."
+  type        = string
+  default     = ""
+}

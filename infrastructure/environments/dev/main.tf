@@ -23,12 +23,14 @@ resource "azurerm_resource_group" "main" {
 
 # Network Module
 module "network" {
-  source                   = "../../modules/network"
-  resource_group_name      = azurerm_resource_group.main.name
-  location                 = azurerm_resource_group.main.location
-  prefix                   = local.prefix
-  tags                     = local.common_tags
-  key_vault_private_access = !var.key_vault_public_network_access_enabled
+  source                       = "../../modules/network"
+  resource_group_name          = azurerm_resource_group.main.name
+  location                     = azurerm_resource_group.main.location
+  prefix                       = local.prefix
+  tags                         = local.common_tags
+  key_vault_private_access     = !var.key_vault_public_network_access_enabled
+  existing_vnet_name           = var.existing_vnet_name
+  existing_vnet_resource_group = var.existing_vnet_resource_group
 }
 
 # Key Vault Module
