@@ -33,7 +33,7 @@ OpenAPI/Swagger docs are available at `/docs` when running locally.
 ## Local development
 
 ```bash
-cd roadmap/multi-tenant/memory-store
+cd experimental/multi-tenant/memory-store
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt

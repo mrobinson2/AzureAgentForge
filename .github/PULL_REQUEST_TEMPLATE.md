@@ -13,7 +13,7 @@ Closes #
 
 ## Validation
 
-Confirm the gates pass (see [CONTRIBUTING.md](../CONTRIBUTING.md)):
+Confirm the gates pass (see [CONTRIBUTING.md](CONTRIBUTING.md)):
 
 - [ ] `terraform validate` passes; both `cost-optimized` and `hardened` profiles `plan` clean
 - [ ] `docker compose config` is valid (if compose changed)

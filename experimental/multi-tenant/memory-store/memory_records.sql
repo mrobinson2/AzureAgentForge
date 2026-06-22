@@ -1,5 +1,5 @@
 -- Reference design — NOT deployed. Part of the multi-tenant roadmap
--- (see roadmap/multi-tenant/README.md). Not wired into the runnable stack;
+-- (see experimental/multi-tenant/README.md). Not wired into the runnable stack;
 -- provided to illustrate the intended design.
 
 CREATE OR REPLACE FUNCTION update_timestamp()
