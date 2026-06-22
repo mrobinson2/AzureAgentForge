@@ -256,6 +256,13 @@ RUN chmod +x /usr/local/bin/ddgs
 COPY apps/paperclip/brave-search-wrapper.sh /usr/local/bin/brave-search
 RUN chmod +x /usr/local/bin/brave-search
 
+# web-read wrapper — clean Markdown extraction of any URL via Jina Reader
+# (r.jina.ai). Agents that raw-curl a page get HTML tags; web-read returns the
+# readable content instead. Anonymous by default; JINA_API_KEY (optional, KV-
+# backed) raises the rate limit.
+COPY apps/paperclip/web-read-wrapper.sh /usr/local/bin/web-read
+RUN chmod +x /usr/local/bin/web-read
+
 # Hermes skills: pip install doesn't include skills/, copy them separately.
 # Placed at /opt/hermes-skills so they're baked into the image. The entrypoint
 # syncs these to ~/.hermes/skills on the persistent volume.
