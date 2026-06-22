@@ -270,6 +270,20 @@ RUN chmod +x /usr/local/bin/web-read
 COPY apps/paperclip/exa-search-wrapper.sh /usr/local/bin/exa-search
 RUN chmod +x /usr/local/bin/exa-search
 
+# video-transcript wrapper — pulls transcripts from YouTube/Vimeo/~1800 sites for
+# summarization. Needs yt-dlp (pinned standalone binary; runs on the base image's
+# python3) and ffmpeg (only for the optional Whisper-fallback audio extraction).
+# Pin yt-dlp and let the watchdog health-check it, since YouTube extraction churns.
+ARG YT_DLP_VERSION=2025.10.14
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/* \
+ && curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/${YT_DLP_VERSION}/yt-dlp" -o /usr/local/bin/yt-dlp \
+ && chmod +x /usr/local/bin/yt-dlp \
+ && yt-dlp --version
+COPY apps/paperclip/video-transcript-wrapper.sh /usr/local/bin/video-transcript
+RUN chmod +x /usr/local/bin/video-transcript
+
 # Hermes skills: pip install doesn't include skills/, copy them separately.
 # Placed at /opt/hermes-skills so they're baked into the image. The entrypoint
 # syncs these to ~/.hermes/skills on the persistent volume.

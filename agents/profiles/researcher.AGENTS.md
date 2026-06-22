@@ -119,6 +119,8 @@ p=S(); p.feed(open('/tmp/page.html').read()); print(' '.join(' '.join(p.s).split
 
 Either path gives you the visible text content of the page (no JavaScript-rendered sections, but most authoritative news / vendor sites have static content for the data you need).
 
+**Video sources:** if the source you need is a video (YouTube, Vimeo, etc.), use `video-transcript "<url>" > /tmp/page.md` to pull its transcript as plain text, then treat that text like any other fetched page (the same verbatim-source rules apply).
+
 ### Stage 3 - cancel if neither stage produced an answer
 
 If search returns no useful results AND your `curl` attempts fail (DNS errors, 4xx/5xx, blocked, or page structure prevents extraction), do NOT fabricate. Post EXACTLY:
