@@ -10,6 +10,10 @@ terraform {
       source  = "hashicorp/tls"
       version = "~> 4.0"
     }
+    cloudflare = {
+      source  = "cloudflare/cloudflare"
+      version = "~> 5.0"
+    }
   }
 }
 
@@ -24,4 +28,11 @@ provider "azurerm" {
       prevent_deletion_if_contains_resources = true
     }
   }
+}
+
+# Only used when cloudflare_managed = true. With an empty token and no Cloudflare
+# resources instantiated (the module is count-gated off by default), the provider
+# is configured but never authenticates.
+provider "cloudflare" {
+  api_token = var.cloudflare_api_token
 }

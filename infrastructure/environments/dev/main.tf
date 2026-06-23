@@ -179,9 +179,44 @@ module "monitoring" {
   enable_observability_workbook = var.enable_observability_workbook
 }
 
+# Cloudflare Tunnel — Terraform-managed ingress (tunnel + ingress rule + DNS) and
+# the connector token, gated on cloudflare_managed (default off). Pair with
+# cloudflared_enabled = true so the connector container actually runs.
+# See infrastructure/modules/cloudflare-tunnel.
+module "cloudflare_tunnel" {
+  count          = var.cloudflare_managed ? 1 : 0
+  source         = "../../modules/cloudflare-tunnel"
+  account_id     = var.cloudflare_account_id
+  zone_id        = var.cloudflare_zone_id
+  tunnel_name    = "${var.project_name}-${var.environment}"
+  hostname       = var.cloudflare_hostname
+  origin_service = coalesce(var.cloudflare_origin_service, "http://ca-paperclip-${var.environment}")
+}
+
+# Write the connector token into the cf-tunnel-token secret the cloudflared
+# container reads — no hand-copied dashboard token. When cloudflare_managed =
+# true, Terraform OWNS this secret: do NOT also pass CF_TUNNEL_TOKEN to
+# scripts/seed-keyvault.sh (let the script's keep-if-exists leave it alone).
+resource "azurerm_key_vault_secret" "cf_tunnel_token" {
+  count        = var.cloudflare_managed ? 1 : 0
+  name         = "cf-tunnel-token"
+  value        = module.cloudflare_tunnel[0].tunnel_token
+  key_vault_id = module.keyvault.id
+}
+
 # Outputs
 output "resource_group_name" {
   value = azurerm_resource_group.main.name
+}
+
+output "cloudflare_tunnel_id" {
+  value       = var.cloudflare_managed ? module.cloudflare_tunnel[0].tunnel_id : null
+  description = "Cloudflare Tunnel ID (null when cloudflare_managed = false)."
+}
+
+output "cloudflare_tunnel_cname" {
+  value       = var.cloudflare_managed ? module.cloudflare_tunnel[0].tunnel_cname : null
+  description = "The tunnel CNAME target the DNS record points at."
 }
 
 output "key_vault_name" {
