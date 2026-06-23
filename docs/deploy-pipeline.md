@@ -47,6 +47,20 @@ approved is exactly what is applied, with no re-plan in between.
 
 ## One-time setup
 
+The Azure half of this (step 1, plus the state storage account in step 2) is
+scriptable — `scripts/scaffold-cicd.sh` stands up the OIDC app + role assignment
++ federated credential and the Terraform state backend in one idempotent,
+**preview-first** command, then prints the `gh variable set` lines for the repo
+variables:
+
+```bash
+scripts/scaffold-cicd.sh --repo OWNER/REPO            # preview — changes nothing
+scripts/scaffold-cicd.sh --repo OWNER/REPO --apply    # create the resources
+```
+
+The GitHub side (variables/secrets and the `deploy-destroy` environment) is still
+done by hand for now — the steps below remain the source of truth.
+
 ### 1. Federated (OIDC) Azure credentials - no stored secrets
 
 Create an Entra ID app registration + service principal, grant it `Contributor`
