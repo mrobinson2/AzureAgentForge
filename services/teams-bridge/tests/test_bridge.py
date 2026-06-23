@@ -106,3 +106,79 @@ def test_poster_failure_never_5xxes_bot_framework(monkeypatch):
     r = client.post("/api/messages", json={
         "type": "message", "text": "hi", "conversation": {"id": "c"}})
     assert r.status_code == 200 and r.json()["queued"] is False
+
+
+# ── Bot Framework JWT validation ──────────────────────────────────────────────
+
+import time  # noqa: E402
+import jwt as _jwt  # noqa: E402
+import pytest  # noqa: E402
+from cryptography.hazmat.primitives import serialization  # noqa: E402
+from cryptography.hazmat.primitives.asymmetric import rsa  # noqa: E402
+
+_APP_ID = "11111111-2222-3333-4444-555555555555"
+
+
+def _rsa_pem():
+    k = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    priv = k.private_bytes(serialization.Encoding.PEM,
+                           serialization.PrivateFormat.PKCS8,
+                           serialization.NoEncryption())
+    pub = k.public_key().public_bytes(serialization.Encoding.PEM,
+                                       serialization.PublicFormat.SubjectPublicKeyInfo)
+    return priv, pub
+
+
+def _tok(priv, **over):
+    claims = {"iss": main.BOT_FRAMEWORK_ISSUER, "aud": _APP_ID,
+              "exp": int(time.time()) + 300, **over}
+    return _jwt.encode(claims, priv, algorithm="RS256")
+
+
+def test_verify_jwt_accepts_valid_token():
+    priv, pub = _rsa_pem()
+    assert main.verify_jwt(_tok(priv), _APP_ID, pub)["aud"] == _APP_ID
+
+
+def test_verify_jwt_rejects_wrong_audience():
+    priv, pub = _rsa_pem()
+    with pytest.raises(main.AuthError):
+        main.verify_jwt(_tok(priv, aud="someone-else"), _APP_ID, pub)
+
+
+def test_verify_jwt_rejects_wrong_issuer():
+    priv, pub = _rsa_pem()
+    with pytest.raises(main.AuthError):
+        main.verify_jwt(_tok(priv, iss="https://evil.example"), _APP_ID, pub)
+
+
+def test_verify_jwt_rejects_expired():
+    priv, pub = _rsa_pem()
+    with pytest.raises(main.AuthError):  # 1000s past, well beyond the 300s leeway
+        main.verify_jwt(_tok(priv, exp=int(time.time()) - 1000), _APP_ID, pub)
+
+
+def test_verify_jwt_rejects_bad_signature():
+    priv1, _ = _rsa_pem()
+    _, pub2 = _rsa_pem()
+    with pytest.raises(main.AuthError):
+        main.verify_jwt(_tok(priv1), _APP_ID, pub2)
+
+
+def test_bearer_token_extraction():
+    assert main.bearer_token("Bearer abc.def") == "abc.def"
+    assert main.bearer_token("") is None
+    assert main.bearer_token("Basic xyz") is None
+
+
+def test_authenticate_noop_when_unconfigured(monkeypatch):
+    monkeypatch.setattr(main, "TEAMS_APP_ID", "")
+    monkeypatch.setattr(main, "TEAMS_AUTH_DISABLED", False)
+    main.authenticate("")  # warns, does not raise
+
+
+def test_messages_returns_401_when_auth_required_and_missing(monkeypatch):
+    monkeypatch.setattr(main, "TEAMS_APP_ID", _APP_ID)
+    monkeypatch.setattr(main, "TEAMS_AUTH_DISABLED", False)
+    r = client.post("/api/messages", json={"type": "message", "text": "hi"})
+    assert r.status_code == 401
