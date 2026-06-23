@@ -156,8 +156,18 @@ unit-tested offline in `installer/tests/test_smoke.py`.
 The Key Vault module reads `postgres-admin-password` from the vault as a data
 source (`infrastructure/modules/keyvault/main.tf`), so that secret must exist
 before the first `plan` can resolve. The `seed` job covers steady state but
-cannot seed a vault that does not exist yet. For the first deploy, create the
-vault and seed the password once:
+cannot seed a vault that does not exist yet.
+
+The one-command path runs the whole bootstrap for you (it auto-resolves the vault
+name from the `key_vault_name` output, so you don't need to know it up front):
+
+```bash
+# provide any provider keys you have as env vars; the rest get placeholders
+CLAUDE_API_KEY=... scripts/bootstrap.sh --yes
+```
+
+`scripts/bootstrap.sh` is idempotent and safe to re-run. Under the hood it does
+the same three steps you can also run by hand:
 
 ```bash
 # 1. create just the resource group + vault
@@ -171,7 +181,8 @@ POSTGRES_CONNECTION_STRING=... scripts/seed-keyvault.sh -v <your-vault-name>
 ```
 
 After that, every run's `seed` job keeps the vault current and the bootstrap is
-not needed again.
+not needed again. (Use `scripts/bootstrap.sh --dry-run` to see the exact steps
+first, or omit `--yes` to review and confirm each `terraform apply`.)
 
 ## Notes & limits
 
