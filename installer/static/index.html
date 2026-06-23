@@ -324,9 +324,10 @@ async function run(step, confirm = '', approve_destroy = '') {
 }
 
 async function confirmRun(step) {
-  // Keep the displayed/typed name in sync with what's configured, so you always
-  // know what to type (the server checks it against the written environment).
-  ENV_NAME = ($('environment').value.trim() || ENV_NAME || 'dev');
+  // ENV_NAME is set when you Write configuration, and matches the environment the
+  // server validates the typed token against (_last_config.environment). Don't
+  // re-read the live field here — an edit that wasn't re-written would show a name
+  // the server doesn't expect.
   $('confirmTitle').textContent = 'Confirm ' + step;
   $('confirmText').innerHTML = (step === 'apply'
     ? 'Apply creates real, billable Azure resources from the saved plan. '
