@@ -276,6 +276,22 @@ PLAN_FILE = "tfplan"
 # environment-name confirmation so a destructive apply can't be waved through.
 DESTROY_APPROVAL_TOKEN = "approve-destroy"
 
+# Per-step wall-clock timeouts (seconds). Generous so a legitimate long apply is
+# never killed, but a hung step (a stuck state lock, a wedged API call) can't pin
+# the single-run lock forever and lock the console out of every further step.
+STEP_TIMEOUTS = {
+    "init": 600,
+    "validate": 300,
+    "plan": 1800,
+    "apply": 3600,
+    "destroy": 3600,
+    "output": 300,
+    "compose-up": 1800,
+    "compose-down": 600,
+    "compose-ps": 120,
+}
+DEFAULT_STEP_TIMEOUT = 3600
+
 
 # ---------------------------------------------------------------------------
 # Destroy-aware apply gate
@@ -350,29 +366,54 @@ class Runner:
     def busy(self) -> bool:
         return self.current is not None and self.current.status == "running"
 
-    def start(self, step: str, cmd: list[str], cwd: Path = REPO_ROOT) -> StepRun:
+    def start(self, step: str, cmd: list[str], cwd: Path = REPO_ROOT,
+              timeout: Optional[float] = None) -> StepRun:
         with self._lock:
             if self.busy():
                 raise RuntimeError(f"a step is already running: {self.current.step}")
             run = StepRun(step=step)
             self.current = run
-        thread = threading.Thread(target=self._execute, args=(run, cmd, cwd), daemon=True)
+        if timeout is None:
+            timeout = STEP_TIMEOUTS.get(step, DEFAULT_STEP_TIMEOUT)
+        thread = threading.Thread(target=self._execute, args=(run, cmd, cwd, timeout), daemon=True)
         thread.start()
         return run
 
-    def _execute(self, run: StepRun, cmd: list[str], cwd: Path) -> None:
+    def _execute(self, run: StepRun, cmd: list[str], cwd: Path,
+                 timeout: Optional[float] = None) -> None:
         self._emit(run, f"$ {' '.join(cmd)}")
+        timer = None
+        timed_out = threading.Event()
         try:
             proc = subprocess.Popen(
                 cmd, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
                 text=True, bufsize=1, env={**os.environ, "TF_IN_AUTOMATION": "1"},
             )
+            # Watchdog: a step that produces no output and never exits would
+            # otherwise block the read loop (and the single-run lock) forever.
+            if timeout and timeout > 0:
+                def _kill() -> None:
+                    timed_out.set()
+                    try:
+                        proc.kill()
+                    except Exception:
+                        pass
+                timer = threading.Timer(timeout, _kill)
+                timer.daemon = True
+                timer.start()
             assert proc.stdout is not None
             for line in proc.stdout:
                 self._emit(run, line.rstrip("\n"))
             run.returncode = proc.wait()
         except OSError as e:
             self._emit(run, f"[forge] failed to start: {e}")
+            run.returncode = -1
+        finally:
+            if timer is not None:
+                timer.cancel()
+        if timed_out.is_set():
+            self._emit(run, f"[forge] step '{run.step}' timed out after {int(timeout)}s — killed. "
+                            "Check the Azure Portal for any partially-created resources.")
             run.returncode = -1
         run.status = "succeeded" if run.returncode == 0 else "failed"
         run.finished_at = time.time()
