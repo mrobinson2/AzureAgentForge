@@ -327,6 +327,7 @@ STEP_TIMEOUTS = {
     "compose-up": 1800,
     "compose-down": 600,
     "compose-ps": 120,
+    "scaffold": 900,
 }
 DEFAULT_STEP_TIMEOUT = 3600
 
@@ -405,7 +406,7 @@ class Runner:
         return self.current is not None and self.current.status == "running"
 
     def start(self, step: str, cmd: list[str], cwd: Path = REPO_ROOT,
-              timeout: Optional[float] = None) -> StepRun:
+              timeout: Optional[float] = None, env: Optional[dict] = None) -> StepRun:
         with self._lock:
             if self.busy():
                 raise RuntimeError(f"a step is already running: {self.current.step}")
@@ -413,19 +414,22 @@ class Runner:
             self.current = run
         if timeout is None:
             timeout = STEP_TIMEOUTS.get(step, DEFAULT_STEP_TIMEOUT)
-        thread = threading.Thread(target=self._execute, args=(run, cmd, cwd, timeout), daemon=True)
+        thread = threading.Thread(target=self._execute, args=(run, cmd, cwd, timeout, env), daemon=True)
         thread.start()
         return run
 
     def _execute(self, run: StepRun, cmd: list[str], cwd: Path,
-                 timeout: Optional[float] = None) -> None:
+                 timeout: Optional[float] = None, env: Optional[dict] = None) -> None:
         self._emit(run, f"$ {' '.join(cmd)}")
         timer = None
         timed_out = threading.Event()
+        proc_env = {**os.environ, "TF_IN_AUTOMATION": "1"}
+        if env:
+            proc_env.update(env)
         try:
             proc = subprocess.Popen(
                 cmd, cwd=str(cwd), stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                text=True, bufsize=1, env={**os.environ, "TF_IN_AUTOMATION": "1"},
+                text=True, bufsize=1, env=proc_env,
             )
             # Watchdog: a step that produces no output and never exits would
             # otherwise block the read loop (and the single-run lock) forever.

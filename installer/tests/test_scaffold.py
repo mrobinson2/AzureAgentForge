@@ -47,3 +47,33 @@ class TestBuildScaffoldCommand:
         cmd = core.build_scaffold_command({"repo": "me/proj", "GPT4O_API_KEY": "super-secret"})
         assert "super-secret" not in cmd
         assert "--GPT4O_API_KEY" not in cmd
+
+
+import time
+
+
+def _wait_done(run, timeout=10.0):
+    deadline = time.time() + timeout
+    while run.status == "running" and time.time() < deadline:
+        time.sleep(0.02)
+    return run
+
+
+class TestRunnerEnv:
+    def test_env_reaches_subprocess(self):
+        runner = core.Runner()
+        run = runner.start(
+            "scaffold",
+            ["sh", "-c", 'printf %s "$FORGE_SCAFFOLD_TEST"'],
+            env={"FORGE_SCAFFOLD_TEST": "envvalue"},
+        )
+        _wait_done(run)
+        assert run.status == "succeeded"
+        assert any("envvalue" in line for line in run.lines)
+
+    def test_no_env_still_runs(self):
+        runner = core.Runner()
+        run = runner.start("scaffold", ["sh", "-c", "printf ok"])
+        _wait_done(run)
+        assert run.status == "succeeded"
+        assert any("ok" in line for line in run.lines)
