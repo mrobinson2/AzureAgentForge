@@ -47,7 +47,6 @@ class TestRenderNote:
         assert "links:" in out
         assert '"[[doc-9]]"' in out
 
-    @pytest.mark.skip(reason="parse_note lands in Task 3")
     def test_round_trips_through_parse(self):
         out = vault.render_note(ENTRY)
         parsed = vault.parse_note(out)  # defined in Task 3 — keep this test xfail until then
@@ -86,3 +85,73 @@ class TestExport:
         baseline = json.loads((tmp_path / vault.BASELINE_FILE).read_text())
         assert baseline["doc-1"]["class"] == "user_preference"
         assert baseline["doc-1"]["verification"] == "confirmed"
+
+
+class TestParseNote:
+    def test_extracts_frontmatter_fields(self):
+        note = vault.render_note({**ENTRY, "memory_class": "durable_fact",
+                                  "verification_state": "unverified"})
+        p = vault.parse_note(note)
+        assert p["id"] == "doc-1"
+        assert p["class"] == "durable_fact"
+        assert p["verification"] == "unverified"
+
+    def test_missing_frontmatter_returns_empty(self):
+        assert vault.parse_note("no frontmatter here") == {}
+
+
+class TestDiffToActions:
+    def _baseline(self):
+        return {
+            "doc-1": {"class": "user_preference", "verification": "unverified"},
+            "doc-2": {"class": "durable_fact", "verification": "confirmed"},
+        }
+
+    def test_deleted_note_becomes_rm(self):
+        # doc-2 absent from the vault → rm
+        actions = vault.diff_to_actions(self._baseline(), {"doc-1": {"id": "doc-1",
+            "class": "user_preference", "verification": "unverified"}})
+        assert {"doc_id": "doc-2", "action": "rm"} in actions
+
+    def test_confirm_when_verification_flipped(self):
+        current = {
+            "doc-1": {"id": "doc-1", "class": "user_preference", "verification": "confirmed"},
+            "doc-2": {"id": "doc-2", "class": "durable_fact", "verification": "confirmed"},
+        }
+        actions = vault.diff_to_actions(self._baseline(), current)
+        assert {"doc_id": "doc-1", "action": "confirm"} in actions
+
+    def test_pin_when_class_set_to_pinned(self):
+        current = {
+            "doc-1": {"id": "doc-1", "class": "pinned", "verification": "unverified"},
+            "doc-2": {"id": "doc-2", "class": "durable_fact", "verification": "confirmed"},
+        }
+        actions = vault.diff_to_actions(self._baseline(), current)
+        assert {"doc_id": "doc-1", "action": "pin"} in actions
+
+    def test_demote_records_target_class(self):
+        current = {
+            "doc-1": {"id": "doc-1", "class": "user_preference", "verification": "unverified"},
+            "doc-2": {"id": "doc-2", "class": "decaying", "verification": "confirmed"},
+        }
+        actions = vault.diff_to_actions(self._baseline(), current)
+        assert {"doc_id": "doc-2", "action": "demote", "demote_to": "decaying"} in actions
+
+    def test_no_change_yields_no_actions(self):
+        current = {
+            "doc-1": {"id": "doc-1", "class": "user_preference", "verification": "unverified"},
+            "doc-2": {"id": "doc-2", "class": "durable_fact", "verification": "confirmed"},
+        }
+        assert vault.diff_to_actions(self._baseline(), current) == []
+
+
+class TestDetectConflicts:
+    def test_flags_entry_changed_on_server_since_export(self):
+        baseline = {"doc-1": {"class": "durable_fact", "verification": "unverified"}}
+        server = {"doc-1": {"class": "durable_fact", "verification": "confirmed"}}  # moved
+        assert vault.detect_conflicts(baseline, server) == ["doc-1"]
+
+    def test_no_conflict_when_unchanged(self):
+        baseline = {"doc-1": {"class": "durable_fact", "verification": "unverified"}}
+        server = {"doc-1": {"class": "durable_fact", "verification": "unverified"}}
+        assert vault.detect_conflicts(baseline, server) == []
