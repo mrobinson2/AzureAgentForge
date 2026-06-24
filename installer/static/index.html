@@ -399,5 +399,83 @@ function startStream() {
   loadChecks();
 })();
 </script>
+
+<section id="cicd-setup">
+  <h2>CI/CD Setup</h2>
+  <p>One-time setup for the reference deploy pipeline: an Entra OIDC app, the
+     Terraform state backend, and GitHub variables/secrets + the
+     <code>deploy-destroy</code> approval environment. <strong>Preview first;</strong>
+     apply mutates Azure identity/RBAC and GitHub config.</p>
+
+  <label>GitHub repo (OWNER/REPO) <input id="sc-repo" placeholder="me/AzureAgentForge"></label>
+  <label>Subscription ID <input id="sc-subscription" placeholder="(current az account)"></label>
+  <label>App name <input id="sc-app-name" placeholder="aaf-deploy"></label>
+  <label>Location <input id="sc-location" placeholder="eastus"></label>
+  <label><input type="checkbox" id="sc-grant-uaa"> Grant User Access Administrator</label>
+  <label><input type="checkbox" id="sc-skip-github"> Azure only (skip GitHub)</label>
+
+  <fieldset>
+    <legend>Provider secrets (sent via env, never logged)</legend>
+    <label>GPT4O_API_KEY <input id="sc-sec-gpt4o" type="password"></label>
+    <label>AI_FOUNDRY_API_KEY <input id="sc-sec-foundry" type="password"></label>
+  </fieldset>
+
+  <button id="sc-preview">Preview</button>
+  <button id="sc-apply">Apply&#8230;</button>
+  <pre id="sc-output"></pre>
+</section>
+
+<script>
+(function () {
+  function scaffoldBody(apply, confirm) {
+    const params = {
+      repo: document.getElementById('sc-repo').value,
+      subscription: document.getElementById('sc-subscription').value,
+      app_name: document.getElementById('sc-app-name').value,
+      location: document.getElementById('sc-location').value,
+      grant_uaa: document.getElementById('sc-grant-uaa').checked,
+      skip_github: document.getElementById('sc-skip-github').checked,
+    };
+    const secrets = {};
+    const g = document.getElementById('sc-sec-gpt4o').value;
+    const f = document.getElementById('sc-sec-foundry').value;
+    if (g) secrets.GPT4O_API_KEY = g;
+    if (f) secrets.AI_FOUNDRY_API_KEY = f;
+    return { params, secrets, apply, confirm };
+  }
+
+  async function runScaffold(apply) {
+    let confirm = '';
+    if (apply) {
+      confirm = window.prompt(
+        "Apply mutates Azure identity/RBAC and GitHub config.\nType 'scaffold-apply' to proceed:"
+      );
+      if (confirm !== 'scaffold-apply') return;
+    }
+    const out = document.getElementById('sc-output');
+    out.textContent = '';
+    const resp = await fetch('/api/scaffold', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forge-token': TOKEN },
+      body: JSON.stringify(scaffoldBody(apply, confirm)),
+    });
+    if (!resp.ok) {
+      out.textContent = 'error: ' + (await resp.text());
+      return;
+    }
+    // Subscribe to the SSE stream to show live output in sc-output.
+    const es = new EventSource('/api/stream?token=' + encodeURIComponent(TOKEN));
+    es.onmessage = function(ev) {
+      out.textContent += ev.data + '\n';
+      out.scrollTop = out.scrollHeight;
+    };
+    es.addEventListener('stepend', function() { es.close(); });
+    es.onerror = function() { es.close(); };
+  }
+
+  document.getElementById('sc-preview').addEventListener('click', function() { runScaffold(false); });
+  document.getElementById('sc-apply').addEventListener('click', function() { runScaffold(true); });
+})();
+</script>
 </body>
 </html>
