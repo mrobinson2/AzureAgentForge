@@ -83,3 +83,49 @@ class TestOverBudgetRouting:
             {"tier": "phi4", "messages": [{"role": "user", "content": "hi"}]}
         )
         assert tier == "phi4"
+
+
+class TestRecordCostObservability:
+    def test_still_accumulates_with_new_kwargs(self, router, monkeypatch):
+        monkeypatch.setattr(router, "observe_genai", lambda **kw: None)
+        router._spend.clear()
+        router.record_cost("gpt4o-mini", 0.10, model="gpt-4o-mini",
+                           input_tokens=100, output_tokens=20)
+        assert router._spend["gpt4o-mini"] == pytest.approx(0.10)
+
+    def test_calls_observe_genai_with_metadata(self, router, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(
+            router, "observe_genai",
+            lambda **kw: seen.update(kw),
+        )
+        router._spend.clear()
+        router.record_cost("gpt4o-mini", 0.05, model="gpt-4o-mini",
+                           input_tokens=7, output_tokens=3, run_id="rX")
+        assert seen["tier"] == "gpt4o-mini"
+        assert seen["model"] == "gpt-4o-mini"
+        assert seen["input_tokens"] == 7
+        assert seen["output_tokens"] == 3
+        assert seen["cost_usd"] == pytest.approx(0.05)
+        assert seen["run_id"] == "rX"
+
+    def test_backward_compatible_positional_call(self, router, monkeypatch):
+        monkeypatch.setattr(router, "observe_genai", lambda **kw: None)
+        # Existing callers using record_cost(tier, cost) must still work.
+        router._spend.clear()
+        router.record_cost("gpt4o-mini", 0.02)
+        assert router._spend["gpt4o-mini"] == pytest.approx(0.02)
+
+    def test_model_fallback_uses_litellm_model_when_omitted(self, router, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(router, "observe_genai", lambda **kw: seen.update(kw))
+        router._spend.clear()
+        router.record_cost("gpt4o-mini", 0.01, input_tokens=1, output_tokens=1)
+        assert seen["model"] == router.MODELS["gpt4o-mini"]["litellm_model"]
+
+    def test_model_fallback_unknown_tier_uses_tier_name(self, router, monkeypatch):
+        seen = {}
+        monkeypatch.setattr(router, "observe_genai", lambda **kw: seen.update(kw))
+        router._spend.clear()
+        router.record_cost("unknown-tier", 0.01)
+        assert seen["model"] == "unknown-tier"

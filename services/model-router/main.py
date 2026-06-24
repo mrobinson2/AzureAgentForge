@@ -374,9 +374,17 @@ def _reset_if_new_day() -> None:
         _spend.clear()
 
 
-def record_cost(tier: str, cost: float) -> None:
+def record_cost(
+    tier: str, cost: float, *, model: str | None = None,
+    input_tokens: int = 0, output_tokens: int = 0, run_id: str | None = None,
+) -> None:
     _reset_if_new_day()
     _spend[tier] += cost
+    observe_genai(
+        tier=tier, model=model or MODELS.get(tier, {}).get("litellm_model", tier),
+        input_tokens=input_tokens, output_tokens=output_tokens,
+        cost_usd=cost, run_id=run_id,
+    )
 
 
 def is_over_budget(tier: str) -> bool:
