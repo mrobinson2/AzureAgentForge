@@ -52,3 +52,37 @@ class TestRenderNote:
         out = vault.render_note(ENTRY)
         parsed = vault.parse_note(out)  # defined in Task 3 — keep this test xfail until then
         assert parsed["id"] == "doc-1"
+
+
+import json
+
+
+class FakeClient:
+    """Stand-in for GovernorClient: serves canned list/show, records actions."""
+    def __init__(self, entries):
+        self._entries = {e["id"]: e for e in entries}
+        self.actions = []
+
+    def list_memory(self):
+        return [{"id": e["id"]} for e in self._entries.values()]
+
+    def show(self, doc_id):
+        return self._entries[doc_id]
+
+    def action(self, doc_id, body):
+        self.actions.append((doc_id, body))
+        return {"ok": True}
+
+
+class TestExport:
+    def test_writes_one_note_per_entry_plus_baseline(self, tmp_path):
+        client = FakeClient([ENTRY, {**ENTRY, "id": "doc-2", "content": "second"}])
+        written = vault.export(client, tmp_path)
+        assert written == 2
+        assert (tmp_path / "doc-1.md").exists()
+        assert (tmp_path / "doc-2.md").exists()
+        assert "symptom-first" in (tmp_path / "doc-1.md").read_text()
+        # baseline snapshot records id→{class,verification} for the diff later
+        baseline = json.loads((tmp_path / vault.BASELINE_FILE).read_text())
+        assert baseline["doc-1"]["class"] == "user_preference"
+        assert baseline["doc-1"]["verification"] == "confirmed"
