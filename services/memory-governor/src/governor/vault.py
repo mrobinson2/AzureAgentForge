@@ -6,6 +6,15 @@ so an Obsidian vault is the front-end with no UI to build."""
 
 from __future__ import annotations
 
+import json
+import os
+from pathlib import Path
+
+import httpx
+
+BASELINE_FILE = ".governor-baseline.json"
+_DEMOTE_TARGETS = ("durable_fact", "user_preference", "task_scoped", "decaying")
+
 # Frontmatter key → source field on the governor `documents` row.
 _FIELD_MAP = [
     ("id", "id"),
@@ -54,15 +63,6 @@ def render_note(entry: dict) -> str:
     return "\n".join(lines)
 
 
-import json
-import os
-from pathlib import Path
-
-import httpx
-
-BASELINE_FILE = ".governor-baseline.json"
-
-
 class GovernorClient:
     """Thin client over the governor operator API. Configured from env so it
     works both in-network (X-Governor-Key) and via the auth-proxy (Bearer)."""
@@ -78,7 +78,7 @@ class GovernorClient:
         # MEMORY_API_BASE_URL (mission-control host) + MEMORY_API_TOKEN (JWT).
         proxy = os.environ.get("MEMORY_API_BASE_URL")
         if proxy:
-            return cls(proxy, {"Authorization": f"Bearer {os.environ['MEMORY_API_TOKEN']}"}, prefix="/api")
+            return cls(proxy, {"Authorization": f"Bearer {os.environ.get('MEMORY_API_TOKEN', '')}"}, prefix="/api")
         base = os.environ.get("GOVERNOR_BASE_URL", "http://ca-memory-governor-dev")
         return cls(base, {"X-Governor-Key": os.environ.get("GOVERNOR_API_KEY", "")})
 
@@ -119,9 +119,6 @@ def export(client, vault_dir) -> int:
         count += 1
     (vault_dir / BASELINE_FILE).write_text(json.dumps(baseline, indent=2), encoding="utf-8")
     return count
-
-
-_DEMOTE_TARGETS = ("durable_fact", "user_preference", "task_scoped", "decaying")
 
 
 def parse_note(text: str) -> dict:
