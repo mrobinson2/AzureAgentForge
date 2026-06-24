@@ -126,3 +126,25 @@ class TestAnthropicCostEstimate:
     def test_none_model_falls_back_to_sonnet(self, router):
         cost = router._estimate_anthropic_cost(None, 1_000_000, 0)
         assert cost == pytest.approx(3.0)
+
+
+class TestUsageFromResult:
+    def test_extracts_tokens_and_model(self, router):
+        result = {"model": "claude-sonnet-4-6",
+                  "usage": {"prompt_tokens": 120, "completion_tokens": 34}}
+        model, inp, out = router._usage_from_result(result, fallback_tier="claude")
+        assert model == "claude-sonnet-4-6"
+        assert inp == 120
+        assert out == 34
+
+    def test_missing_usage_defaults_zero_and_tier_model(self, router):
+        result = {}
+        model, inp, out = router._usage_from_result(result, fallback_tier="gpt4o-mini")
+        assert inp == 0 and out == 0
+        # falls back to the tier's configured litellm_model (minus provider prefix)
+        assert model == "gpt-4o-mini"
+
+    def test_unregistered_fallback_tier_uses_tier_name(self, router):
+        model, inp, out = router._usage_from_result({}, fallback_tier="nonexistent-tier")
+        assert model == "nonexistent-tier"
+        assert inp == 0 and out == 0

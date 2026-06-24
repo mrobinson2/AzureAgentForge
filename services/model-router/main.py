@@ -499,6 +499,16 @@ def _estimate_anthropic_cost(model: str, input_tokens: int, output_tokens: int) 
     return (input_tokens or 0) / 1_000_000 * in_rate + (output_tokens or 0) / 1_000_000 * out_rate
 
 
+def _usage_from_result(result: dict, *, fallback_tier: str) -> tuple[str, int, int]:
+    """Pull (model, input_tokens, output_tokens) from an OpenAI-shaped result dict,
+    falling back to the tier's configured model name when the result omits it.
+    Never raises (defaults gracefully) — it runs on the model-call hot path."""
+    usage = result.get("usage") or {}
+    fallback_model = (MODELS.get(fallback_tier) or {}).get("litellm_model", fallback_tier)
+    model = result.get("model") or fallback_model.split("/", 1)[-1]
+    return model, int(usage.get("prompt_tokens", 0) or 0), int(usage.get("completion_tokens", 0) or 0)
+
+
 # ─── Routing ──────────────────────────────────────────────────────────────────
 # Map agent/persona names to model tiers. Populate via PERSONA_TIERS_JSON env
 # var at runtime (JSON object: {"my-agent": "gpt4o-mini", ...}), or extend
@@ -1176,12 +1186,21 @@ async def _call_model(tier: str, body: dict) -> dict:
 
             if is_anthropic:
                 result = await _call_anthropic_direct(tier, body)
-                # Anthropic SDK doesn't surface response_cost; skip record_cost
-                # (LiteLLM-side cost tracking is currently best-effort anyway).
+                # Anthropic SDK doesn't surface response_cost — estimate from
+                # list price so Claude calls are cost-tracked + observable (B3b).
+                _model, _in, _out = _usage_from_result(result, fallback_tier=tier)
+                record_cost(
+                    tier, _estimate_anthropic_cost(_model, _in, _out),
+                    model=_model, input_tokens=_in, output_tokens=_out,
+                )
             else:
                 response = await litellm.acompletion(**kwargs)
-                record_cost(tier, response._hidden_params.get("response_cost") or 0.0)
                 result = response.model_dump()
+                _model, _in, _out = _usage_from_result(result, fallback_tier=tier)
+                record_cost(
+                    tier, response._hidden_params.get("response_cost") or 0.0,
+                    model=_model, input_tokens=_in, output_tokens=_out,
+                )
 
             for choice in result.get("choices", []):
                 msg = choice.get("message") or {}
