@@ -242,6 +242,26 @@ def test_runner_handles_missing_binary(tmp_path):
     assert r.history[-1].status == "failed"
 
 
+def test_runner_kills_a_step_that_exceeds_timeout(tmp_path):
+    # A step that would otherwise hang (30s sleep) must be killed by the watchdog
+    # and the single-run lock released, so the console isn't wedged forever.
+    r = core.Runner()
+    r.start("slow-timeout", [sys.executable, "-c", "import time; time.sleep(30)"],
+            cwd=tmp_path, timeout=0.5)
+    _wait(r)  # _wait asserts the runner finished (i.e. it was killed, not hung)
+    assert r.history[-1].status == "failed"
+    assert not r.busy()
+
+
+def test_runner_resolves_a_default_timeout_per_step(tmp_path):
+    # A fast step under its (default) timeout completes normally.
+    r = core.Runner()
+    r.start("apply", [sys.executable, "-c", "print('ok')"], cwd=tmp_path)
+    _wait(r)
+    assert r.history[-1].status == "succeeded"
+    assert core.STEP_TIMEOUTS["apply"] >= 1800  # generous, won't kill a real apply
+
+
 # ---------------------------------------------------------------------------
 # API layer — guards (uses FastAPI TestClient when available)
 # ---------------------------------------------------------------------------
