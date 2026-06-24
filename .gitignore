@@ -28,3 +28,4 @@ __pycache__/
 node_modules/
 # os/editor
 .DS_Store
+infrastructure/modules/cloudflare-tunnel/.terraform.lock.hcl

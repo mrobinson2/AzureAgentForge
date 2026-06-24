@@ -277,3 +277,45 @@ variable "existing_vnet_resource_group" {
   type        = string
   default     = ""
 }
+
+# ── Cloudflare Tunnel (optional Terraform-managed ingress) ───────────────────
+# When cloudflare_managed = true, the cloudflare-tunnel module creates the tunnel
+# + ingress + DNS and Terraform writes the connector token into the
+# cf-tunnel-token Key Vault secret. When false (default), Cloudflare is set up
+# out-of-band and that secret is seeded by scripts/seed-keyvault.sh as today.
+variable "cloudflare_managed" {
+  description = "Manage the Cloudflare Tunnel + ingress + DNS (and the cf-tunnel-token secret) via Terraform. Requires cloudflared_enabled = true to do anything useful."
+  type        = bool
+  default     = false
+}
+
+variable "cloudflare_api_token" {
+  description = "Cloudflare API token (scopes: Account → Cloudflare Tunnel: Edit, Zone → DNS: Edit). Only used when cloudflare_managed = true."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID. Required when cloudflare_managed = true."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_zone_id" {
+  description = "Cloudflare DNS zone ID for the public hostname's domain. Required when cloudflare_managed = true."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_hostname" {
+  description = "Public hostname routed through the tunnel, e.g. app.example.com. Required when cloudflare_managed = true."
+  type        = string
+  default     = ""
+}
+
+variable "cloudflare_origin_service" {
+  description = "Internal ACA origin the tunnel proxies to. Empty defaults to the orchestrator (http://ca-paperclip-<env>); set http://ca-teams-bridge-<env> to expose the Teams bridge."
+  type        = string
+  default     = ""
+}
