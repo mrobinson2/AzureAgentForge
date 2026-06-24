@@ -47,6 +47,21 @@ approved is exactly what is applied, with no re-plan in between.
 
 ## One-time setup
 
+All of this is scriptable — `scripts/scaffold-cicd.sh` does the whole one-time
+setup in one idempotent, **preview-first** command: the Azure OIDC app + role +
+federated credential and the Terraform state backend (steps 1–2), then the GitHub
+repo variables, the provider secrets you've set in your env, and the
+`deploy-destroy` environment with reviewers (steps 2–3):
+
+```bash
+scripts/scaffold-cicd.sh --repo OWNER/REPO                       # preview — changes nothing
+CLAUDE_API_KEY=... scripts/scaffold-cicd.sh --repo OWNER/REPO --apply   # create + set everything
+```
+
+Secret values are read from like-named env vars and piped via stdin (never
+printed); `--skip-github` does only the Azure half. The steps below remain the
+source of truth for what it sets and why.
+
 ### 1. Federated (OIDC) Azure credentials - no stored secrets
 
 Create an Entra ID app registration + service principal, grant it `Contributor`
