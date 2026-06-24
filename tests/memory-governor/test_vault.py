@@ -155,3 +155,41 @@ class TestDetectConflicts:
         baseline = {"doc-1": {"class": "durable_fact", "verification": "unverified"}}
         server = {"doc-1": {"class": "durable_fact", "verification": "unverified"}}
         assert vault.detect_conflicts(baseline, server) == []
+
+
+class TestSync:
+    def _seed_vault(self, tmp_path, entries):
+        client = FakeClient(entries)
+        vault.export(client, tmp_path)
+        return client
+
+    def test_deleting_a_note_applies_rm(self, tmp_path):
+        client = self._seed_vault(tmp_path, [ENTRY, {**ENTRY, "id": "doc-2", "content": "x"}])
+        (tmp_path / "doc-2.md").unlink()  # operator deletes the note
+        result = vault.sync(client, tmp_path, actor="operator")
+        assert ("doc-2", {"action": "rm", "actor": "operator"}) in client.actions
+        assert result["applied"] == 1
+        assert result["conflicts"] == []
+
+    def test_confirm_via_frontmatter_edit(self, tmp_path):
+        unconf = {**ENTRY, "verification_state": "unverified"}
+        client = self._seed_vault(tmp_path, [unconf])
+        # operator edits the note's frontmatter to confirmed
+        note = (tmp_path / "doc-1.md").read_text().replace(
+            "verification: unverified", "verification: confirmed")
+        (tmp_path / "doc-1.md").write_text(note)
+        vault.sync(client, tmp_path, actor="operator")
+        assert any(a == ("doc-1", {"action": "confirm", "actor": "operator"}) for a in client.actions)
+
+    def test_conflict_is_skipped_and_reported(self, tmp_path):
+        unconf = {**ENTRY, "verification_state": "unverified"}
+        client = self._seed_vault(tmp_path, [unconf])
+        # server moved doc-1 to confirmed AFTER export (someone else changed it)
+        client._entries["doc-1"]["verification_state"] = "confirmed"
+        # operator tries to dispute it locally
+        note = (tmp_path / "doc-1.md").read_text().replace(
+            "verification: unverified", "verification: disputed")
+        (tmp_path / "doc-1.md").write_text(note)
+        result = vault.sync(client, tmp_path, actor="operator")
+        assert result["conflicts"] == ["doc-1"]
+        assert client.actions == []  # nothing applied for the conflicted doc
