@@ -20,8 +20,9 @@ The `.gitignore` excludes `.env`, `.env.*`, `*.tfvars`, `*.pem`, `*.key`, and th
 `.env.example` lists every variable the platform needs, with Key Vault secret names annotated inline. For example:
 
 ```
-# Key Vault secrets: platform-azure-foundry-endpoint
-AZURE_FOUNDRY_ENDPOINT=https://your-endpoint.openai.azure.com/
+# Key Vault secret: gpt4o-api-key   (the endpoint is the ai_foundry_endpoint
+#                                    Terraform variable, not a Key Vault secret)
+AZURE_FOUNDRY_API_KEY=<your-foundry-key>
 ```
 
 The Terraform modules reference Key Vault secret IDs at deploy time; the actual values are never written to Terraform state in plaintext.

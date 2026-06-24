@@ -176,6 +176,19 @@ LLM token usage is billed separately and is not included in those figures.
 
 ### 5. Plan and apply
 
+> **First deploy?** The Key Vault module reads `postgres-admin-password` as a
+> data source, so the *first* `terraform plan` fails until that secret exists.
+> The simplest path is the one-time bootstrap, which creates the vault, seeds the
+> secret, and runs the full apply for you:
+>
+> ```bash
+> scripts/bootstrap.sh --apply
+> ```
+>
+> Prefer to drive Terraform by hand? Seed `postgres-admin-password` first (see
+> [deploy-pipeline.md](deploy-pipeline.md#first-deploy-a-one-time-key-vault-bootstrap)),
+> then the commands below are your steady-state loop.
+
 ```bash
 terraform plan \
   -var-file=../../profiles/cost-optimized.tfvars \
@@ -219,23 +232,29 @@ Image build, push, and service startup are automated in v1.2 via
 
 ### 6. Seed Key Vault secrets
 
-After apply, the Container Apps pull secrets from Key Vault by name. Seed
-them with the `az` CLI:
+After apply, the Container Apps pull secrets from Key Vault by name. Seed them
+with [`scripts/seed-keyvault.sh`](../scripts/seed-keyvault.sh) — it generates the
+internal secrets (JWT keys, admin passwords) and reads external ones (provider
+keys, bot tokens, the Postgres connection strings) from like-named environment
+variables:
 
 ```bash
 KV=$(terraform output -raw key_vault_name)
 
-az keyvault secret set --vault-name "$KV" \
-  --name platform-azure-foundry-endpoint \
-  --value "https://<your-project>.openai.azure.com/"
-
-az keyvault secret set --vault-name "$KV" \
-  --name platform-azure-foundry-api-key \
-  --value "<your-key>"
+# Pass the keys/tokens you have; an unset external gets a non-empty `__unset__`
+# placeholder and stays inert until you set it and re-run. The Postgres
+# connection strings are a SECOND pass — they can only be known now that the
+# database exists, so derive them from your Postgres resource.
+AI_FOUNDRY_API_KEY="<your-key>" \
+POSTGRES_CONNECTION_STRING="<from your Postgres resource>" \
+PAPERCLIP_DB_URL="<from your Postgres resource>" \
+  scripts/seed-keyvault.sh -v "$KV"
 ```
 
-Repeat for any additional model endpoints you enabled (see `.env.example` for
-the full list of secret names, each annotated with its Key Vault secret name).
+`scripts/seed-keyvault.sh --list` prints the full inventory and the env var each
+secret reads. Note the Azure AI Foundry **endpoint** is *not* a Key Vault secret
+— it's the `ai_foundry_endpoint` Terraform variable (set in `terraform.tfvars`
+or the Forge form); only the API key (`ai-foundry-api-key`) is a secret.
 
 ### 7. After deploy
 
@@ -252,6 +271,8 @@ From here, the same steps as the local path apply:
 - Add or modify agents: [`../agents/README.md`](../agents/README.md)
 - Enable Telegram: [`../integrations/telegram/README.md`](../integrations/telegram/README.md)
 - Enable Discord: [`../integrations/discord/README.md`](../integrations/discord/README.md)
+- Enable Teams: [`../integrations/teams/README.md`](../integrations/teams/README.md)
+- Public ingress / a chat surface going live (e.g. Teams) needs a Cloudflare tunnel + DNS — managed by the `cloudflare-tunnel` Terraform module under `infrastructure/modules/`.
 
 ---
 
