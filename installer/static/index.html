@@ -123,10 +123,13 @@
         </select>
         <label>Azure AI Foundry endpoint <span class="dim">(optional — can set later)</span></label>
         <input type="text" id="foundry" placeholder="https://your-project.openai.azure.com/">
+        <div class="note">Your Foundry / AI-Services resource's endpoint: Azure Portal → the resource → <b>Endpoint</b>. Leave blank to wire a model later.</div>
         <label>Foundry deployment id <span class="dim">(optional)</span></label>
         <input type="text" id="foundryDeployment" value="gpt-4o-mini" placeholder="gpt-4o-mini">
+        <div class="note">The <b>name of a model deployment</b> you created in Foundry (e.g. <code>gpt-4o-mini</code>) — a deployment name, not a GUID. List yours: <code>az cognitiveservices account deployment list -n &lt;foundry&gt; -g &lt;rg&gt; -o table</code></div>
         <label>Container image tag <span class="dim">(optional — applies to all services; blank = "latest")</span></label>
         <input type="text" id="imageTag" placeholder="e.g. a git SHA like 9bf1a51, or latest">
+        <div class="note">The short git SHA <code>scripts/build-and-push.sh</code> prints after pushing images (e.g. <code>9bf1a51</code>). Blank uses <code>latest</code>.</div>
         <label>Key Vault admin object IDs <span class="dim">(your Azure AD object ID; comma-separated for more — needed to seed secrets)</span></label>
         <input type="text" id="kvAdmins" placeholder="az ad signed-in-user show --query id -o tsv">
         <div class="chk"><input type="checkbox" id="telegram"><label for="telegram" style="margin:0">Enable Telegram surface</label></div>
@@ -145,6 +148,8 @@
       <div class="head" onclick="open_('deploy')"><div class="num">3</div>
         <div class="title">Deploy to Azure</div></div>
       <div class="body">
+        <div class="note" style="margin:0 0 10px">Target environment:
+        <b id="deployEnvName">dev</b> <span class="dim">— set in step 2 (Configure)</span></div>
         <div class="btns">
           <button class="secondary" onclick="run('init')">init</button>
           <button class="secondary" onclick="run('validate')">validate</button>
@@ -153,6 +158,12 @@
         </div>
         <div class="note">Run <b>plan</b> and read it before <b>apply</b>. Apply creates real,
         billable Azure resources (see docs/cost.md for what to expect).</div>
+        <div class="note"><b>First deploy?</b> The Key Vault module reads
+        <code>postgres-admin-password</code> as a data source, so the very first
+        <code>plan</code> fails until the vault is seeded. Run the one-time bootstrap from a
+        terminal first: <code>scripts/bootstrap.sh --apply</code> (creates the vault + seeds the
+        secret), then come back and <code>plan</code>/<code>apply</code> here. See
+        docs/deploy-pipeline.md.</div>
         <div class="btns" style="margin-top:18px">
           <button class="secondary" onclick="run('output')">show outputs</button>
           <button class="danger" onclick="confirmRun('destroy')">destroy</button>
@@ -291,6 +302,7 @@ async function writeConfig() {
   try {
     const r = await api('/api/config', { method: 'POST', body: configBody(false) });
     ENV_NAME = $('environment').value.trim() || 'dev';
+    $('deployEnvName').textContent = ENV_NAME;
     $('configPreview').innerHTML =
       `<div class="preview">${r.preview.replace(/</g,'&lt;')}</div>` +
       `<div class="note ok">✔ written — profile: ${r.profile_file.split('/').pop()}</div>`;
@@ -312,11 +324,17 @@ async function run(step, confirm = '', approve_destroy = '') {
 }
 
 async function confirmRun(step) {
+  // ENV_NAME is set when you Write configuration, and matches the environment the
+  // server validates the typed token against (_last_config.environment). Don't
+  // re-read the live field here — an edit that wasn't re-written would show a name
+  // the server doesn't expect.
   $('confirmTitle').textContent = 'Confirm ' + step;
-  $('confirmText').textContent = step === 'apply'
-    ? 'Apply creates real, billable Azure resources from the saved plan. Type the environment name to continue.'
-    : 'Destroy permanently removes every resource Terraform manages in this environment. Type the environment name to continue.';
+  $('confirmText').innerHTML = (step === 'apply'
+    ? 'Apply creates real, billable Azure resources from the saved plan. '
+    : 'Destroy permanently removes every resource Terraform manages in this environment. ')
+    + 'Type the environment name <code>' + ENV_NAME + '</code> to continue.';
   $('confirmInput').value = '';
+  $('confirmInput').placeholder = ENV_NAME;
   $('confirmGo').onclick = () => {
     document.getElementById('confirmDialog').close();
     run(step, $('confirmInput').value.trim());
@@ -357,7 +375,11 @@ function startStream() {
     const last = st.history[st.history.length - 1];
     if (last) setStatus(last.status, `${last.step} ${last.status}`);
     if (last && last.status === 'succeeded' && last.step === 'apply') {
-      logLine('[forge] 🎉 deployment applied — run "show outputs" for service endpoints', 'ok');
+      logLine('[forge] 🎉 deployment applied. Next steps:', 'ok');
+      logLine('[forge]   1. "show outputs" for service endpoints + the Key Vault name.', 'meta');
+      logLine('[forge]   2. Seed real provider keys + the Postgres connection strings (pass 2):', 'meta');
+      logLine('[forge]      POSTGRES_CONNECTION_STRING=... scripts/seed-keyvault.sh -v <vault>, then restart the apps.', 'meta');
+      logLine('[forge]   3. Enable a chat surface (Telegram/Discord/Teams) — see docs/getting-started.md.', 'meta');
       markDone('deploy');
     }
   });
