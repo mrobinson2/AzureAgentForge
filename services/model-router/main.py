@@ -476,6 +476,29 @@ def observe_genai(
         log.debug("observe_genai swallowed: %s", e)
 
 
+# Anthropic list-price per-million-token rates (input, output). The Anthropic SDK
+# does not return response_cost, so cost on this path is a LIST-PRICE ESTIMATE,
+# not a billed figure. Substring match on the model name — place MORE-SPECIFIC keys
+# first so they win. The "claude-haiku" rate assumes 3.5 Haiku; older/cheaper Haiku
+# versions would be over-estimated. Source: anthropic.com/pricing (verified 2026-06-24).
+_ANTHROPIC_PRICING_PER_MTOK: dict[str, tuple[float, float]] = {
+    "claude-opus": (15.0, 75.0),
+    "claude-sonnet": (3.0, 15.0),
+    "claude-haiku": (0.80, 4.0),
+}
+
+
+def _estimate_anthropic_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+    """List-price estimate in USD for an Anthropic call. Defaults to sonnet rates.
+    Input/output tokens only — cache-read/write tokens are excluded from the estimate."""
+    name = (model or "").lower()
+    in_rate, out_rate = next(
+        (rates for key, rates in _ANTHROPIC_PRICING_PER_MTOK.items() if key in name),
+        _ANTHROPIC_PRICING_PER_MTOK["claude-sonnet"],
+    )
+    return (input_tokens or 0) / 1_000_000 * in_rate + (output_tokens or 0) / 1_000_000 * out_rate
+
+
 # ─── Routing ──────────────────────────────────────────────────────────────────
 # Map agent/persona names to model tiers. Populate via PERSONA_TIERS_JSON env
 # var at runtime (JSON object: {"my-agent": "gpt4o-mini", ...}), or extend

@@ -93,3 +93,36 @@ class TestObserveGenai:
         assert recorded["gen_ai.request.model"] == "gpt-4o-mini"
         assert recorded["gen_ai.usage.input_tokens"] == 5
         assert recorded["agent.run_id"] == "r9"
+
+
+class TestAnthropicCostEstimate:
+    def test_sonnet_rates(self, router):
+        # 1,000,000 input @ $3 + 1,000,000 output @ $15 = $18.00 (sonnet list price)
+        cost = router._estimate_anthropic_cost("claude-sonnet-4-6", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(18.0)
+
+    def test_opus_rates(self, router):
+        # 1,000,000 input @ $15 + 1,000,000 output @ $75 = $90.00
+        cost = router._estimate_anthropic_cost("claude-opus-4-8", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(90.0)
+
+    def test_partial_tokens(self, router):
+        # 100 input + 50 output on sonnet = 100/1e6*3 + 50/1e6*15
+        cost = router._estimate_anthropic_cost("claude-sonnet-4-6", 100, 50)
+        assert cost == pytest.approx(100 / 1e6 * 3 + 50 / 1e6 * 15)
+
+    def test_unknown_model_falls_back_to_sonnet(self, router):
+        cost = router._estimate_anthropic_cost("some-future-claude", 1_000_000, 0)
+        assert cost == pytest.approx(3.0)
+
+    def test_haiku_rates(self, router):
+        # 1M input @ $0.80 + 1M output @ $4.00 = $4.80 (3.5 Haiku list price)
+        cost = router._estimate_anthropic_cost("claude-haiku-3-5", 1_000_000, 1_000_000)
+        assert cost == pytest.approx(4.80)
+
+    def test_zero_tokens(self, router):
+        assert router._estimate_anthropic_cost("claude-sonnet-4-6", 0, 0) == pytest.approx(0.0)
+
+    def test_none_model_falls_back_to_sonnet(self, router):
+        cost = router._estimate_anthropic_cost(None, 1_000_000, 0)
+        assert cost == pytest.approx(3.0)
