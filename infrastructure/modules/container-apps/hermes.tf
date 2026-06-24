@@ -427,6 +427,15 @@ resource "azurerm_container_app" "hermes" {
       }
       # LITELLM_LOG=DEBUG removed — dumps full request/response payloads including tokens
 
+      env {
+        name  = "OBSERVABILITY_ENABLED"
+        value = var.observability_enabled ? "true" : "false"
+      }
+      env {
+        name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        value = var.app_insights_connection_string
+      }
+
       # ── Startup probe ────────────────────────────────────────────────────────
       # Runs INSTEAD of liveness during initial startup. ACA will not kill the
       # container for liveness failures until this probe succeeds once.

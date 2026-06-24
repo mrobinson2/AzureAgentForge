@@ -265,6 +265,11 @@ variable "memory_planner_agent_allowlist" {
   default     = ""
 }
 
+variable "observability_enabled" {
+  description = "Emit GenAI-semconv spans from the model-router to App Insights. Off by default; flip to true in dev.auto.tfvars to activate."
+  type        = bool
+  default     = false
+}
 
 variable "existing_vnet_name" {
   description = "Bring-your-own-VNet: deploy into this existing VNet (e.g. an ALZ-vended one) instead of creating one. Empty creates a new VNet."

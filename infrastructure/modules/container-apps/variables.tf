@@ -162,6 +162,12 @@ variable "app_insights_connection_string" {
   sensitive   = true
 }
 
+variable "observability_enabled" {
+  description = "Emit GenAI-semconv spans from the model-router to App Insights."
+  type        = bool
+  default     = false
+}
+
 # Legacy gateway variables (can be removed after migration)
 variable "gateway_image" {
   description = "Gateway container image (full path with tag)"

@@ -159,6 +159,10 @@ module "container_apps" {
   memory_governor_enabled        = var.memory_governor_enabled
   memory_planner_agent_allowlist = var.memory_planner_agent_allowlist
 
+  # OTel tracing from the model-router sidecar → App Insights (B3 observability).
+  # Off by default; flip observability_enabled=true in dev.auto.tfvars to activate.
+  observability_enabled = var.observability_enabled
+
 }
 
 # Monitoring Module
