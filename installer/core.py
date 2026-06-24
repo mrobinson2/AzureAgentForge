@@ -261,6 +261,44 @@ def build_step_command(step: str, profile: str, tf_dir: Path = TF_DIR,
     return commands[step]
 
 
+_REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+
+
+def build_scaffold_command(params: dict, repo_root: Path = REPO_ROOT) -> list[str]:
+    """Map validated UI params to a scripts/scaffold-cicd.sh invocation.
+
+    Preview-first: `--apply` is only added when params['apply'] is truthy.
+    Provider-key SECRETS are NOT handled here — they pass via the subprocess
+    environment (see /api/scaffold), so nothing secret ever lands on argv."""
+    repo = (params.get("repo") or "").strip()
+    if repo and not _REPO_RE.match(repo):
+        raise ValueError(f"invalid repo (want OWNER/REPO): {repo!r}")
+
+    cmd = ["bash", str((repo_root / "scripts" / "scaffold-cicd.sh").resolve())]
+
+    str_flags = {
+        "repo": "--repo", "subscription": "--subscription", "app_name": "--app-name",
+        "location": "--location", "state_rg": "--state-rg",
+        "state_account": "--state-account", "state_container": "--state-container",
+        "registry": "--registry", "key_vault": "--key-vault",
+        "smoke_url": "--smoke-url", "reviewers": "--reviewers",
+    }
+    for key, flag in str_flags.items():
+        val = (params.get(key) or "").strip()
+        if val:
+            cmd += [flag, val]
+
+    bool_flags = {
+        "grant_uaa": "--grant-uaa", "environment_subject": "--environment-subject",
+        "skip_github": "--skip-github", "apply": "--apply",
+    }
+    for key, flag in bool_flags.items():
+        if params.get(key):
+            cmd.append(flag)
+
+    return cmd
+
+
 # Steps that change real infrastructure or remove resources. The API layer
 # requires a typed confirmation (the environment name) before running these.
 DANGEROUS_STEPS = {"apply", "destroy", "compose-down"}
