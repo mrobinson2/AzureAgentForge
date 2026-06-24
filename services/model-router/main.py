@@ -384,6 +384,37 @@ def is_over_budget(tier: str) -> bool:
     return _spend.get(tier, 0.0) >= MODELS[tier]["daily_budget"]
 
 
+# ─── Observability (GenAI semconv) ────────────────────────────────────────────
+# One OTel span per model call with GenAI semantic-convention attributes, behind
+# OBSERVABILITY_ENABLED (default off), content-redacted (no prompt/response text).
+# `gen_ai.*` are the OTel standard attributes; `agent.*` are this repo's custom
+# additions (tier + optional run id).
+
+def _genai_system(tier: str) -> str:
+    """gen_ai.system: 'anthropic' for Anthropic-dispatched tiers, else Foundry."""
+    # _is_anthropic_tier is defined near _call_anthropic_direct (Anthropic-direct section).
+    return "anthropic" if _is_anthropic_tier(tier) else "az.ai.foundry"
+
+
+def genai_semconv_attrs(
+    *, tier: str, model: str, input_tokens: int, output_tokens: int,
+    cost_usd: float, run_id: str | None = None,
+) -> dict[str, object]:
+    """Pure mapping → OTel GenAI-semconv span attributes. No I/O."""
+    attrs: dict[str, object] = {
+        "gen_ai.operation.name": "chat",
+        "gen_ai.system": _genai_system(tier),
+        "gen_ai.request.model": model or tier,
+        "gen_ai.usage.input_tokens": max(0, int(input_tokens or 0)),
+        "gen_ai.usage.output_tokens": max(0, int(output_tokens or 0)),
+        "gen_ai.usage.cost_usd": max(0.0, round(float(cost_usd or 0.0), 6)),
+        "agent.tier": tier,
+    }
+    if run_id:
+        attrs["agent.run_id"] = run_id
+    return attrs
+
+
 # ─── Routing ──────────────────────────────────────────────────────────────────
 # Map agent/persona names to model tiers. Populate via PERSONA_TIERS_JSON env
 # var at runtime (JSON object: {"my-agent": "gpt4o-mini", ...}), or extend

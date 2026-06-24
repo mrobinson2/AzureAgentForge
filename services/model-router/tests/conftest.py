@@ -28,6 +28,9 @@ os.environ.setdefault("GPT4O_BASE_URL", "http://localhost:8888")
 os.environ.setdefault("GPT4O_API_KEY", "test-key")
 os.environ.setdefault("PHI_BASE_URL", "http://localhost:9999")
 os.environ.setdefault("PHI_API_KEY", "test-phi-key")
+os.environ.setdefault("CLAUDE_BASE_URL", "http://localhost:7777")
+os.environ.setdefault("CLAUDE_API_KEY", "test-claude-key")
+os.environ.setdefault("CLAUDE_MODEL", "claude")
 
 
 @pytest.fixture
