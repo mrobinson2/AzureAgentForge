@@ -18,6 +18,7 @@ import os
 from typing import Any, Callable, Optional
 
 import httpx
+import jwt
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
@@ -26,7 +27,79 @@ PAPERCLIP_COMPANY_ID = os.getenv("PAPERCLIP_COMPANY_ID", "")
 PAPERCLIP_API_KEY = os.getenv("PAPERCLIP_API_KEY", "")
 ORCHESTRATOR_AGENT_ID = os.getenv("ORCHESTRATOR_AGENT_ID", "")
 
+# ── Bot Framework JWT validation ─────────────────────────────────────────────
+# Inbound Teams traffic arrives via the Azure Bot Service with an
+# `Authorization: Bearer <JWT>` issued by Bot Framework. Validate it before
+# acting on the activity: RS256 signature (keys from the Bot Framework JWKS),
+# issuer, audience (= this bot's Microsoft App ID), and expiry. Enforced when
+# TEAMS_APP_ID is set; with it unset the endpoint is unauthenticated (local/dev
+# only) and logs a warning. TEAMS_AUTH_DISABLED=1 is an explicit local escape.
+TEAMS_APP_ID = os.getenv("TEAMS_APP_ID", "")
+TEAMS_AUTH_DISABLED = os.getenv("TEAMS_AUTH_DISABLED", "").lower() in ("1", "true", "yes")
+BOT_FRAMEWORK_ISSUER = os.getenv("BOT_FRAMEWORK_ISSUER", "https://api.botframework.com")
+BOT_FRAMEWORK_OPENID = os.getenv(
+    "BOT_FRAMEWORK_OPENID_CONFIG",
+    "https://login.botframework.com/v1/.well-known/openidconfiguration",
+)
+
 app = FastAPI(title="teams-bridge", version="1.0.0")
+
+
+class AuthError(Exception):
+    """Raised when an inbound request fails Bot Framework JWT validation."""
+
+
+def bearer_token(authorization: str) -> Optional[str]:
+    """Extract the token from an `Authorization: Bearer <token>` header."""
+    if not authorization or not authorization.startswith("Bearer "):
+        return None
+    token = authorization[len("Bearer "):].strip()
+    return token or None
+
+
+def verify_jwt(token: str, app_id: str, signing_key: Any, *,
+               issuer: str = BOT_FRAMEWORK_ISSUER, leeway: int = 300) -> dict:
+    """Validate a Bot Framework JWT given its signing key. Pure (no network) —
+    checks RS256 signature, issuer, audience (= the bot's App ID), and expiry,
+    and requires those claims be present. Raises AuthError on any failure. The
+    JWKS fetch that resolves the key lives in `_signing_key_for`."""
+    try:
+        return jwt.decode(
+            token, signing_key, algorithms=["RS256"], audience=app_id,
+            issuer=issuer, leeway=leeway,
+            options={"require": ["exp", "iss", "aud"]},
+        )
+    except jwt.PyJWTError as exc:  # bad signature / aud / iss / expired / malformed
+        raise AuthError(str(exc)) from exc
+
+
+_jwks_client: Any = None
+
+
+def _signing_key_for(token: str) -> Any:
+    """Resolve the RSA signing key for a token from the Bot Framework JWKS
+    (cached PyJWKClient). Network — not exercised by the offline tests."""
+    global _jwks_client
+    if _jwks_client is None:
+        meta = httpx.get(BOT_FRAMEWORK_OPENID, timeout=10.0).json()
+        _jwks_client = jwt.PyJWKClient(meta["jwks_uri"])
+    return _jwks_client.get_signing_key_from_jwt(token).key
+
+
+def authenticate(authorization: str) -> None:
+    """Enforce Bot Framework auth on an inbound request when configured. No-op
+    (with a warning) when TEAMS_APP_ID is unset, or when TEAMS_AUTH_DISABLED."""
+    if TEAMS_AUTH_DISABLED:
+        return
+    if not TEAMS_APP_ID:
+        print("[teams-bridge] WARNING: TEAMS_APP_ID unset — /api/messages is "
+              "UNAUTHENTICATED. Set TEAMS_APP_ID (the bot's Microsoft App ID) "
+              "before exposing this endpoint.")
+        return
+    token = bearer_token(authorization)
+    if not token:
+        raise AuthError("missing bearer token")
+    verify_jwt(token, TEAMS_APP_ID, _signing_key_for(token))
 
 
 def parse_activity(body: Any) -> Optional[dict]:
@@ -106,6 +179,12 @@ def health() -> dict:
 
 @app.post("/api/messages")
 async def messages(request: Request) -> JSONResponse:
+    # Authenticate the Bot Framework caller first (401, not 5xx — Bot Framework
+    # treats 401 as "re-auth", and never retry-storms on it the way it does 5xx).
+    try:
+        authenticate(request.headers.get("authorization", ""))
+    except AuthError:
+        return JSONResponse({"error": "unauthorized"}, status_code=401)
     body = await request.json()
     parsed = parse_activity(body)
     if parsed is None:
