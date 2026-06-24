@@ -66,6 +66,8 @@ def _isolate_router_state():
     personas_snapshot = dict(main.PERSONA_TIERS)
     spend_snapshot = dict(main._spend)
     budget_date_snapshot = main._budget_date
+    tracer_snapshot = main._tracer
+    tracer_initialised_snapshot = main._tracer_initialised
 
     yield
 
@@ -78,6 +80,8 @@ def _isolate_router_state():
     main._spend.clear()
     main._spend.update(spend_snapshot)
     main._budget_date = budget_date_snapshot
+    main._tracer = tracer_snapshot
+    main._tracer_initialised = tracer_initialised_snapshot
     main._rate_windows.clear()
 
 

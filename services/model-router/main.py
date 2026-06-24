@@ -415,6 +415,59 @@ def genai_semconv_attrs(
     return attrs
 
 
+OBSERVABILITY_ENABLED = os.environ.get("OBSERVABILITY_ENABLED", "").strip().lower() in (
+    "1", "true", "yes",
+)
+
+_tracer = None
+_tracer_initialised = False
+
+
+def _init_tracer():
+    """Lazily configure the Azure Monitor OTel tracer once. Returns the tracer or
+    None when no connection string is set or setup fails. Swap point: replace the
+    configure_azure_monitor call with any OTLP exporter for a non-Azure backend."""
+    global _tracer, _tracer_initialised
+    if _tracer_initialised:
+        return _tracer
+    _tracer_initialised = True
+    conn = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
+    if not conn:
+        return None
+    try:
+        from azure.monitor.opentelemetry import configure_azure_monitor
+        from opentelemetry import trace
+        configure_azure_monitor(connection_string=conn)
+        _tracer = trace.get_tracer("model-router")
+    except Exception as e:  # pragma: no cover - requires live azure.monitor SDK
+        log.warning("observability: tracer init failed, disabling: %s", e)
+        _tracer = None
+    return _tracer
+
+
+def observe_genai(
+    *, tier: str, model: str, input_tokens: int, output_tokens: int,
+    cost_usd: float, run_id: str | None = None,
+) -> None:
+    """Emit one GenAI-semconv span. Flag-gated and FAIL-OPEN: any telemetry error
+    is swallowed so it can never break a model call (the router is on every call)."""
+    if not OBSERVABILITY_ENABLED:
+        return
+    try:
+        tracer = _init_tracer()
+        if tracer is None:
+            return
+        attrs = genai_semconv_attrs(
+            tier=tier, model=model, input_tokens=input_tokens,
+            output_tokens=output_tokens, cost_usd=cost_usd, run_id=run_id,
+        )
+        with tracer.start_as_current_span("gen_ai.chat") as span:
+            for k, v in attrs.items():
+                span.set_attribute(k, v)
+    except Exception as e:  # fail-open: never surface telemetry errors
+        log.debug("observe_genai swallowed: %s", e)
+
+
 # ─── Routing ──────────────────────────────────────────────────────────────────
 # Map agent/persona names to model tiers. Populate via PERSONA_TIERS_JSON env
 # var at runtime (JSON object: {"my-agent": "gpt4o-mini", ...}), or extend
