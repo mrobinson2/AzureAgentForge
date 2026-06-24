@@ -161,6 +161,43 @@ def run_step(body: RunBody, request: Request) -> dict:
     return {"started": run.step}
 
 
+SCAFFOLD_APPLY_TOKEN = "scaffold-apply"
+
+
+class ScaffoldBody(BaseModel):
+    params: dict = {}
+    secrets: dict[str, str] = {}
+    apply: bool = False
+    confirm: str = ""
+
+
+@app.post("/api/scaffold")
+def scaffold(body: ScaffoldBody, request: Request) -> dict:
+    """Run scripts/scaffold-cicd.sh (CI/CD one-time setup), streamed.
+
+    Preview-first: without apply it changes nothing. An apply mutates Azure
+    identity/RBAC and GitHub repo config, so it requires a distinct typed token.
+    Provider-key secrets pass via the subprocess environment, never on argv."""
+    _guard(request)
+    if body.apply and body.confirm != SCAFFOLD_APPLY_TOKEN:
+        raise HTTPException(
+            428,
+            f"type '{SCAFFOLD_APPLY_TOKEN}' to run scaffold with --apply "
+            "(it mutates Azure identity/RBAC and GitHub config)",
+        )
+    params = {**body.params, "apply": body.apply}
+    try:
+        cmd = core.build_scaffold_command(params)
+    except ValueError as e:
+        raise HTTPException(422, str(e))
+    env = {k: str(v) for k, v in (body.secrets or {}).items() if v}
+    try:
+        run = runner.start("scaffold", cmd, env=env)
+    except RuntimeError as e:
+        raise HTTPException(409, str(e))
+    return {"started": run.step, "preview": not body.apply}
+
+
 @app.get("/api/state")
 def state(request: Request) -> dict:
     _guard(request)

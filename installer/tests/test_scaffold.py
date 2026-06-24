@@ -77,3 +77,72 @@ class TestRunnerEnv:
         _wait_done(run)
         assert run.status == "succeeded"
         assert any("ok" in line for line in run.lines)
+
+
+from fastapi.testclient import TestClient
+
+from installer import app as appmod  # noqa: E402
+
+
+def _client_and_headers():
+    return TestClient(appmod.app), {"x-forge-token": appmod.SESSION_TOKEN}
+
+
+class TestScaffoldEndpoint:
+    def test_preview_wires_command_and_env(self, monkeypatch):
+        captured = {}
+
+        def fake_start(step, cmd, cwd=appmod.core.REPO_ROOT, timeout=None, env=None):
+            captured.update(step=step, cmd=cmd, env=env)
+            run = appmod.core.StepRun(step=step)
+            return run
+
+        monkeypatch.setattr(appmod.runner, "start", fake_start)
+        client, headers = _client_and_headers()
+        resp = client.post("/api/scaffold", headers=headers, json={
+            "params": {"repo": "me/proj"},
+            "secrets": {"GPT4O_API_KEY": "super-secret"},
+        })
+        assert resp.status_code == 200
+        assert resp.json()["preview"] is True
+        assert "--apply" not in captured["cmd"]
+        assert "super-secret" not in captured["cmd"]          # secret not on argv
+        assert captured["env"]["GPT4O_API_KEY"] == "super-secret"  # secret via env
+
+    def test_apply_requires_confirmation_token(self, monkeypatch):
+        def boom(*a, **k):
+            raise AssertionError("runner.start must not be called without confirmation")
+
+        monkeypatch.setattr(appmod.runner, "start", boom)
+        client, headers = _client_and_headers()
+        resp = client.post("/api/scaffold", headers=headers, json={
+            "params": {"repo": "me/proj"}, "apply": True,
+        })
+        assert resp.status_code == 428
+        assert appmod.SCAFFOLD_APPLY_TOKEN in resp.json()["detail"]
+
+    def test_apply_runs_with_correct_token(self, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(
+            appmod.runner, "start",
+            lambda step, cmd, cwd=appmod.core.REPO_ROOT, timeout=None, env=None:
+                (captured.update(cmd=cmd) or appmod.core.StepRun(step=step)),
+        )
+        client, headers = _client_and_headers()
+        resp = client.post("/api/scaffold", headers=headers, json={
+            "params": {"repo": "me/proj"}, "apply": True,
+            "confirm": appmod.SCAFFOLD_APPLY_TOKEN,
+        })
+        assert resp.status_code == 200
+        assert "--apply" in captured["cmd"]
+
+    def test_invalid_repo_returns_422(self, monkeypatch):
+        monkeypatch.setattr(appmod.runner, "start", lambda *a, **k: None)
+        client, headers = _client_and_headers()
+        resp = client.post("/api/scaffold", headers=headers, json={"params": {"repo": "bad"}})
+        assert resp.status_code == 422
+
+    def test_requires_session_token(self):
+        client, _ = _client_and_headers()
+        resp = client.post("/api/scaffold", json={"params": {"repo": "me/proj"}})
+        assert resp.status_code == 401
