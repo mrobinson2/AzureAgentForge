@@ -193,3 +193,16 @@ class TestSync:
         result = vault.sync(client, tmp_path, actor="operator")
         assert result["conflicts"] == ["doc-1"]
         assert client.actions == []  # nothing applied for the conflicted doc
+
+
+class TestCli:
+    def test_export_dispatch_calls_export(self, tmp_path, monkeypatch):
+        calls = {}
+        monkeypatch.setattr(vault, "_client_from_env", lambda: "CLIENT")
+        monkeypatch.setattr(vault, "export", lambda client, d: calls.setdefault("export", (client, str(d))) or 3)
+        rc = vault.main(["export", str(tmp_path)])
+        assert rc == 0
+        assert calls["export"] == ("CLIENT", str(tmp_path))
+
+    def test_unknown_command_returns_2(self):
+        assert vault.main(["frobnicate", "x"]) == 2
