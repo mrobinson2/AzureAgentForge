@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.2-blue" alt="Release v1.2"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.3-blue" alt="Release v1.3"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
