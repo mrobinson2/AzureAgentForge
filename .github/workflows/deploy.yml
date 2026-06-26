@@ -57,7 +57,13 @@ env:
   TF_DIR: infrastructure/environments/dev
   TF_IN_AUTOMATION: "1"
   ARM_USE_OIDC: "true"
-  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  # Least-privilege OIDC split. The un-gated jobs (build/seed/plan/smoke) run as
+  # the LOW-PRIVILEGE plan identity by default; only `apply` overrides this to
+  # the privileged identity (see the apply job). A poisoned dependency in the
+  # pre-approval jobs therefore cannot reach subscription Contributor.
+  # REQUIRES `vars.AZURE_CLIENT_ID_PLAN` to exist — provision the plan identity
+  # FIRST (provision.sh / scaffold-cicd.sh), then this workflow. See PROVISIONING.md.
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
   ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -79,7 +85,7 @@ jobs:
       - uses: azure/login@v2
         if: steps.reg.outputs.name != ''
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ env.ARM_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -111,7 +117,7 @@ jobs:
       - uses: azure/login@v2
         if: steps.v.outputs.name != ''
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ env.ARM_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -147,7 +153,7 @@ jobs:
 
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ env.ARM_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -247,12 +253,16 @@ jobs:
       needs.plan.result == 'success' &&
       (needs.plan.outputs.has_destroy == 'false' || needs.gate.result == 'success')
     runs-on: ubuntu-latest
+    # apply is the ONLY job that mutates infra — it overrides the low-priv default
+    # and runs as the PRIVILEGED identity. Keep this the single Contributor holder.
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
     steps:
       - uses: actions/checkout@v5
 
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ env.ARM_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -293,7 +303,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: azure/login@v2
         with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          client-id: ${{ env.ARM_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - uses: hashicorp/setup-terraform@v3
