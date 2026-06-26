@@ -163,6 +163,8 @@ fi
 MAIN_SUBJECT="repo:${REPO}:ref:refs/heads/main"
 ENV_SUBJECT_STR="repo:${REPO}:environment:deploy-destroy"
 SUB_SCOPE="/subscriptions/${SUBSCRIPTION_ID}"
+STATE_SCOPE="/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${STATE_RG}"
+PLAN_APP_NAME="${APP_NAME}-plan"
 
 echo "== AzureAgentForge CI/CD scaffold =="
 echo "mode=$([ "$APPLY" -eq 1 ] && echo APPLY || echo preview) repo=$REPO app=$APP_NAME github=$([ "$SKIP_GITHUB" -eq 1 ] && echo skip || echo yes)"
@@ -259,9 +261,52 @@ else
 fi
 echo
 
+# ── Step B2: low-privilege PLAN identity (least-privilege split) ─────────────
+# build/seed/plan/smoke run as this Reader-only identity; only `apply` uses the
+# privileged app above (deploy.yml selects per job). A poisoned dependency in a
+# pre-approval job therefore can't reach subscription Contributor.
+echo "-- step B2: low-privilege plan identity ($PLAN_APP_NAME) --"
+PLAN_APP_ID="<plan-app-id>"
+if [ "$APPLY" -eq 1 ]; then
+  PLAN_APP_ID="$(az ad app list --display-name "$PLAN_APP_NAME" --query '[0].appId' -o tsv 2>/dev/null || true)"
+  if [ -n "$PLAN_APP_ID" ]; then
+    echo "  app exists: $PLAN_APP_NAME ($PLAN_APP_ID)"
+  else
+    echo "  creating app registration: $PLAN_APP_NAME"
+    PLAN_APP_ID="$(az ad app create --display-name "$PLAN_APP_NAME" --query appId -o tsv)"
+  fi
+  az ad sp show --id "$PLAN_APP_ID" >/dev/null 2>&1 || run az ad sp create --id "$PLAN_APP_ID"
+  # Reader @ subscription (read, never mutate) + Storage Blob Data Contributor @
+  # state RG (read/write tfstate only). NEVER Contributor on this identity.
+  for pr in "Reader|$SUB_SCOPE" "Storage Blob Data Contributor|$STATE_SCOPE"; do
+    prole="${pr%%|*}"; pscope="${pr##*|}"
+    if [ -n "$(az role assignment list --assignee "$PLAN_APP_ID" --role "$prole" --scope "$pscope" --query '[0].id' -o tsv 2>/dev/null || true)" ]; then
+      echo "  role exists: $prole on $pscope"
+    else
+      run az role assignment create --assignee "$PLAN_APP_ID" --role "$prole" --scope "$pscope"
+    fi
+  done
+  # Same federated credentials as the privileged app (identical workflow runs).
+  pfics="aaf-plan-main|$MAIN_SUBJECT"
+  [ "$ENV_SUBJECT" -eq 1 ] && pfics="$pfics aaf-plan-env|$ENV_SUBJECT_STR"
+  for fc in $pfics; do
+    fname="${fc%%|*}"; fsubj="${fc##*|}"
+    if [ -n "$(az ad app federated-credential list --id "$PLAN_APP_ID" --query "[?subject=='$fsubj'].id" -o tsv 2>/dev/null || true)" ]; then
+      echo "  federated credential exists: $fsubj"
+    else
+      run az ad app federated-credential create --id "$PLAN_APP_ID" --parameters "{\"name\":\"$fname\",\"issuer\":\"https://token.actions.githubusercontent.com\",\"subject\":\"$fsubj\",\"audiences\":[\"api://AzureADTokenExchange\"]}"
+    fi
+  done
+else
+  echo "+ az ad app create --display-name $PLAN_APP_NAME       (find-or-create, Reader-only)"
+  echo "+ roles: Reader @ subscription + Storage Blob Data Contributor @ $STATE_RG (never Contributor)"
+fi
+echo
+
 if [ "$SKIP_GITHUB" -eq 1 ]; then
   echo "== Azure side done (--skip-github). Set the GitHub side with another run, or:"
-  echo "   gh variable set AZURE_CLIENT_ID --repo $REPO --body \"$APP_ID\"   (and the rest — see docs/deploy-pipeline.md)"
+  echo "   gh variable set AZURE_CLIENT_ID --repo $REPO --body \"$APP_ID\""
+  echo "   gh variable set AZURE_CLIENT_ID_PLAN --repo $REPO --body \"$PLAN_APP_ID\"   (and the rest — see docs/deploy-pipeline.md)"
   [ "$APPLY" -eq 1 ] || echo "(this was a preview — re-run with --apply)"
   exit 0
 fi
@@ -273,6 +318,7 @@ gh_var() {
   run gh variable set "$1" --repo "$REPO" --body "$2"
 }
 gh_var AZURE_CLIENT_ID "$APP_ID"
+gh_var AZURE_CLIENT_ID_PLAN "$PLAN_APP_ID"
 gh_var AZURE_TENANT_ID "$TENANT_ID"
 gh_var AZURE_SUBSCRIPTION_ID "$SUBSCRIPTION_ID"
 gh_var TFSTATE_RESOURCE_GROUP "$STATE_RG"
