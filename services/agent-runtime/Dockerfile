@@ -3,7 +3,9 @@
 # Runs the upstream NousResearch hermes-agent messaging gateway.
 # No HTTP server, no EXPOSE, no HEALTHCHECK — this is a long-running worker.
 
-FROM python:3.12-slim AS base
+# Python 3.13: several security fix versions in constraints.txt (e.g. the
+# updated cryptography/aiohttp stack) require interpreter >=3.13.
+FROM python:3.13-slim AS base
 
 LABEL org.opencontainers.image.source="https://github.com/AzureAgentForge/AzureAgentForge"
 LABEL org.opencontainers.image.description="Hermes AI Agent — Messaging Gateway"
@@ -25,7 +27,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 COPY apps/hermes/src/ .
-RUN pip install --prefix=/install ".[messaging,honcho,cron]"
+
+# AAF security override: pin vulnerable transitive deps to advisory fix versions
+# WITHOUT editing the upstream submodule. See services/agent-runtime/constraints.txt.
+COPY services/agent-runtime/constraints.txt /tmp/aaf-constraints.txt
+RUN pip install --prefix=/install -c /tmp/aaf-constraints.txt ".[messaging,honcho,cron]"
 
 # ── Production stage ─────────────────────────────────────────────────────────
 FROM base AS production

@@ -1,0 +1,48 @@
+# Recurring dependency + base-image scanning (security remediation B5).
+# Dependabot opens PRs for vulnerable/outdated deps automatically — the durable
+# replacement for point-in-time scans. Docker ecosystem watches the base-image
+# FROM lines (the OS-layer concern the SCA couldn't reach). github-actions keeps
+# the pipeline's actions current/pinned.
+#
+# Note: apps/hermes/src and apps/honcho/src are git submodules; Dependabot does
+# not traverse submodule contents. Their dependency hygiene is handled by the
+# build-time constraints (services/agent-runtime/constraints.txt) + the Hermes
+# fork, with Dependabot enabled on the fork itself.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: [dependencies, security]
+
+  # Base-image (OS-layer) watch — one entry per service Dockerfile.
+  - package-ecosystem: docker
+    directory: /services/agent-runtime
+    schedule: { interval: weekly }
+    labels: [dependencies, docker, security]
+  - package-ecosystem: docker
+    directory: /services/honcho
+    schedule: { interval: weekly }
+    labels: [dependencies, docker, security]
+  - package-ecosystem: docker
+    directory: /services/paperclip
+    schedule: { interval: weekly }
+    labels: [dependencies, docker, security]
+  - package-ecosystem: docker
+    directory: /services/model-router
+    schedule: { interval: weekly }
+    labels: [dependencies, docker, security]
+  - package-ecosystem: docker
+    directory: /services/memory-governor
+    schedule: { interval: weekly }
+    labels: [dependencies, docker, security]
+  - package-ecosystem: docker
+    directory: /services/watchdog
+    schedule: { interval: weekly }
+    labels: [dependencies, docker, security]
+  - package-ecosystem: docker
+    directory: /services/teams-bridge
+    schedule: { interval: weekly }
+    labels: [dependencies, docker, security]
