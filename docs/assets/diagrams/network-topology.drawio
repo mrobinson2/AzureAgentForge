@@ -1,0 +1,422 @@
+<mxfile host="app.diagrams.net" agent="AzureAgentForge architecture style proof" version="24.7.7" type="device">
+  <diagram id="aaf-network-topology" name="AAF Network Topology">
+    <mxGraphModel dx="2200" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ============================================================ -->
+        <!-- TITLE BLOCK                                                   -->
+        <!-- ============================================================ -->
+        <mxCell id="title-bar" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0B3D66;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="40" y="32" width="1574" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-text" value="AzureAgentForge — Network Topology" style="text;html=1;align=left;verticalAlign=middle;fontColor=#FFFFFF;fontSize=22;fontStyle=1;spacingLeft=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="52" y="32" width="900" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-sub" value="VNet + subnet layout · delegations · private DNS · NSGs · private endpoints · ingress modes · hardened-profile security story · v1.3" style="text;html=1;align=right;verticalAlign=middle;fontColor=#BBD7EE;fontSize=12;spacingRight=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="700" y="32" width="902" height="62" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- INGRESS BAND (outside Azure region — two modes)              -->
+        <!-- ============================================================ -->
+        <mxCell id="lbl-ingress" value="INGRESS" style="text;html=1;align=center;verticalAlign=middle;fontColor=#5B7A95;fontSize=10;fontStyle=1;letterSpacing=1;rotation=-90;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="22" y="150" width="60" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="grp-ingress" value="Public ingress (two selectable modes — one active per deployment)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F7FA;strokeColor=#AEB9C4;dashed=0;verticalAlign=top;fontColor=#5B7A95;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=4;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="100" y="116" width="1454" height="120" as="geometry" />
+        </mxCell>
+
+        <mxCell id="user" value="Internet client" style="sketch=0;outlineConnect=0;fontColor=#23272E;gradientColor=none;fillColor=#0B3D66;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.azure2019.user;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="150" y="148" width="46" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- Mode A: ACA managed ingress (cost-optimized default) -->
+        <mxCell id="ingress-aca" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="138" width="430" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ingress-aca-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.application_gateways;" vertex="1" parent="1">
+          <mxGeometry x="312" y="150" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ingress-aca-t" value="Mode A · ACA managed ingress" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="348" y="148" width="370" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="ingress-aca-d" value="cost-optimized default (cloudflared_enabled=false) · public&#10;ingress restricted by gateway_allowed_ip_addresses" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="348" y="176" width="372" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- Mode B: Cloudflared tunnel (hardened) -->
+        <mxCell id="ingress-cf" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;strokeWidth=1;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="770" y="138" width="450" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="ingress-cf-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#9AA7B4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.application_gateways;" vertex="1" parent="1">
+          <mxGeometry x="782" y="150" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="ingress-cf-t" value="Mode B · Cloudflared tunnel  (hardened)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="818" y="148" width="392" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="ingress-cf-d" value="cloudflared_enabled=true · outbound-only connector container in&#10;app-subnet · NO public inbound port; routes via Cloudflare edge" style="text;html=1;align=left;verticalAlign=top;fontColor=#6B7886;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="818" y="176" width="392" height="36" as="geometry" />
+        </mxCell>
+
+        <!-- Cloudflare edge marker (top-right) -->
+        <mxCell id="cf-edge" value="Cloudflare edge&#10;(external)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBF7F0;strokeColor=#C9A45B;dashed=1;dashPattern=4 3;fontColor=#8A6D1F;fontSize=10;arcSize=14;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;align=center;" vertex="1" parent="1">
+          <mxGeometry x="1248" y="150" width="120" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- AZURE REGION BOUNDARY                                         -->
+        <!-- ============================================================ -->
+        <mxCell id="region" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0078D4;dashed=1;dashPattern=8 4;strokeWidth=2;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="100" y="262" width="1454" height="846" as="geometry" />
+        </mxCell>
+        <mxCell id="region-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure;" vertex="1" parent="1">
+          <mxGeometry x="114" y="272" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="region-lbl" value="Azure region  ·  single subscription / resource group  ·  ${prefix}-rg" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0078D4;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="270" width="640" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- VNET BOUNDARY                                                 -->
+        <!-- ============================================================ -->
+        <mxCell id="vnet" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F8FD;strokeColor=#0B6BB0;dashed=1;dashPattern=6 4;strokeWidth=2;verticalAlign=top;arcSize=2;opacity=60;" vertex="1" parent="1">
+          <mxGeometry x="128" y="316" width="1398" height="772" as="geometry" />
+        </mxCell>
+        <mxCell id="vnet-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0B6BB0;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.virtual_networks;" vertex="1" parent="1">
+          <mxGeometry x="142" y="326" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="vnet-lbl" value="${prefix}-vnet  ·  10.0.0.0/16  ·  module-managed (or bring-your-own via existing_vnet_name)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0B6BB0;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="174" y="324" width="760" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- APP-SUBNET (Container Apps Environment, delegated, NSG)       -->
+        <!-- ============================================================ -->
+        <mxCell id="app-subnet" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E9F3FB;strokeColor=#0078D4;dashed=0;strokeWidth=1.5;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="152" y="378" width="690" height="350" as="geometry" />
+        </mxCell>
+        <mxCell id="app-subnet-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.virtual_networks;" vertex="1" parent="1">
+          <mxGeometry x="166" y="388" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="app-subnet-lbl" value="app-subnet  ·  10.0.1.0/24" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0078D4;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="198" y="387" width="320" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="app-subnet-del" value="delegation: Microsoft.App/environments" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B7A95;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="198" y="408" width="360" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- NSG badge for app-subnet -->
+        <mxCell id="app-nsg" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.network_security_groups;" vertex="1" parent="1">
+          <mxGeometry x="690" y="386" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="app-nsg-lbl" value="${prefix}-app-nsg&#10;Allow 443 from VirtualNetwork · DenyAll inbound (4096)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=9;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="722" y="384" width="112" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Container Apps Environment inside app-subnet -->
+        <mxCell id="cae" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4F9FD;strokeColor=#7FB2DC;dashed=0;strokeWidth=1.2;verticalAlign=top;arcSize=3;" vertex="1" parent="1">
+          <mxGeometry x="176" y="438" width="642" height="270" as="geometry" />
+        </mxCell>
+        <mxCell id="cae-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="188" y="448" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="cae-lbl" value="Container Apps Environment  ·  ${prefix}-env  ·  infrastructure_subnet = app-subnet  ·  internal_load_balancer_enabled = false (dev)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#2E6CA3;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="220" y="447" width="588" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Apps row — all internal ingress (external_enabled=false) -->
+        <mxCell id="ca-paperclip" value="PaperClip&#10;internal ingress · :3100" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;fontColor=#1B2733;fontSize=11;arcSize=10;spacingLeft=4;spacingTop=2;align=left;verticalAlign=top;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="196" y="486" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ca-paperclip-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="338" y="492" width="22" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ca-hermes" value="Hermes + Router&#10;internal ingress · :8080" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;fontColor=#1B2733;fontSize=11;arcSize=10;spacingLeft=4;spacingTop=2;align=left;verticalAlign=top;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="394" y="486" width="190" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ca-hermes-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="556" y="492" width="22" height="22" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ca-honcho" value="Honcho&#10;internal ingress · :8000" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;fontColor=#1B2733;fontSize=11;arcSize=10;spacingLeft=4;spacingTop=2;align=left;verticalAlign=top;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="602" y="486" width="200" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="ca-honcho-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="774" y="492" width="22" height="22" as="geometry" />
+        </mxCell>
+
+        <!-- Optional apps row (dashed/muted) -->
+        <mxCell id="ca-cloudflared" value="cloudflared connector  (hardened — outbound only, no ingress)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;fontColor=#42505E;fontSize=10;arcSize=12;spacingLeft=6;align=left;verticalAlign=middle;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="196" y="556" width="388" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="ca-teams" value="teams-bridge  (opt) · internal :3978" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;fontColor=#42505E;fontSize=10;arcSize=12;spacingLeft=6;align=left;verticalAlign=middle;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="602" y="556" width="200" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="ca-gov" value="memory-governor  (opt) · internal :8090" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;fontColor=#42505E;fontSize=10;arcSize=12;spacingLeft=6;align=left;verticalAlign=middle;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="196" y="598" width="388" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="ca-jobs" value="Container Apps Jobs (cron): honcho-deriver · sweeper · watchdog" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#9AA7B4;dashed=1;dashPattern=3 3;fontColor=#6B7886;fontSize=10;arcSize=12;spacingLeft=6;align=left;verticalAlign=middle;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="602" y="598" width="200" height="32" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cae-note" value="All apps run with external_enabled = false (internal-only ingress). Public reach comes solely from the active ingress mode above." style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=9;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="196" y="642" width="610" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- DB-SUBNET (Postgres Flexible Server, VNet-injected, delegated)-->
+        <!-- ============================================================ -->
+        <mxCell id="db-subnet" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDF6EE;strokeColor=#5FA56B;dashed=0;strokeWidth=1.5;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="876" y="378" width="630" height="200" as="geometry" />
+        </mxCell>
+        <mxCell id="db-subnet-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.virtual_networks;" vertex="1" parent="1">
+          <mxGeometry x="890" y="388" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="db-subnet-lbl" value="db-subnet  ·  10.0.2.0/24" style="text;html=1;align=left;verticalAlign=middle;fontColor=#3C7A47;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="922" y="387" width="320" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="db-subnet-del" value="delegation: Microsoft.DBforPostgreSQL/flexibleServers" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B7A95;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="922" y="408" width="420" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-pg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5FA56B;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="900" y="438" width="582" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure_database_for_postgresql_servers;" vertex="1" parent="1">
+          <mxGeometry x="912" y="450" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-t" value="PostgreSQL Flexible Server" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="950" y="448" width="300" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="lock-pg" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.lock;" vertex="1" parent="1">
+          <mxGeometry x="1454" y="448" width="18" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-d" value="VNet-injected into db-subnet (delegated_subnet_id) · public_network_access = false&#10;private FQDN resolved via the Postgres private DNS zone · pgvector enabled&#10;honcho database · HA standby zone-redundant in hardened profile" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="912" y="482" width="558" height="68" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- PE-SUBNET (private endpoints — KV PE is hardened design-intent)-->
+        <!-- ============================================================ -->
+        <mxCell id="pe-subnet" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFB;strokeColor=#9AA7B4;dashed=0;strokeWidth=1.2;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="876" y="600" width="630" height="220" as="geometry" />
+        </mxCell>
+        <mxCell id="pe-subnet-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#5B7A95;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.virtual_networks;" vertex="1" parent="1">
+          <mxGeometry x="890" y="610" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="pe-subnet-lbl" value="pe-subnet  ·  10.0.3.0/24  ·  private-endpoint subnet (no delegation, no NSG)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="922" y="609" width="560" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Key Vault (lives in region; PE is hardened design-intent) -->
+        <mxCell id="data-kv" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5FA56B;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="900" y="644" width="300" height="156" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.key_vaults;" vertex="1" parent="1">
+          <mxGeometry x="912" y="656" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-t" value="Key Vault" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="950" y="654" width="220" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="lock-kv" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.lock;" vertex="1" parent="1">
+          <mxGeometry x="1172" y="654" width="18" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-d" value="cost-optimized: public endpoint + IP firewall (default_action / allowed_ip_ranges)&#10;hardened: public_network_access = false → private DNS zone created + VNet-linked" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="912" y="690" width="278" height="46" as="geometry" />
+        </mxCell>
+
+        <!-- KV Private Endpoint — design-intent (dashed/muted) -->
+        <mxCell id="kv-pe" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;strokeWidth=1;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1230" y="644" width="256" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="kv-pe-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#9AA7B4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.private_link;" vertex="1" parent="1">
+          <mxGeometry x="1242" y="656" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="kv-pe-t" value="Key Vault private endpoint" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1276" y="654" width="200" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="kv-pe-d" value="hardened design-intent (in pe-subnet).&#10;Private DNS zone + VNet link are created&#10;by Terraform; the private endpoint NIC&#10;itself is operator-provisioned." style="text;html=1;align=left;verticalAlign=top;fontColor=#6B7886;fontSize=9;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1242" y="682" width="240" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- ADMIN-SUBNET (jump box / build agents — provisioned by operator)-->
+        <!-- ============================================================ -->
+        <mxCell id="admin-subnet" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F8FAFB;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;strokeWidth=1.2;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="152" y="744" width="690" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="admin-subnet-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#9AA7B4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.virtual_networks;" vertex="1" parent="1">
+          <mxGeometry x="166" y="754" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="admin-subnet-lbl" value="admin-subnet  ·  10.0.4.0/24" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="198" y="753" width="320" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="admin-subnet-d" value="reserved for jump box / build agents — subnet is Terraform-managed; no compute is deployed into it by the platform (operator-provisioned)." style="text;html=1;align=left;verticalAlign=top;fontColor=#6B7886;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="198" y="778" width="630" height="42" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- PRIVATE DNS ZONES (region-scoped, VNet-linked)                -->
+        <!-- ============================================================ -->
+        <mxCell id="dns-band" value="Private DNS zones  ·  VNet-linked" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDF6EE;strokeColor=#5FA56B;dashed=0;verticalAlign=top;fontColor=#3C7A47;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=3;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="152" y="846" width="1354" height="92" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dns-pg-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.dns_zones;" vertex="1" parent="1">
+          <mxGeometry x="172" y="884" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="dns-pg-t" value="private.postgres.database.azure.com" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="206" y="878" width="300" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="dns-pg-d" value="always created · resolves the Postgres private FQDN" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="206" y="898" width="340" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dns-kv-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#9AA7B4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.dns_zones;" vertex="1" parent="1">
+          <mxGeometry x="620" y="884" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="dns-kv-t" value="privatelink.vaultcore.azure.net" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="654" y="878" width="300" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="dns-kv-d" value="hardened only · created when key_vault_private_access = true" style="text;html=1;align=left;verticalAlign=middle;fontColor=#6B7886;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="654" y="898" width="360" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="dns-note" value="DNS zones are region/RG-scoped resources, each linked to the VNet via a private_dns_zone_virtual_network_link." style="text;html=1;align=left;verticalAlign=middle;fontColor=#3C7A47;fontSize=9;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1056" y="878" width="438" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- FLOW EDGES                                                     -->
+        <!-- ============================================================ -->
+
+        <!-- 1: client -> ACA managed ingress (solid) -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="user" target="ingress-aca">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1-l" value="1" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="240" y="160" width="20" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- 1b: client -> Cloudflare edge -> tunnel (dashed gold, hardened path) -->
+        <mxCell id="e1b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#C9851F;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="cf-edge" target="ingress-cf">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1b-l" value="hardened path" style="text;html=1;align=center;verticalAlign=middle;fontColor=#C9851F;fontSize=9;fontStyle=2;fillColor=#FBF7F0;strokeColor=none;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1224" y="124" width="110" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- 2: ACA ingress -> app-subnet / PaperClip (solid) -->
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=0.25;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="ingress-aca" target="ca-paperclip">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="365" y="456" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2-l" value="2  to internal app ingress" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="296" y="418" width="138" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- 2b: Cloudflared connector -> PaperClip (dashed gold, internal) -->
+        <mxCell id="e2b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#C9851F;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0.5;exitY=0;entryX=0.85;entryY=1;" edge="1" parent="1" source="ca-cloudflared" target="ca-paperclip">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- 3: apps (Honcho) -> Postgres across subnets (solid green) -->
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#3C7A47;strokeWidth=2;exitX=1;exitY=0.3;entryX=0;entryY=0.5;" edge="1" parent="1" source="ca-honcho" target="data-pg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="860" y="498" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3-l" value="3  private DB traffic (db-subnet)" style="text;html=1;align=center;verticalAlign=middle;fontColor=#3C7A47;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#3C7A47;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="804" y="462" width="172" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- 4: Postgres -> private DNS zone (dotted control) -->
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=0.05;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="data-pg" target="dns-pg-ico">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="185" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e4-l" value="name resolution" style="text;html=1;align=center;verticalAlign=middle;fontColor=#7A8895;fontSize=9;fontStyle=2;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="120" y="760" width="100" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- 5: KV -> KV private endpoint (dotted, hardened) -->
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=1;exitY=0.3;entryX=0;entryY=0.3;" edge="1" parent="1" source="data-kv" target="kv-pe">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5-l" value="private access (hardened)" style="text;html=1;align=center;verticalAlign=middle;fontColor=#7A8895;fontSize=9;fontStyle=2;fillColor=#F8FAFB;strokeColor=none;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="676" width="120" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- 6: KV private endpoint -> KV private DNS zone (dotted) -->
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=0.1;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="kv-pe" target="dns-kv-ico">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1255" y="828" />
+              <mxPoint x="633" y="828" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- LEGEND                                                        -->
+        <!-- ============================================================ -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AEB9C4;dashed=0;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1116" width="922" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="Legend" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="114" y="1116" width="60" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-bnd-line" value="" style="endArrow=none;dashed=1;dashPattern=8 4;strokeColor=#0078D4;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="180" y="1138" as="sourcePoint" />
+            <mxPoint x="224" y="1138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-bnd-t" value="trust boundary (region / VNet / subnet)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="230" y="1128" width="230" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-flow-line" value="" style="endArrow=block;endFill=1;dashed=0;strokeColor=#0B3D66;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="470" y="1138" as="sourcePoint" />
+            <mxPoint x="514" y="1138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-flow-num" value="n" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=9;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="482" y="1128" width="18" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-flow-t" value="numbered network path" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="520" y="1128" width="150" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-sec-line" value="" style="endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="676" y="1138" as="sourcePoint" />
+            <mxPoint x="720" y="1138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-sec-t" value="control / DNS / private-link access" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="726" y="1128" width="290" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-opt" value="Dashed outline / muted grey = hardened-profile-only or design-intent (KV private endpoint, Cloudflared, admin-subnet compute, optional apps)." style="text;html=1;align=left;verticalAlign=middle;fontColor=#6B7886;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1040" y="1116" width="514" height="44" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

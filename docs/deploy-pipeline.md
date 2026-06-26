@@ -13,6 +13,12 @@ repo's own CI: the public repo holds no cloud credentials, so CI stays
 validate-only (`fmt`, `validate`, `compose config`, tests). This workflow is the
 piece you add when you fork and deploy for real.
 
+<p align="center">
+  <img src="assets/diagrams/deploy-pipeline.svg" alt="AzureAgentForge deploy pipeline — build, seed, plan, destroy-aware approval gate, apply, smoke; shared by the Forge Console and the reference GitHub Actions workflow" width="900">
+</p>
+
+<p align="center"><sub>Editable source: <a href="assets/diagrams/deploy-pipeline.drawio"><code>deploy-pipeline.drawio</code></a></sub></p>
+
 ## The one idea worth copying: a destroy-aware approval gate
 
 Most Terraform pipelines either apply everything unattended (fast, but one bad

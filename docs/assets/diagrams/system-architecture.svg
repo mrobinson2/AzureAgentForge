@@ -1,0 +1,286 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1654" height="1169" viewBox="0 0 1654 1169" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="azBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3399E5"/>
+      <stop offset="1" stop-color="#0066B4"/>
+    </linearGradient>
+    <linearGradient id="azGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5CB36B"/>
+      <stop offset="1" stop-color="#2E7D3D"/>
+    </linearGradient>
+    <linearGradient id="azGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0B65C"/>
+      <stop offset="1" stop-color="#C18B27"/>
+    </linearGradient>
+    <linearGradient id="azGrey" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#AEB9C4"/>
+      <stop offset="1" stop-color="#8593A1"/>
+    </linearGradient>
+    <marker id="arrNavy" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0B3D66"/></marker>
+    <marker id="arrNavyS" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrNavyE" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrGreenS" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 Z" fill="#3C7A47"/></marker>
+    <marker id="arrGreenE" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#3C7A47"/></marker>
+    <marker id="arrGold" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#C9851F"/></marker>
+    <marker id="arrGrey" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="none" stroke="#7A8895" stroke-width="1.4"/></marker>
+  </defs>
+
+  <rect width="1654" height="1169" fill="#FFFFFF"/>
+
+  <!-- ===== TITLE BLOCK ===== -->
+  <rect x="40" y="32" width="1574" height="62" fill="#0B3D66"/>
+  <text x="60" y="71" fill="#FFFFFF" font-size="22" font-weight="700">AzureAgentForge — System Architecture</text>
+  <text x="1594" y="68" fill="#BBD7EE" font-size="12" text-anchor="end">Single-tenant agent platform on Azure Container Apps · reference architecture · v1.3</text>
+
+  <!-- ===== CHAT SURFACES BAND ===== -->
+  <rect x="100" y="116" width="922" height="120" rx="8" fill="#F5F7FA" stroke="#AEB9C4"/>
+  <text x="116" y="135" fill="#5B7A95" font-size="11" font-weight="700">User channels</text>
+
+  <!-- user glyph -->
+  <g transform="translate(150,148)">
+    <circle cx="23" cy="15" r="9" fill="url(#azBlue)"/>
+    <path d="M6,40 a17,15 0 0 1 34,0 Z" fill="url(#azBlue)"/>
+    <text x="23" y="62" fill="#23272E" font-size="11" text-anchor="middle">End user</text>
+  </g>
+
+  <rect x="290" y="146" width="150" height="60" rx="8" fill="#FFFFFF" stroke="#0078D4"/>
+  <text x="365" y="172" fill="#23272E" font-size="11" text-anchor="middle">Web UI</text>
+  <text x="365" y="188" fill="#23272E" font-size="11" text-anchor="middle">(PaperClip)</text>
+
+  <rect x="470" y="146" width="170" height="60" rx="8" fill="#FFFFFF" stroke="#6264A7"/>
+  <text x="555" y="172" fill="#23272E" font-size="11" text-anchor="middle">Microsoft Teams</text>
+  <text x="555" y="188" fill="#5B6B7B" font-size="10" text-anchor="middle">(opt-in · teams_enabled)</text>
+
+  <rect x="670" y="146" width="130" height="60" rx="8" fill="#FFFFFF" stroke="#229ED9"/>
+  <text x="735" y="172" fill="#23272E" font-size="11" text-anchor="middle">Telegram</text>
+  <text x="735" y="188" fill="#5B6B7B" font-size="10" text-anchor="middle">(opt-in)</text>
+
+  <rect x="830" y="146" width="130" height="60" rx="8" fill="#FFFFFF" stroke="#5865F2"/>
+  <text x="895" y="172" fill="#23272E" font-size="11" text-anchor="middle">Discord</text>
+  <text x="895" y="188" fill="#5B6B7B" font-size="10" text-anchor="middle">(opt-in)</text>
+
+  <!-- ===== LLM BACKENDS BAND ===== -->
+  <rect x="1040" y="116" width="514" height="120" rx="8" fill="#FBF7F0" stroke="#C9A45B"/>
+  <text x="1056" y="135" fill="#8A6D1F" font-size="11" font-weight="700">LLM backends (external inference)</text>
+
+  <g transform="translate(1085,152)">
+    <rect x="0" y="0" width="44" height="44" rx="6" fill="url(#azGold)"/>
+    <circle cx="22" cy="22" r="11" fill="#FFFFFF" opacity="0.9"/>
+    <circle cx="22" cy="22" r="5" fill="url(#azGold)"/>
+    <text x="22" y="62" fill="#23272E" font-size="11" text-anchor="middle">Azure AI Foundry</text>
+    <text x="22" y="76" fill="#8A6D1F" font-size="10" text-anchor="middle">(primary)</text>
+  </g>
+
+  <rect x="1320" y="150" width="180" height="60" rx="8" fill="#FFFFFF" stroke="#C9A45B" stroke-dasharray="5 3"/>
+  <text x="1410" y="174" fill="#23272E" font-size="11" text-anchor="middle">OpenAI-compatible</text>
+  <text x="1410" y="190" fill="#5B6B7B" font-size="10" text-anchor="middle">endpoint (fallback)</text>
+
+  <!-- ===== AZURE REGION BOUNDARY ===== -->
+  <rect x="100" y="262" width="1454" height="846" rx="10" fill="none" stroke="#0078D4" stroke-width="2" stroke-dasharray="8 4"/>
+  <g transform="translate(114,272)">
+    <rect x="0" y="0" width="26" height="26" rx="4" fill="url(#azBlue)"/>
+    <path d="M6,18 L13,6 L20,18 Z" fill="#FFFFFF"/>
+  </g>
+  <text x="148" y="290" fill="#0078D4" font-size="12" font-weight="700">Azure region · single subscription / resource group</text>
+
+  <!-- ===== VNET BOUNDARY ===== -->
+  <rect x="128" y="316" width="1398" height="772" rx="10" fill="#F2F8FD" fill-opacity="0.6" stroke="#0B6BB0" stroke-width="2" stroke-dasharray="6 4"/>
+  <g transform="translate(142,326)">
+    <rect x="0" y="2" width="26" height="22" rx="3" fill="url(#azBlue)"/>
+    <path d="M5,8 h16 M5,13 h16 M5,18 h10" stroke="#FFFFFF" stroke-width="1.6"/>
+  </g>
+  <text x="176" y="344" fill="#0B6BB0" font-size="12" font-weight="700">Private Virtual Network · no agent memory or DB traffic leaves the VNet</text>
+
+  <!-- ===== CONTAINER APPS ENVIRONMENT ===== -->
+  <rect x="152" y="372" width="1042" height="500" rx="10" fill="#E9F3FB" stroke="#0078D4" stroke-width="1.5"/>
+  <g transform="translate(166,382)">
+    <rect x="0" y="0" width="24" height="24" rx="3" fill="url(#azBlue)"/>
+    <path d="M5,12 h14 M12,5 v14" stroke="#FFFFFF" stroke-width="1.8"/>
+  </g>
+  <text x="198" y="399" fill="#0078D4" font-size="11" font-weight="700">Container Apps Environment · app-subnet (delegated) · internal ingress only</text>
+
+  <!-- PaperClip -->
+  <rect x="184" y="424" width="236" height="116" rx="7" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="196" y="436" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M205,460 v-14 h8 a4,4 0 0 1 0,8 h-8" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  <text x="234" y="450" fill="#1B2733" font-size="13" font-weight="700">PaperClip</text>
+  <text x="196" y="488" fill="#5B6B7B" font-size="10">Orchestrator + Web UI</text>
+  <text x="196" y="502" fill="#5B6B7B" font-size="10">Container App · :3100</text>
+  <text x="196" y="516" fill="#5B6B7B" font-size="10">Azure Files share</text>
+
+  <!-- Hermes (with router sidecar) -->
+  <rect x="468" y="424" width="320" height="200" rx="7" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="480" y="436" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M489,460 l6,-14 l6,14 M491,455 h8" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  <text x="518" y="450" fill="#1B2733" font-size="13" font-weight="700">Hermes — Agent runtime</text>
+  <text x="480" y="486" fill="#5B6B7B" font-size="10">Container App · :8080</text>
+  <text x="480" y="500" fill="#5B6B7B" font-size="10">Runs the 13-role agent hierarchy;</text>
+  <text x="480" y="514" fill="#5B6B7B" font-size="10">per-agent model_tier + toolsets</text>
+
+  <!-- Model Router sidecar -->
+  <rect x="484" y="526" width="288" height="84" rx="8" fill="#EFF6FC" stroke="#0078D4" stroke-width="1" stroke-dasharray="3 3"/>
+  <rect x="494" y="536" width="26" height="26" rx="3" fill="url(#azBlue)"/>
+  <path d="M500,549 h14 M507,543 l7,6 l-7,6" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="526" y="550" fill="#1B2733" font-size="12" font-weight="700">Model Router (sidecar · :8080)</text>
+  <text x="494" y="580" fill="#5B6B7B" font-size="10">OpenAI-compatible gateway · per-tier</text>
+  <text x="494" y="594" fill="#5B6B7B" font-size="10">budgets · auth · fallback chain</text>
+
+  <!-- teams-bridge optional -->
+  <rect x="840" y="424" width="330" height="86" rx="8" fill="#FFFFFF" stroke="#9AA7B4" stroke-width="1" stroke-dasharray="4 3"/>
+  <rect x="852" y="434" width="26" height="26" rx="3" fill="url(#azGrey)"/>
+  <text x="884" y="448" fill="#42505E" font-size="12" font-weight="700">teams-bridge  (optional)</text>
+  <text x="852" y="476" fill="#6B7886" font-size="10">Bot Framework endpoint · :3978</text>
+  <text x="852" y="490" fill="#6B7886" font-size="10">files inbound Teams messages as</text>
+  <text x="852" y="504" fill="#6B7886" font-size="10">PaperClip Orchestrator issues</text>
+
+  <!-- cloudflared optional -->
+  <rect x="840" y="524" width="330" height="86" rx="8" fill="#FFFFFF" stroke="#9AA7B4" stroke-width="1" stroke-dasharray="4 3"/>
+  <rect x="852" y="534" width="26" height="26" rx="3" fill="url(#azGrey)"/>
+  <text x="884" y="548" fill="#42505E" font-size="12" font-weight="700">Cloudflared tunnel  (optional)</text>
+  <text x="852" y="576" fill="#6B7886" font-size="10">hardened-profile ingress · removes</text>
+  <text x="852" y="590" fill="#6B7886" font-size="10">public inbound ports; routes via</text>
+  <text x="852" y="604" fill="#6B7886" font-size="10">Cloudflare edge (cloudflared_enabled)</text>
+
+  <!-- memory & governance sub-band -->
+  <rect x="184" y="650" width="986" height="196" rx="6" fill="#F4F9FD" stroke="#7FB2DC"/>
+  <text x="200" y="669" fill="#2E6CA3" font-size="11" font-weight="700">Memory &amp; governance</text>
+
+  <!-- Honcho -->
+  <rect x="204" y="684" width="250" height="140" rx="7" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="216" y="696" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <ellipse cx="231" cy="705" rx="9" ry="3.5" fill="#FFFFFF"/>
+  <path d="M222,705 v12 a9,3.5 0 0 0 18,0 v-12" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="254" y="710" fill="#1B2733" font-size="13" font-weight="700">Honcho</text>
+  <text x="216" y="746" fill="#5B6B7B" font-size="10">Self-hosted agent memory</text>
+  <text x="216" y="760" fill="#5B6B7B" font-size="10">Container App · :8000</text>
+  <text x="216" y="774" fill="#5B6B7B" font-size="10">pgvector semantic recall</text>
+  <rect x="216" y="786" width="226" height="28" rx="6" fill="#EFF6FC" stroke="#0078D4" stroke-dasharray="3 3"/>
+  <text x="329" y="804" fill="#42505E" font-size="9" text-anchor="middle">caj-honcho-deriver · scheduled Job (cron) — fact extraction</text>
+
+  <!-- Memory Governor optional -->
+  <rect x="486" y="684" width="312" height="140" rx="7" fill="#FFFFFF" stroke="#9AA7B4" stroke-width="1" stroke-dasharray="4 3"/>
+  <rect x="498" y="696" width="28" height="28" rx="4" fill="url(#azGrey)"/>
+  <text x="534" y="710" fill="#42505E" font-size="12" font-weight="700">Memory Governor  (optional)</text>
+  <text x="498" y="738" fill="#6B7886" font-size="10">Container App · :8090 (+ router sidecar)</text>
+  <text x="498" y="752" fill="#6B7886" font-size="10">admission control · computed trust</text>
+  <text x="498" y="766" fill="#6B7886" font-size="10">4-plane retrieval planner</text>
+  <text x="498" y="780" fill="#6B7886" font-size="10">flag-gated off (memory_governor_enabled)</text>
+  <rect x="498" y="788" width="290" height="26" rx="6" fill="#F7F8FA" stroke="#9AA7B4" stroke-dasharray="3 3"/>
+  <text x="643" y="805" fill="#6B7886" font-size="9" text-anchor="middle">Jobs: TTL sweeper · digest poster · watchdog (self-improvement loop)</text>
+
+  <!-- mem note -->
+  <rect x="836" y="690" width="312" height="128" rx="8" fill="#FCFCFD" stroke="#C7D2DD"/>
+  <text x="852" y="712" fill="#5B6B7B" font-size="10">Optional services (dashed) ship</text>
+  <text x="852" y="728" fill="#5B6B7B" font-size="10">flag-gated OFF. The base stack</text>
+  <text x="852" y="744" fill="#5B6B7B" font-size="10">uses Honcho's native session /</text>
+  <text x="852" y="760" fill="#5B6B7B" font-size="10">user memory directly.</text>
+
+  <!-- ===== DATA / SECRETS COLUMN ===== -->
+  <rect x="1216" y="372" width="290" height="700" rx="6" fill="#EDF6EE" stroke="#5FA56B"/>
+  <text x="1232" y="391" fill="#3C7A47" font-size="11" font-weight="700">Data, secrets &amp; platform services</text>
+
+  <!-- PostgreSQL -->
+  <rect x="1238" y="412" width="246" height="128" rx="7" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="1250" y="424" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <ellipse cx="1265" cy="433" rx="9" ry="3.5" fill="#FFFFFF"/>
+  <path d="M1256,433 v12 a9,3.5 0 0 0 18,0 v-12" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="1288" y="440" fill="#1B2733" font-size="12" font-weight="700">PostgreSQL Flexible</text>
+  <text x="1288" y="454" fill="#1B2733" font-size="12" font-weight="700">Server</text>
+  <text x="1456" y="436" font-size="14">🔒</text>
+  <text x="1250" y="478" fill="#5B6B7B" font-size="10">VNet-injected · db-subnet (delegated)</text>
+  <text x="1250" y="492" fill="#5B6B7B" font-size="10">private DNS · public access disabled</text>
+  <text x="1250" y="506" fill="#5B6B7B" font-size="10">PostgreSQL 15 + pgvector</text>
+
+  <!-- Key Vault -->
+  <rect x="1238" y="556" width="246" height="118" rx="7" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="1250" y="568" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <path d="M1265,575 a4,4 0 0 1 4,4 v3 h-8 v-3 a4,4 0 0 1 4,-4 Z M1258,582 h14 v9 h-14 Z" fill="#FFFFFF"/>
+  <text x="1288" y="582" fill="#1B2733" font-size="12" font-weight="700">Key Vault</text>
+  <text x="1456" y="580" font-size="14">🔒</text>
+  <text x="1250" y="620" fill="#5B6B7B" font-size="10">RBAC · Secrets Officer/User grants</text>
+  <text x="1250" y="634" fill="#5B6B7B" font-size="10">secrets read by each app at startup</text>
+  <text x="1250" y="648" fill="#5B6B7B" font-size="10">private endpoint in hardened profile</text>
+
+  <!-- ACR -->
+  <rect x="1238" y="690" width="246" height="92" rx="7" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="1250" y="702" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <path d="M1257,720 v-8 h6 v8 M1265,720 v-12 h6 v12 M1273,720 v-6 h4 v6" fill="none" stroke="#FFFFFF" stroke-width="1.4"/>
+  <text x="1288" y="713" fill="#1B2733" font-size="12" font-weight="700">Container Registry</text>
+  <text x="1288" y="727" fill="#1B2733" font-size="12" font-weight="700">(ACR)</text>
+  <text x="1250" y="752" fill="#5B6B7B" font-size="10">service images · AcrPull via</text>
+  <text x="1250" y="766" fill="#5B6B7B" font-size="10">per-app managed identity</text>
+
+  <!-- Log Analytics -->
+  <rect x="1238" y="798" width="246" height="100" rx="7" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="1250" y="810" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <path d="M1256,832 l5,-8 l4,5 l5,-10 l4,7" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="1288" y="822" fill="#1B2733" font-size="12" font-weight="700">Log Analytics +</text>
+  <text x="1288" y="836" fill="#1B2733" font-size="12" font-weight="700">App Insights</text>
+  <text x="1250" y="862" fill="#5B6B7B" font-size="10">shared workspace · all apps emit</text>
+  <text x="1250" y="876" fill="#5B6B7B" font-size="10">traces + logs · App Insights opt-in</text>
+
+  <text x="1238" y="928" fill="#3C7A47" font-size="9" font-style="italic">Key Vault / Postgres private endpoints</text>
+  <text x="1238" y="942" fill="#3C7A47" font-size="9" font-style="italic">land in pe-subnet (hardened). Postgres in</text>
+  <text x="1238" y="956" fill="#3C7A47" font-size="9" font-style="italic">db-subnet, apps in app-subnet.</text>
+
+  <!-- ===== NUMBERED DATA-FLOW EDGES ===== -->
+  <!-- 1 user -> web -->
+  <path d="M198,171 H290" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="250" cy="171" r="10" fill="#0B3D66"/><text x="250" y="175" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">1</text>
+
+  <!-- 2 web -> paperclip -->
+  <path d="M302,206 V424" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="302" cy="402" r="10" fill="#0B3D66"/><text x="302" y="406" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">2</text>
+
+  <!-- 3 paperclip -> hermes -->
+  <path d="M420,464 H468" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="426" y="445" width="42" height="16" rx="8" fill="#FFFFFF" stroke="#0B3D66"/><text x="447" y="457" fill="#0B3D66" font-size="9" font-weight="700" text-anchor="middle">3</text>
+  <text x="430" y="440" fill="#0B3D66" font-size="9" font-weight="700">dispatch</text>
+
+  <!-- 4 paperclip <-> honcho -->
+  <path d="M243,540 V684" fill="none" stroke="#2E6CA3" stroke-width="2" marker-start="url(#arrNavyS)" marker-end="url(#arrNavyE)"/>
+  <rect x="156" y="602" width="80" height="16" rx="8" fill="#FFFFFF" stroke="#2E6CA3"/><text x="196" y="614" fill="#2E6CA3" font-size="9" font-weight="700" text-anchor="middle">4 memory r/w</text>
+
+  <!-- 5 hermes <-> honcho -->
+  <path d="M404,624 V684" fill="none" stroke="#2E6CA3" stroke-width="2" marker-start="url(#arrNavyS)" marker-end="url(#arrNavyE)"/>
+  <rect x="362" y="640" width="84" height="16" rx="8" fill="#FFFFFF" stroke="#2E6CA3"/><text x="404" y="652" fill="#2E6CA3" font-size="9" font-weight="700" text-anchor="middle">5 memory r/w</text>
+
+  <!-- 6 hermes -> router (internal) -->
+  <path d="M628,514 V526" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="586" y="513" width="118" height="16" rx="8" fill="#FFFFFF" stroke="#0B3D66"/><text x="645" y="525" fill="#0B3D66" font-size="9" font-weight="700" text-anchor="middle">6 chat completion</text>
+
+  <!-- 7 honcho <-> postgres -->
+  <path d="M454,754 H1130 V482 H1238" fill="none" stroke="#3C7A47" stroke-width="2" marker-start="url(#arrGreenS)" marker-end="url(#arrGreenE)"/>
+  <rect x="1058" y="746" width="116" height="16" rx="8" fill="#FFFFFF" stroke="#3C7A47"/><text x="1116" y="758" fill="#3C7A47" font-size="9" font-weight="700" text-anchor="middle">7 pgvector queries</text>
+
+  <!-- 8 router -> foundry primary -->
+  <path d="M772,568 H1107 V196" fill="none" stroke="#C9851F" stroke-width="2" marker-end="url(#arrGold)"/>
+  <rect x="1012" y="302" width="120" height="16" rx="8" fill="#FFFFFF" stroke="#C9851F"/><text x="1072" y="314" fill="#C9851F" font-size="9" font-weight="700" text-anchor="middle">8 inference (primary)</text>
+
+  <!-- 8b router -> fallback dotted -->
+  <path d="M772,585 H1410 V210" fill="none" stroke="#C9851F" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrGold)"/>
+  <text x="1408" y="332" fill="#C9851F" font-size="9" font-style="italic" text-anchor="middle">fallback chain</text>
+
+  <!-- ===== SECRET / CONTROL EDGES (dotted) ===== -->
+  <path d="M1238,615 H820 V484 H788" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <text x="876" y="600" fill="#7A8895" font-size="9" font-style="italic" text-anchor="middle">secrets at startup</text>
+
+  <path d="M788,600 H808 V848 H1238" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <text x="1075" y="842" fill="#7A8895" font-size="9" font-style="italic" text-anchor="middle">telemetry → Log Analytics</text>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="100" y="1116" width="922" height="44" rx="4" fill="#FFFFFF" stroke="#AEB9C4"/>
+  <text x="114" y="1142" fill="#1B2733" font-size="11" font-weight="700">Legend</text>
+
+  <line x1="180" y1="1138" x2="224" y2="1138" stroke="#0078D4" stroke-width="2" stroke-dasharray="8 4"/>
+  <text x="230" y="1142" fill="#42505E" font-size="10">trust boundary (region / VNet / env)</text>
+
+  <line x1="466" y1="1138" x2="510" y2="1138" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="487" cy="1138" r="9" fill="#0B3D66"/><text x="487" y="1142" fill="#FFFFFF" font-size="9" font-weight="700" text-anchor="middle">n</text>
+  <text x="520" y="1142" fill="#42505E" font-size="10">numbered request data-flow</text>
+
+  <line x1="690" y1="1138" x2="734" y2="1138" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <text x="740" y="1142" fill="#42505E" font-size="10">control / secret access (KV, telemetry)</text>
+
+  <text x="1040" y="1142" fill="#6B7886" font-size="10" font-style="italic">Dashed component outline = optional / flag-gated service (off by default).</text>
+</svg>

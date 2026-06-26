@@ -15,57 +15,11 @@ AzureAgentForge runs on Azure Container Apps inside a single VNet. Four containe
 
 ## Components
 
-<p align="center"><img src="assets/context-diagram.png" alt="System context" width="820"></p>
+<p align="center">
+  <img src="assets/diagrams/system-architecture.svg" alt="AzureAgentForge system architecture — chat surfaces and LLM backends around the Container Apps Environment inside a single VNet, with a numbered request flow" width="900">
+</p>
 
-<p align="center"><img src="assets/azure-architecture.png" alt="Azure architecture" width="900"></p>
-
-```mermaid
-graph TD
-    subgraph surfaces["Chat surfaces"]
-        WEB["Web UI (PaperClip)"]
-        TG["Telegram (opt-in)"]
-        DC["Discord (opt-in)"]
-    end
-
-    subgraph platform["Azure Container Apps - single VNet"]
-        PC["PaperClip\nOrchestrator + UI\n(Container App)"]
-        AR["Agent runtime\nHermes\n(Container App)"]
-        MR["Model Router\nOpenAI-compat gateway\n(Container App)"]
-
-        subgraph memory["Memory & Storage"]
-            HC["Honcho\n(Container App + Job)"]
-            PG["PostgreSQL Flexible Server\n(VNet-injected, pgvector)"]
-        end
-
-        subgraph shared["Shared infrastructure"]
-            KV["Key Vault\n(RBAC, Secrets Officer)"]
-            LA["Log Analytics + App Insights"]
-            CR["Container Registry\n(ACR)"]
-        end
-
-        subgraph llm["LLM backends"]
-            AF["Azure AI Foundry\n(primary)"]
-            OC["OpenAI-compat endpoint\n(fallback, optional)"]
-        end
-    end
-
-    WEB --> PC
-    TG --> PC
-    DC --> PC
-    PC --> AR
-    PC <-->|"memory read/write"| HC
-    AR <-->|"memory read/write"| HC
-    HC <-->|"pgvector queries"| PG
-    AR --> MR
-    MR -->|"chat completions"| AF
-    MR -.->|"fallback"| OC
-    KV -. "secrets at startup" .-> PC
-    KV -. "secrets at startup" .-> AR
-    KV -. "secrets at startup" .-> MR
-    LA -. "telemetry" .-> PC
-    LA -. "telemetry" .-> AR
-    LA -. "telemetry" .-> MR
-```
+<p align="center"><sub>Editable source: <a href="assets/diagrams/system-architecture.drawio"><code>system-architecture.drawio</code></a> · <a href="assets/diagrams/README.md">diagram conventions</a></sub></p>
 
 ### PaperClip
 
@@ -157,9 +111,21 @@ All container apps send traces and logs here. Retention is 30 days in `cost-opti
 
 The `cost-optimized` profile uses ACA's built-in managed ingress with IP-restriction rules on the Container Apps environment. The `hardened` profile replaces this with a Cloudflared tunnel container (`cloudflared_enabled = true`), which eliminates public inbound ports entirely and routes traffic through Cloudflare's edge.
 
+<p align="center">
+  <img src="assets/diagrams/network-topology.svg" alt="AzureAgentForge network topology — VNet subnets, delegations, private DNS zones, private endpoints, and the two ingress modes" width="900">
+</p>
+
+<p align="center"><sub>Editable source: <a href="assets/diagrams/network-topology.drawio"><code>network-topology.drawio</code></a></sub></p>
+
 ---
 
 ## Data flow
+
+<p align="center">
+  <img src="assets/diagrams/request-dataflow.svg" alt="AzureAgentForge request and agent data flow — numbered sequence from user through PaperClip, Hermes, and the Model Router to Azure AI Foundry, with memory reads/writes and budget/fallback decisions" width="900">
+</p>
+
+<p align="center"><sub>Editable source: <a href="assets/diagrams/request-dataflow.drawio"><code>request-dataflow.drawio</code></a></sub></p>
 
 Happy path for a user-initiated request:
 
