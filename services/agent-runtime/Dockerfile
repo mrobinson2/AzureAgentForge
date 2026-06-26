@@ -28,6 +28,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY apps/hermes/src/ .
 
+# AAF source patch: teach Hermes' WAL fallback to recognize Azure Files SMB
+# ("database is locked") so SMB-resident SQLite DBs fall back to DELETE journal
+# mode instead of crashing. The submodule can't be edited here; patch the copied
+# source at build time (idempotent, fails the build if the anchor is missing).
+COPY services/agent-runtime/patch-hermes-wal-markers.py /tmp/patch-wal-markers.py
+RUN python /tmp/patch-wal-markers.py hermes_state.py
+
 # AAF security override (see services/agent-runtime/constraints.txt).
 # Hermes pins several deps with EXACT '==' (e.g. aiohttp==3.13.3), which a pip
 # *constraints* file cannot override (ResolutionImpossible). So install Hermes
