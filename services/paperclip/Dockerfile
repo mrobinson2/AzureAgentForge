@@ -201,7 +201,7 @@ RUN mkdir -p /tmp/tsx-pkg && cd /tmp/tsx-pkg \
 # ── Stage 2c: Hermes CLI (Python) ─────────────────────────────────────────────
 # Build Hermes Agent from the local source (not PyPI).
 # Installs into /opt/hermes so it's independent of a specific Python venv path.
-FROM python:3.13-slim AS hermes-cli
+FROM python:3.14-slim AS hermes-cli
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends gcc git \
