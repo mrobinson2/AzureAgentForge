@@ -99,7 +99,8 @@ OIDC means these are non-secret identifiers, not credentials:
 
 | Variable | Value |
 |---|---|
-| `AZURE_CLIENT_ID` | the app registration's `appId` |
+| `AZURE_CLIENT_ID` | the **privileged** app registration's `appId` (used only by the `apply` job) |
+| `AZURE_CLIENT_ID_PLAN` | the **low-privilege** plan app's `appId` (Reader + state-RG blob access; used by build/seed/plan/smoke). `scaffold-cicd.sh` creates it; required by the least-privilege split in `deploy.yml`. |
 | `AZURE_TENANT_ID` | your Entra tenant ID |
 | `AZURE_SUBSCRIPTION_ID` | target subscription ID |
 | `TFSTATE_RESOURCE_GROUP` | resource group holding the TF state storage account |
