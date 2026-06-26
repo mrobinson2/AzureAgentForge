@@ -1,0 +1,34 @@
+# AAF security constraints for the Hermes agent-runtime image.
+#
+# WHY THIS FILE EXISTS
+# apps/hermes/src is an upstream git submodule (NousResearch/hermes-agent),
+# pinned by SHA — we cannot commit dependency bumps into it from this repo.
+# Instead, the agent-runtime image installs Hermes with `pip install -c` against
+# these constraints, so the *built image* gets the fixed versions even though the
+# submodule's own pyproject.toml/uv.lock are unchanged. Repo-owned, idempotent,
+# reversible (delete the file + the -c flag to revert).
+#
+# Source: Hermes SCA scan (NousResearch/hermes-agent@a4091e4, 2026-06-25).
+# Each pin is the advisory fix version. Bump these as new advisories land; the
+# CI scan (.github/workflows/security-scan.yml) and Dependabot watch for drift.
+#
+# Mirrored upstream in the Hermes fork (pyproject.toml/uv.lock) for parity; the
+# build-time override is what protects the AAF runtime regardless of the pin.
+
+# ── HTTP stack (request-path / DoS — highest priority) ──────────────────────
+aiohttp==3.14.1
+starlette==1.3.1
+tornado==6.5.7
+python-multipart==0.0.31
+
+# ── Crypto / serialization / misc ───────────────────────────────────────────
+cryptography==48.0.1
+pynacl==1.6.2
+pydantic-settings==2.14.2
+msgpack==1.2.1
+cbor2==5.9.0
+pygments==2.20.0
+
+# pytest is a dev/test dependency (not installed by .[messaging,honcho,cron]);
+# pinned for parity so any path that pulls it gets the fixed version.
+pytest==9.0.3
