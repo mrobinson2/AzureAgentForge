@@ -2,7 +2,7 @@
 # Lightweight FastAPI service — runs alongside Hermes in the same Container App.
 # Hermes calls http://localhost:8080/v1 and never knows which model answered.
 
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
