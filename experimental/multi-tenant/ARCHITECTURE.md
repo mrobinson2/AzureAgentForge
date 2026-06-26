@@ -11,6 +11,12 @@
 
 This document describes the intended multi-tenant design for AzureAgentForge — the path from a single-tenant deployment on Azure Container Apps to a fully isolated multi-tenant platform. It covers data-layer isolation via PostgreSQL RLS, per-tenant agent routing, Terraform module design, onboarding flow, cost modeling, and security controls. Use it as a reference architecture when planning the multi-tenant implementation.
 
+<p align="center">
+  <img src="../../docs/assets/diagrams/multi-tenant.svg" alt="AzureAgentForge multi-tenant target architecture — control plane and per-tenant data plane with schema-per-tenant RLS isolation; marked design target, partially implemented" width="900">
+</p>
+
+<p align="center"><sub>Editable source: <a href="../../docs/assets/diagrams/multi-tenant.drawio"><code>multi-tenant.drawio</code></a> · design target, ~20–30% implemented</sub></p>
+
 ---
 
 ## Table of Contents
