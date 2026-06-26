@@ -49,8 +49,8 @@ jobs:
           C=services/agent-runtime/constraints.txt
           DF=services/agent-runtime/Dockerfile
           test -f "$C" || { echo "::error::$C is missing — the Python CVE override was dropped."; exit 1; }
-          grep -q -- '-c /tmp/aaf-constraints.txt' "$DF" || {
-            echo "::error file=$DF::pip install must use '-c /tmp/aaf-constraints.txt' so the security pins apply."; exit 1; }
+          grep -q -- '--upgrade -r /tmp/aaf-constraints.txt' "$DF" || {
+            echo "::error file=$DF::Dockerfile must force-upgrade via 'pip install --upgrade -r /tmp/aaf-constraints.txt' (constraints can't override Hermes' exact pins)."; exit 1; }
           # Spot-check the high-priority HTTP-stack pins are present at >= fix versions.
           for pin in "aiohttp==3.14.1" "starlette==1.3.1" "tornado==6.5.7" "python-multipart==0.0.31" "cryptography==48.0.1"; do
             grep -q "^${pin}$" "$C" || { echo "::error file=$C::missing/changed required pin: $pin"; exit 1; }
