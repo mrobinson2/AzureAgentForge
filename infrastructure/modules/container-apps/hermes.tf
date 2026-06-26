@@ -245,6 +245,16 @@ resource "azurerm_container_app" "hermes" {
         value = "/tmp/hermes-state.db"
       }
 
+      # Same SMB fix for the kanban board DB. Without this, kanban.db resolves to
+      # HERMES_HOME (/opt/data, the Azure File Share) and `PRAGMA journal_mode=WAL`
+      # fails on SMB as "database is locked", crashing the kanban dispatcher every
+      # tick. Pinning it to /tmp keeps WAL working. Ephemeral (lost on redeploy),
+      # consistent with HERMES_DB_PATH above.
+      env {
+        name  = "HERMES_KANBAN_DB"
+        value = "/tmp/kanban.db"
+      }
+
       # Disable Hermes' lazy-install dispatch. Read by `tools/lazy_deps.py:216`
       # (`_allow_lazy_installs`) ahead of the `security.allow_lazy_installs`
       # config check, so this takes effect even if /opt/data/config.yaml is

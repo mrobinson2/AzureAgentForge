@@ -1,19 +1,20 @@
-# AAF security constraints for the Hermes agent-runtime image.
+# AAF security force-upgrade list for the Hermes agent-runtime image.
 #
 # WHY THIS FILE EXISTS
 # apps/hermes/src is an upstream git submodule (NousResearch/hermes-agent),
 # pinned by SHA — we cannot commit dependency bumps into it from this repo.
-# Instead, the agent-runtime image installs Hermes with `pip install -c` against
-# these constraints, so the *built image* gets the fixed versions even though the
-# submodule's own pyproject.toml/uv.lock are unchanged. Repo-owned, idempotent,
-# reversible (delete the file + the -c flag to revert).
+# Hermes also pins several deps with EXACT '==', so a pip *constraints* file
+# can't override them. Instead the Dockerfile installs Hermes, then runs
+# `pip install --upgrade -r` against this file to FORCE the advisory fix
+# versions into the built image (overriding the upstream pins). Repo-owned,
+# idempotent, reversible (delete the file + the second pip step to revert).
 #
 # Source: Hermes SCA scan (NousResearch/hermes-agent@a4091e4, 2026-06-25).
-# Each pin is the advisory fix version. Bump these as new advisories land; the
-# CI scan (.github/workflows/security-scan.yml) and Dependabot watch for drift.
+# Each line is the advisory fix version. Bump as new advisories land; the
+# security-checks workflow and Dependabot watch for drift.
 #
-# Mirrored upstream in the Hermes fork (pyproject.toml/uv.lock) for parity; the
-# build-time override is what protects the AAF runtime regardless of the pin.
+# Runtime-only: dev-only fixes (e.g. pytest 9.0.3) are handled in the Hermes
+# fork, not force-installed into the production image.
 
 # ── HTTP stack (request-path / DoS — highest priority) ──────────────────────
 aiohttp==3.14.1
@@ -28,7 +29,3 @@ pydantic-settings==2.14.2
 msgpack==1.2.1
 cbor2==5.9.0
 pygments==2.20.0
-
-# pytest is a dev/test dependency (not installed by .[messaging,honcho,cron]);
-# pinned for parity so any path that pulls it gets the fixed version.
-pytest==9.0.3

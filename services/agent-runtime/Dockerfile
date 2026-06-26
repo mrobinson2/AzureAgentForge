@@ -28,10 +28,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 COPY apps/hermes/src/ .
 
-# AAF security override: pin vulnerable transitive deps to advisory fix versions
-# WITHOUT editing the upstream submodule. See services/agent-runtime/constraints.txt.
+# AAF source patch: teach Hermes' WAL fallback to recognize Azure Files SMB
+# ("database is locked") so SMB-resident SQLite DBs fall back to DELETE journal
+# mode instead of crashing. The submodule can't be edited here; patch the copied
+# source at build time (idempotent, fails the build if the anchor is missing).
+COPY services/agent-runtime/patch-hermes-wal-markers.py /tmp/patch-wal-markers.py
+RUN python /tmp/patch-wal-markers.py hermes_state.py
+
+# AAF security override (see services/agent-runtime/constraints.txt).
+# Hermes pins several deps with EXACT '==' (e.g. aiohttp==3.13.3), which a pip
+# *constraints* file cannot override (ResolutionImpossible). So install Hermes
+# first, then FORCE-UPGRADE the advisory fix versions in a second step —
+# deliberately overriding the upstream pins. pip prints a dependency-conflict
+# notice for the overridden pins; that is expected and the security fix wins.
 COPY services/agent-runtime/constraints.txt /tmp/aaf-constraints.txt
-RUN pip install --prefix=/install -c /tmp/aaf-constraints.txt ".[messaging,honcho,cron]"
+RUN pip install --prefix=/install ".[messaging,honcho,cron]" \
+ && pip install --prefix=/install --upgrade -r /tmp/aaf-constraints.txt
 
 # ── Production stage ─────────────────────────────────────────────────────────
 FROM base AS production
