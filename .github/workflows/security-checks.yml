@@ -26,7 +26,7 @@ jobs:
   no-hermes-node-surface:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: agent-runtime image must not build the Hermes Node surface
         run: |
           DF=services/agent-runtime/Dockerfile
@@ -43,7 +43,7 @@ jobs:
   python-security-override-present:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: the build-time security constraints must stay wired
         run: |
           C=services/agent-runtime/constraints.txt
