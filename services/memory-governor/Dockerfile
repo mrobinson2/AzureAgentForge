@@ -2,7 +2,7 @@
 # Runs alongside the model-router sidecar; the governor calls it on
 # localhost:8080 for classification (an economy tier, budget-enforced).
 
-FROM python:3.12-slim AS base
+FROM python:3.14-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
