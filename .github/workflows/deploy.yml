@@ -76,7 +76,7 @@ jobs:
       tag: ${{ steps.b.outputs.tag }}
       built: ${{ steps.b.outputs.built }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: registry configured?
         id: reg
@@ -108,7 +108,7 @@ jobs:
   seed:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - name: vault configured?
         id: v
@@ -149,7 +149,7 @@ jobs:
       has_destroy: ${{ steps.detect.outputs.has_destroy }}
       destroyed: ${{ steps.detect.outputs.destroyed }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: azure/login@v3
         with:
@@ -258,7 +258,7 @@ jobs:
     env:
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
 
       - uses: azure/login@v3
         with:
@@ -300,7 +300,7 @@ jobs:
     if: needs.apply.result == 'success'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: azure/login@v3
         with:
           client-id: ${{ env.ARM_CLIENT_ID }}

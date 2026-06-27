@@ -12,7 +12,7 @@ jobs:
   secret-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           # Do NOT init submodules: the AAF secret scan covers AAF-authored code
           # and history only. Vendored upstreams (apps/*/src) carry their own
@@ -40,7 +40,7 @@ jobs:
     # and reports exactly what is missing; flip to enforcing once #2 lands.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
         with:
           submodules: recursive
       - name: validate upstream Dockerfile COPY sources resolve
@@ -49,7 +49,7 @@ jobs:
   terraform:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.9.5"
@@ -66,14 +66,14 @@ jobs:
   compose:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: docker compose config
         run: docker compose config -q
 
   scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - name: bash syntax
         run: for f in scripts/*.sh; do bash -n "$f"; done
       - name: shellcheck (errors only)
@@ -84,7 +84,7 @@ jobs:
   node-tests:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
@@ -96,7 +96,7 @@ jobs:
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v7
       - uses: actions/setup-python@v6
         with:
           python-version: "3.12"
