@@ -32,7 +32,10 @@ provider "azurerm" {
 
 # Only used when cloudflare_managed = true. With an empty token and no Cloudflare
 # resources instantiated (the module is count-gated off by default), the provider
-# is configured but never authenticates.
+# is configured but never authenticates. NOTE: the cloudflare provider v5
+# validates the token FORMAT at plan time even with no resources, so an empty
+# string fails. Substitute a format-valid placeholder when no real token is
+# supplied so a tunnel-disabled `terraform plan` succeeds.
 provider "cloudflare" {
-  api_token = var.cloudflare_api_token
+  api_token = var.cloudflare_api_token != "" ? var.cloudflare_api_token : "0000000000000000000000000000000000000000"
 }

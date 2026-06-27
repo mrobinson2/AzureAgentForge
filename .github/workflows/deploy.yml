@@ -175,7 +175,8 @@ jobs:
             -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
             -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
             -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
 
       # Map the images that were actually built this run to the image-tag vars
       # the dev environment declares (router/hermes/honcho/paperclip). Images
@@ -206,6 +207,9 @@ jobs:
             -var="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
             -var="environment=${{ inputs.environment }}" \
             -var="location=${{ inputs.location }}" \
+            -var="ai_foundry_endpoint=${{ vars.AI_FOUNDRY_ENDPOINT }}" \
+            -var="ai_foundry_deployment_id=${{ vars.AI_FOUNDRY_DEPLOYMENT_ID }}" \
+            -var='keyvault_admin_object_ids=${{ vars.KEYVAULT_ADMIN_OBJECT_IDS }}' \
             ${{ steps.img.outputs.vars }} \
             -out=tfplan
 
@@ -280,7 +284,8 @@ jobs:
             -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
             -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
             -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
 
       - name: download plan
         uses: actions/download-artifact@v4
@@ -323,7 +328,8 @@ jobs:
             -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
             -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
             -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
-            -backend-config="use_oidc=true"
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
 
       - name: smoke test
         env:
