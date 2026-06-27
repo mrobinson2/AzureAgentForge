@@ -1,10 +1,8 @@
 terraform {
-  backend "azurerm" {
-    resource_group_name  = "rg-terraform-state"
-    storage_account_name = "YOUR_TF_STATE_STORAGE_ACCOUNT"
-    container_name       = "tfstate"
-    key                  = "dev.terraform.tfstate"
-    subscription_id      = "00000000-0000-0000-0000-000000000000"
-    tenant_id            = "00000000-0000-0000-0000-000000000000"
-  }
+  # Remote state in Azure Storage. All values are supplied at init time via
+  # -backend-config (see .github/workflows/deploy.yml; provision the backend
+  # with scripts/scaffold-cicd.sh). For a local-only first deploy, drop in a
+  # backend_override.tf containing `backend "local" {}` (Terraform loads
+  # *_override.tf last), then migrate with `terraform init -migrate-state`.
+  backend "azurerm" {}
 }
