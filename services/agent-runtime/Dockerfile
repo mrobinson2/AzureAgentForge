@@ -5,7 +5,7 @@
 
 # Python 3.13: several security fix versions in constraints.txt (e.g. the
 # updated cryptography/aiohttp stack) require interpreter >=3.13.
-FROM python:3.13-slim AS base
+FROM python:3.14-slim AS base
 
 LABEL org.opencontainers.image.source="https://github.com/AzureAgentForge/AzureAgentForge"
 LABEL org.opencontainers.image.description="Hermes AI Agent — Messaging Gateway"
