@@ -3,7 +3,7 @@
 # is true. Bridges inbound Teams messages to PaperClip issues and replies with
 # Adaptive Cards. Stateless FastAPI app behind ACA internal ingress.
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
