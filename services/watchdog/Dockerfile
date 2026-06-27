@@ -2,7 +2,7 @@
 # (python -m watchdog.watchdog); wire it to a ~10-minute cron. Stdlib + psycopg2
 # only. Does nothing unless feature_flags.AGENT_EVENTS_ENABLED is true.
 
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
