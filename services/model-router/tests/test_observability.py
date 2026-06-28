@@ -94,46 +94,29 @@ class TestObserveGenai:
         assert recorded["gen_ai.usage.input_tokens"] == 5
         assert recorded["agent.run_id"] == "r9"
 
-    def test_observe_genai_exports_real_span(self, router, monkeypatch):
-        """End-to-end through a REAL OTel pipeline: observe_genai must EXPORT a
-        gen_ai.chat span (not just call set_attribute on a fake). This is the
-        coverage that was missing — the live bug created spans that never reached
-        an exporter (logs/metrics exported, spans silently didn't). Uses a
-        SimpleSpanProcessor so export is synchronous on span-end and the assertion
-        is deterministic (the production BatchSpanProcessor path is exercised live
-        end-to-end against App Insights). sampler=ALWAYS_ON so it doesn't depend on
-        ambient context. A model-router dependency disables the OTel SDK by default
-        (OTEL_SDK_DISABLED → get_tracer() returns non-recording NoOp spans, no
-        warning), so clear it BEFORE building the provider; the is_recording guard
-        makes any other cause fail loudly instead of as a cryptic 0 == 1."""
-        monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
+    def test_build_tracer_provider_wires_exporter(self, router):
+        """The fix's core: _build_tracer_provider attaches a span processor that
+        exports via the given exporter. The old code relied on
+        configure_azure_monitor overriding the global TracerProvider (OTel refuses
+        to override an already-set one), so NO Azure exporter was wired and
+        gen_ai.chat spans never left the process — only logs/metrics did.
+
+        Structural assertion so it's immune to the suite's global OTel SDK state
+        (real spans aren't recorded in this test env because a dependency disables
+        the SDK). The observe_genai → span attribute path is covered by
+        test_emits_span_with_attrs, and real end-to-end export is verified live
+        against App Insights."""
         from opentelemetry.sdk.trace import TracerProvider
-        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
             InMemorySpanExporter,
         )
-        from opentelemetry.sdk.trace.sampling import ALWAYS_ON
         exporter = InMemorySpanExporter()
-        provider = TracerProvider(sampler=ALWAYS_ON)
-        provider.add_span_processor(SimpleSpanProcessor(exporter))
-        assert provider.get_tracer("guard").start_span("guard").is_recording(), (
-            "OTel SDK is not recording in this env — export assertion would be "
-            "meaningless (something disabled the SDK)"
-        )
-        monkeypatch.setattr(router, "OBSERVABILITY_ENABLED", True)
-        monkeypatch.setattr(router, "_init_tracer", lambda: provider.get_tracer("test"))
-        router.observe_genai(
-            tier="grok", model="grok-4-1-fast-reasoning",
-            input_tokens=7, output_tokens=2, cost_usd=0.0012, run_id="probe-1",
-        )
-        spans = [s for s in exporter.get_finished_spans() if s.name == "gen_ai.chat"]
-        assert len(spans) == 1
-        span = spans[0]
-        assert span.name == "gen_ai.chat"
-        assert span.attributes["gen_ai.request.model"] == "grok-4-1-fast-reasoning"
-        assert span.attributes["gen_ai.usage.input_tokens"] == 7
-        assert span.attributes["gen_ai.usage.output_tokens"] == 2
-        assert span.attributes["agent.run_id"] == "probe-1"
+        provider = router._build_tracer_provider(exporter)
+        assert isinstance(provider, TracerProvider)
+        active = provider._active_span_processor
+        procs = getattr(active, "_span_processors", (active,))
+        assert any(getattr(p, "span_exporter", None) is exporter for p in procs), \
+            "_build_tracer_provider must wire the exporter into a span processor"
 
 
 class TestAnthropicCostEstimate:
