@@ -101,10 +101,12 @@ class TestObserveGenai:
         an exporter (logs/metrics exported, spans silently didn't). Uses a
         SimpleSpanProcessor so export is synchronous on span-end and the assertion
         is deterministic (the production BatchSpanProcessor path is exercised live
-        end-to-end against App Insights). sampler=ALWAYS_ON so the assertion doesn't
-        depend on ambient OTel context — observe_genai uses start_as_current_span,
-        and a non-sampled parent left in context by another test would otherwise
-        make this child non-sampled (in production gen_ai.chat is a sampled root)."""
+        end-to-end against App Insights). sampler=ALWAYS_ON so it doesn't depend on
+        ambient context. A model-router dependency disables the OTel SDK by default
+        (OTEL_SDK_DISABLED → get_tracer() returns non-recording NoOp spans, no
+        warning), so clear it BEFORE building the provider; the is_recording guard
+        makes any other cause fail loudly instead of as a cryptic 0 == 1."""
+        monkeypatch.delenv("OTEL_SDK_DISABLED", raising=False)
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -114,13 +116,17 @@ class TestObserveGenai:
         exporter = InMemorySpanExporter()
         provider = TracerProvider(sampler=ALWAYS_ON)
         provider.add_span_processor(SimpleSpanProcessor(exporter))
+        assert provider.get_tracer("guard").start_span("guard").is_recording(), (
+            "OTel SDK is not recording in this env — export assertion would be "
+            "meaningless (something disabled the SDK)"
+        )
         monkeypatch.setattr(router, "OBSERVABILITY_ENABLED", True)
         monkeypatch.setattr(router, "_init_tracer", lambda: provider.get_tracer("test"))
         router.observe_genai(
             tier="grok", model="grok-4-1-fast-reasoning",
             input_tokens=7, output_tokens=2, cost_usd=0.0012, run_id="probe-1",
         )
-        spans = exporter.get_finished_spans()
+        spans = [s for s in exporter.get_finished_spans() if s.name == "gen_ai.chat"]
         assert len(spans) == 1
         span = spans[0]
         assert span.name == "gen_ai.chat"
