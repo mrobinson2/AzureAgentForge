@@ -57,13 +57,15 @@ env:
   TF_DIR: infrastructure/environments/dev
   TF_IN_AUTOMATION: "1"
   ARM_USE_OIDC: "true"
-  # Least-privilege OIDC split. The un-gated jobs (build/seed/plan/smoke) run as
-  # the LOW-PRIVILEGE plan identity by default; only `apply` overrides this to
-  # the privileged identity (see the apply job). A poisoned dependency in the
-  # pre-approval jobs therefore cannot reach subscription Contributor.
-  # REQUIRES `vars.AZURE_CLIENT_ID_PLAN` to exist — provision the plan identity
-  # FIRST (provision.sh / scaffold-cicd.sh), then this workflow. See PROVISIONING.md.
-  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
+  # OIDC identity split. terraform plan/apply/smoke need privileged read actions
+  # (Microsoft.App/containerApps/listSecrets, Microsoft.Storage/.../listKeys) to
+  # REFRESH azurerm resources, so they run as the PRIVILEGED identity by default.
+  # Only build + seed — the jobs that fetch untrusted dependencies — drop to the
+  # LOW-PRIVILEGE plan identity (registry write + KV read only, see their per-job
+  # env overrides), so a poisoned dependency there cannot reach subscription
+  # Contributor. REQUIRES both vars.AZURE_CLIENT_ID (privileged) and
+  # vars.AZURE_CLIENT_ID_PLAN — provision both with scaffold-cicd.sh first.
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
   ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
   ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
@@ -72,6 +74,10 @@ jobs:
   # Skips cleanly when CONTAINER_REGISTRY_NAME is unset (infra-only deploy).
   build:
     runs-on: ubuntu-latest
+    # Untrusted-dependency job → run as the LOW-PRIVILEGE plan identity (registry
+    # write + KV read only). A poisoned build dep cannot reach subscription Contributor.
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
     outputs:
       tag: ${{ steps.b.outputs.tag }}
       built: ${{ steps.b.outputs.built }}
@@ -113,6 +119,9 @@ jobs:
   # vault bootstrap documented in docs/deploy-pipeline.md before this can run.
   seed:
     runs-on: ubuntu-latest
+    # Low-privilege plan identity (KV read; existing secrets are kept untouched).
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
     steps:
       - uses: actions/checkout@v7
 
@@ -263,8 +272,8 @@ jobs:
       needs.plan.result == 'success' &&
       (needs.plan.outputs.has_destroy == 'false' || needs.gate.result == 'success')
     runs-on: ubuntu-latest
-    # apply is the ONLY job that mutates infra — it overrides the low-priv default
-    # and runs as the PRIVILEGED identity. Keep this the single Contributor holder.
+    # apply is the only job that MUTATES infra. It runs as the privileged identity
+    # (the default); pinned explicitly here to keep the single Contributor holder obvious.
     env:
       ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
     steps:
