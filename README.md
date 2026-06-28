@@ -65,6 +65,8 @@ New in v1.3 (since v1.2):
 - **Sandbox execution seam**: a provider-pluggable sandbox contract in PaperClip with a `local` adapter and a fail-closed factory, shipped unwired so importing it changes nothing at runtime. It is the seam for an Azure Container Apps dynamic-sessions provider later. 16 unit tests in CI ([`apps/paperclip/sandbox.mjs`](apps/paperclip/sandbox.mjs)).
 - **Turnkey CI/CD setup**: the Forge Console gains a CI/CD Setup page that runs [`scripts/scaffold-cicd.sh`](scripts/scaffold-cicd.sh), provisioning the OIDC app, the Terraform state backend, and the GitHub variables the deploy pipeline needs. It runs preview-first and live-streamed, behind an apply-confirmation gate. The reference [`deploy.yml`](.github/workflows/deploy.yml) now runs green end to end against a clean subscription.
 - **Obsidian memory interface**: a two-way `memory ↔ vault` CLI in the governor. `export` projects governed memory into an Obsidian-compatible Markdown vault, you curate it in Obsidian, and `sync` applies your edits back conservatively, re-checking server state and skipping conflicts ([`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md)).
+- **Upstream security hardening**: the vendored Hermes runtime ships with its Python dependency CVEs remediated, including the aiohttp, starlette, tornado, and python-multipart DoS cluster on the request path plus cryptography and pynacl, force-upgraded past Hermes's exact version pins at build time. The vulnerable Hermes Node surface (the WhatsApp bridge, which carries the critical `baileys` advisory) is kept out of the agent-runtime image, and a `security-checks` CI job enforces both. The PaperClip auth-proxy adds a fail-closed CSRF Origin guard and a bounded admin-session TTL, and recurring dependency scanning runs through Dependabot.
+- **Deployment flexibility**: an optional Cloudflare-managed ingress module (named tunnel, ingress config, and proxied DNS record) gives a chat surface like Teams a public endpoint without a public load balancer, and the network module can now deploy into an existing VNet (BYO-VNet) instead of creating its own.
 
 New in v1.2 (since v1.1):
 
@@ -304,6 +306,10 @@ As of v1.3, AzureAgentForge includes:
 - Obsidian memory interface: two-way memory↔vault CLI for the governor
 - Sandbox execution seam in PaperClip (shipped unwired)
 - Automated end-to-end Azure deploy: image build/push, Key Vault seeding, and post-deploy smoke tests, with a turnkey CI/CD setup page in the Forge Console
+- Optional Cloudflare-managed ingress (named tunnel + proxied DNS) for exposing a chat surface
+- Deploy into an existing VNet (BYO-VNet) or a platform-created one
+- Upstream Hermes dependency CVEs remediated at build time, with recurring scanning in CI
+- Web-research agent tooling (web read, search, and video-transcript wrappers)
 - One-command full local stack (`scripts/local-stack.sh up`)
 - Multi-tenant architecture design and early scaffolding
 
@@ -485,20 +491,20 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Obsidian memory interface: a two-way `memory ↔ vault` CLI in the governor
 - ✅ Governor schema migrations: an idempotent overlay applied on startup
 - ✅ Bot Framework JWT validation on the Teams inbound endpoint
+- ✅ Upstream security: Hermes Python CVEs remediated at build time, the vulnerable Hermes Node surface kept out of the image (both CI-gated), the auth-proxy CSRF Origin guard with a bounded admin-session TTL, and recurring Dependabot scanning
+- ✅ CI least privilege: a two-app OIDC split in `deploy.yml`
+- ✅ Cloudflare-managed ingress module (named tunnel + proxied DNS) for public chat-surface exposure
+- ✅ Deploy into an existing VNet (BYO-VNet)
 
 ### Future releases
 
 - ⬜ OpenClaw support as an additional agent runtime
-- ⬜ First-class Microsoft Voice Live integration
-- ⬜ Low-latency STT/TTS voice interface
-- ⬜ Complete multi-tenant implementation
-- ⬜ Multiple human users
-- ⬜ Agent reviews and approvals
-- ⬜ Work queues
-- ⬜ Scheduled routines
+- ⬜ Voice interface: Microsoft Voice Live, with a provider-agnostic low-latency STT/TTS fallback
+- ⬜ Complete multi-tenant implementation, including multiple human users per tenant (per-user identity and RBAC)
+- ⬜ Human-in-the-loop approval of agent actions and outputs (beyond the infra destroy gate)
+- ⬜ User-defined scheduled agent routines
 - ⬜ Skills manager
 - ⬜ Artifacts and work products
-- ⬜ Cloud sandbox agents
 - ⬜ Deeper observability pipeline: SLO burn-rate alerts and a `gen_ai.usage` cost metric on top of the v1.3 spans
 - ⬜ Agent inventory and operational dashboard patterns
 - ⬜ Private enterprise RAG patterns with Azure AI Search
@@ -506,14 +512,7 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ⬜ Microsoft Foundry Agent Service alignment
 - ⬜ Microsoft 365 and Agent 365 publishing exploration
 - ⬜ Work IQ API exploration
-- ⬜ More chat surfaces
-- ⬜ Desktop app exploration
-- ⬜ CEO chat experience
-- ⬜ Automatic organizational learning
-- ⬜ Self-organization experiments
-- ⬜ Deep planning workflows
-- ⬜ Enforced outcomes
-- ⬜ MAXIMIZER MODE
+- ⬜ More chat surfaces (Slack, WhatsApp, web widget)
 
 See [`ROADMAP.md`](ROADMAP.md) for the full roadmap.
 
@@ -604,6 +603,7 @@ AzureAgentForge is designed with a private-by-default posture:
 - chat bridges are disabled by default
 - Application Insights is opt-in
 - hardened profile supports stronger production posture
+- upstream Hermes dependency CVEs are remediated at build time, with the vulnerable Hermes Node surface excluded from the image and recurring scanning in CI (Dependabot + a `security-checks` job)
 
 Before using this for sensitive workloads, review [`docs/security.md`](docs/security.md), validate your own Azure policies, and complete your own threat model.
 
