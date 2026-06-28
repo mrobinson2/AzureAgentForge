@@ -40,6 +40,28 @@ You can deploy these agent teams, watch them, constrain them, talk to them, and 
 
 ---
 
+## AzureAgentForge is for you if...
+
+You want agents that do more than chat.
+
+You want to give agents goals, tools, memory, and budgets, then see what they did, what they spent, and where they got stuck.
+
+You want to run that system on Azure instead of duct-taping together a laptop demo, a hosted memory service, a mystery dashboard, and a pile of API keys.
+
+You may be building:
+
+- a private agent platform for your own projects
+- a small "AI company" made of specialized agents
+- an automation lab
+- an internal enterprise prototype
+- a safer way to experiment with long-running autonomous workflows
+- a voice-enabled assistant stack
+- an Azure-native agent stack you can actually reason about
+
+AzureAgentForge gives you the starting foundation: orchestration, runtime, memory, model routing, Terraform, secrets, logs, cost controls, and human-facing channels.
+
+---
+
 ## See it in action
 
 A quick tour of the orchestrator UI: the dashboard, agent roster, issue board, and a live org chart of an agent team at work.
@@ -258,28 +280,6 @@ Full Microsoft Teams integration shipped in v1.2: the `teams-bridge` Bot Framewo
 A future release will include first-class integration with **Microsoft Voice Live** for low-cost, low-latency speech-to-text and text-to-speech.
 
 The goal is simple: agents should not be trapped behind a text box. You should be able to talk to them naturally, interrupt them, hear responses, and use voice where voice makes sense.
-
----
-
-## AzureAgentForge is for you if...
-
-You want agents that do more than chat.
-
-You want to give agents goals, tools, memory, and budgets, then see what they did, what they spent, and where they got stuck.
-
-You want to run that system on Azure instead of duct-taping together a laptop demo, a hosted memory service, a mystery dashboard, and a pile of API keys.
-
-You may be building:
-
-- a private agent platform for your own projects
-- a small "AI company" made of specialized agents
-- an automation lab
-- an internal enterprise prototype
-- a safer way to experiment with long-running autonomous workflows
-- a voice-enabled assistant stack
-- an Azure-native agent stack you can actually reason about
-
-AzureAgentForge gives you the starting foundation: orchestration, runtime, memory, model routing, Terraform, secrets, logs, cost controls, and human-facing channels.
 
 ---
 
