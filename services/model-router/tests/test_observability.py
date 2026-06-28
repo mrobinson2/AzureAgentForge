@@ -101,14 +101,18 @@ class TestObserveGenai:
         an exporter (logs/metrics exported, spans silently didn't). Uses a
         SimpleSpanProcessor so export is synchronous on span-end and the assertion
         is deterministic (the production BatchSpanProcessor path is exercised live
-        end-to-end against App Insights)."""
+        end-to-end against App Insights). sampler=ALWAYS_ON so the assertion doesn't
+        depend on ambient OTel context — observe_genai uses start_as_current_span,
+        and a non-sampled parent left in context by another test would otherwise
+        make this child non-sampled (in production gen_ai.chat is a sampled root)."""
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
             InMemorySpanExporter,
         )
+        from opentelemetry.sdk.trace.sampling import ALWAYS_ON
         exporter = InMemorySpanExporter()
-        provider = TracerProvider()
+        provider = TracerProvider(sampler=ALWAYS_ON)
         provider.add_span_processor(SimpleSpanProcessor(exporter))
         monkeypatch.setattr(router, "OBSERVABILITY_ENABLED", True)
         monkeypatch.setattr(router, "_init_tracer", lambda: provider.get_tracer("test"))
