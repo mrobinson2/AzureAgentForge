@@ -499,13 +499,17 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 ### Future releases
 
 - ⬜ OpenClaw support as an additional agent runtime
-- ⬜ Voice interface: Microsoft Voice Live, with a provider-agnostic low-latency STT/TTS fallback
+- ⬜ Voice: shared infrastructure (streaming STT, low-latency TTS, VAD + barge-in, persona overlay), provider-agnostic across Microsoft Voice Live and Deepgram/ElevenLabs
+- ⬜ Voice surfaces: Discord voice, a web chat widget, and a phone line (Twilio, with PIN gate, consent, and recording retention)
+- ⬜ Discord as a control plane: role-gated slash-command operations, in-channel delegation (plan → execute → result), and an audit feed
 - ⬜ Complete multi-tenant implementation, including multiple human users per tenant (per-user identity and RBAC)
 - ⬜ Human-in-the-loop approval of agent actions and outputs (beyond the infra destroy gate)
 - ⬜ User-defined scheduled agent routines
 - ⬜ Skills manager
 - ⬜ Artifacts and work products
-- ⬜ Deeper observability pipeline: SLO burn-rate alerts and a `gen_ai.usage` cost metric on top of the v1.3 spans
+- ⬜ Synthetic dogfooding: scheduled canary conversations across channels, alerting on repeated failure
+- ⬜ Deeper observability pipeline: correlation-id threading, per-agent metric counters, an SLO dashboard, SLO burn-rate alerts, and a `gen_ai.usage` cost metric on top of the v1.3 spans
+- ⬜ Cost governance: a daily cost rollup and per-user budget caps on top of the per-tier daily caps
 - ⬜ Agent inventory and operational dashboard patterns
 - ⬜ Private enterprise RAG patterns with Azure AI Search
 - ⬜ Azure Container Apps dynamic-sessions provider behind the v1.3 sandbox seam
