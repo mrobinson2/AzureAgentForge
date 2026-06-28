@@ -11,7 +11,7 @@
 -- migrations/README.md), which the governor runs on startup.
 --
 -- ⚠️ TYPE RECONCILIATION: column TYPES below are derived from the governor's
--- query usage, not from the canonical MRTek migrations. Before enabling the
+-- query usage, not from the canonical source migrations (in the private upstream platform). Before enabling the
 -- governor in production, reconcile `documents.id`'s type (UUID vs text) so the
 -- *_doc_id references match, and confirm against the live Honcho schema.
 
@@ -52,7 +52,7 @@ CREATE TABLE IF NOT EXISTS agent_events (
 CREATE INDEX IF NOT EXISTS agent_events_type_time_idx ON agent_events (event_type, created_at);
 
 -- TODO(0002): port `session_memory` and `skill_candidates` from the canonical
--- MRTek migrations — their exact columns/types/indexes can't be safely derived
+-- canonical source migrations — their exact columns/types/indexes can't be safely derived
 -- from the governor's query usage alone. The scope-watcher and skill-miner loops
 -- stay idle until those exist (they fail closed), so the overlay above is enough
 -- for memory export/curation + the flag spine; the full feature set needs 0002.

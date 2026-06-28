@@ -26,10 +26,10 @@ DATABASE_URL="<postgres-connection-string from Key Vault>" \
   `feature_flags` + `agent_events`. Enough for memory **export/curation** (the
   Obsidian interface) and the feature-flag spine.
 - **Column TYPES are derived from the governor's query usage, not the canonical
-  MRTek migrations.** Before enabling the governor in production, reconcile
+  canonical source migrations.** Before enabling the governor in production, reconcile
   against the live Honcho schema — in particular whether `documents.id` is `uuid`
   or `text` (so the `*_doc_id` reference columns match).
 - **TODO `0002`** — `session_memory` and `skill_candidates` can't be safely
-  derived from code; port them from the canonical MRTek migrations. The
+  derived from code; port them from the canonical source migrations (in the private upstream platform). The
   scope-watcher and skill-miner loops fail closed and stay idle until those exist,
   so the rest of the governor works without them.
