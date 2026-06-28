@@ -225,6 +225,7 @@ jobs:
             -var="ai_foundry_endpoint=${{ vars.AI_FOUNDRY_ENDPOINT }}" \
             -var="ai_foundry_deployment_id=${{ vars.AI_FOUNDRY_DEPLOYMENT_ID }}" \
             -var='keyvault_admin_object_ids=${{ vars.KEYVAULT_ADMIN_OBJECT_IDS }}' \
+            -var="observability_enabled=${{ vars.OBSERVABILITY_ENABLED || 'false' }}" \
             ${{ steps.img.outputs.vars }} \
             -out=tfplan
 
