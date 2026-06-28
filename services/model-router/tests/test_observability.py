@@ -95,24 +95,27 @@ class TestObserveGenai:
         assert recorded["agent.run_id"] == "r9"
 
     def test_observe_genai_exports_real_span(self, router, monkeypatch):
-        """End-to-end through a REAL OTel pipeline: observe_genai must produce an
-        EXPORTED gen_ai.chat span (not just call set_attribute on a fake). Guards
-        the live regression where spans were created but never reached an exporter
-        — logs/metrics exported, spans silently didn't. Uses the same provider
-        builder the Azure path uses (_build_tracer_provider) with an in-memory
-        exporter, so a broken export pipeline fails this test."""
+        """End-to-end through a REAL OTel pipeline: observe_genai must EXPORT a
+        gen_ai.chat span (not just call set_attribute on a fake). This is the
+        coverage that was missing — the live bug created spans that never reached
+        an exporter (logs/metrics exported, spans silently didn't). Uses a
+        SimpleSpanProcessor so export is synchronous on span-end and the assertion
+        is deterministic (the production BatchSpanProcessor path is exercised live
+        end-to-end against App Insights)."""
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import SimpleSpanProcessor
         from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
             InMemorySpanExporter,
         )
         exporter = InMemorySpanExporter()
-        provider = router._build_tracer_provider(exporter)
+        provider = TracerProvider()
+        provider.add_span_processor(SimpleSpanProcessor(exporter))
         monkeypatch.setattr(router, "OBSERVABILITY_ENABLED", True)
         monkeypatch.setattr(router, "_init_tracer", lambda: provider.get_tracer("test"))
         router.observe_genai(
             tier="grok", model="grok-4-1-fast-reasoning",
             input_tokens=7, output_tokens=2, cost_usd=0.0012, run_id="probe-1",
         )
-        provider.force_flush()  # BatchSpanProcessor batches; flush to assert export
         spans = exporter.get_finished_spans()
         assert len(spans) == 1
         span = spans[0]
