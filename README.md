@@ -32,11 +32,11 @@ Then you try to run one for real work and the uncomfortable questions show up:
 
 **AzureAgentForge is built for that gap.**
 
-It brings together three leading open-source agent tools, **PaperClip** for orchestration and UI, **Hermes** for agent execution, and **Honcho** for private memory, then wraps them in an Azure-ready foundation with Terraform, Key Vault, Container Apps, PostgreSQL, budget-aware model routing, and centralized logging.
+It brings together three open-source agent tools: **PaperClip** for orchestration and UI, **Hermes** for agent execution, and **Honcho** for private memory. It wraps them in an Azure foundation with Terraform, Key Vault, Container Apps, PostgreSQL, budget-aware model routing, and centralized logging.
 
-Most LLM calls are routed through **Azure AI Foundry**, which keeps model integration simple while aligning with the Azure security model. Where supported, the platform is designed to favor Microsoft Entra ID and managed identity patterns over long-lived API keys.
+Most LLM calls route through **Azure AI Foundry**, which keeps model integration simple and aligned with the Azure security model. Where supported, the platform favors Microsoft Entra ID and managed identity over long-lived API keys.
 
-This is not another cute local demo. It is a practical starting point for people who want agent teams they can deploy, monitor, constrain, talk to, and improve.
+You can deploy these agent teams, watch them, constrain them, talk to them, and improve them. That is the point.
 
 ---
 
@@ -59,41 +59,36 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 
 ## What's new
 
+New in v1.3 (since v1.2):
+
+- **GenAI observability, now live**: every LLM call through the model-router emits one OpenTelemetry GenAI span (model, token counts, cost) to Application Insights, behind `OBSERVABILITY_ENABLED` (off by default), with content redacted. The same change closes the Anthropic cost gap: Claude-tier calls return no billed cost from the SDK, so they now carry a list-price estimate and show up in both cost tracking and traces. The span export was fixed and verified against a live Application Insights workspace.
+- **Sandbox execution seam**: a provider-pluggable sandbox contract in PaperClip with a `local` adapter and a fail-closed factory, shipped unwired so importing it changes nothing at runtime. It is the seam for an Azure Container Apps dynamic-sessions provider later. 16 unit tests in CI ([`apps/paperclip/sandbox.mjs`](apps/paperclip/sandbox.mjs)).
+- **Turnkey CI/CD setup**: the Forge Console gains a CI/CD Setup page that runs [`scripts/scaffold-cicd.sh`](scripts/scaffold-cicd.sh), provisioning the OIDC app, the Terraform state backend, and the GitHub variables the deploy pipeline needs. It runs preview-first and live-streamed, behind an apply-confirmation gate. The reference [`deploy.yml`](.github/workflows/deploy.yml) now runs green end to end against a clean subscription.
+- **Obsidian memory interface**: a two-way `memory ↔ vault` CLI in the governor. `export` projects governed memory into an Obsidian-compatible Markdown vault, you curate it in Obsidian, and `sync` applies your edits back conservatively, re-checking server state and skipping conflicts ([`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md)).
+
 New in v1.2 (since v1.1):
 
-- **End-to-end Azure deploy, now validated**: a full deploy from a clean subscription — server-side image build/push (`az acr build`), Key Vault seeding, `terraform apply`, and post-deploy smoke — with a [step-by-step walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console).
+- **End-to-end Azure deploy, now validated**: a full deploy from a clean subscription covering server-side image build and push (`az acr build`), Key Vault seeding, `terraform apply`, and post-deploy smoke. See the [step-by-step walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console).
 - **One-command full local stack**: the upstream PaperClip/Honcho/Hermes sources are vendored so the full image set builds and runs with `scripts/local-stack.sh up` (or `docker compose --profile full up`).
 - **Microsoft Teams integration**: the `teams-bridge` Bot Framework service files inbound Teams messages as Orchestrator issues and replies with Adaptive Cards, gated by `teams_enabled` at parity with Telegram/Discord ([`services/teams-bridge`](services/teams-bridge/)).
-- **Hardened model-router tests**: 146 offline tests covering auth, rate limiting, per-tier budget/fallback, Foundry registration, and the OpenAI↔Anthropic translation layer — guarding the silent-downgrade and budget-exhaustion paths.
+- **Hardened model-router tests**: 146 offline tests covering auth, rate limiting, per-tier budget/fallback, Foundry registration, and the OpenAI↔Anthropic translation layer, guarding the silent-downgrade and budget-exhaustion paths.
 - **Observability module**: opt-in Log Analytics alert rules (watchdog findings, secret expiry, run failures) plus an Azure Monitor workbook, no app changes ([`infrastructure/modules/monitoring`](infrastructure/modules/monitoring/)).
 
-New in v1.1 (since the v1.0 open-source release):
-
-- **Governance &amp; blast-radius walkthrough**: a destructive request traced through every control that refuses it, backed by reproducible replay fixtures and the demos above.
-- **Destroy-aware approval gate**: in the Forge Console *and* as a reference CI/CD pipeline ([`.github/workflows/deploy.yml`](.github/workflows/deploy.yml)). Routine plans apply unattended; any delete/replace blocks on human approval. OIDC auth, no stored secrets ([setup](docs/deploy-pipeline.md)).
-- **Forge Console** (`./forge`): a local web installer that runs preflight checks and a live-streamed `init → validate → plan → apply`, with typed confirmations for `apply`/`destroy`.
-- **Governed memory, now shipped (flag-gated off)**: the four-plane / six-class memory model with admission control, computed trust, contradiction detection, hybrid pgvector retrieval, and a self-improvement loop, ported as real code under [`services/memory-governor/`](services/memory-governor/) + [`services/watchdog/`](services/watchdog/) (~150 offline tests in CI). Every flag seeds **off**, so it's inert until you enable it. Architecture and the explicitly-not-built long tail: [`docs/design/memory-system.md`](docs/design/memory-system.md).
-- **14 golden orchestration replay fixtures**: regression tests that pin agent routing and refusal behavior ([`tests/replay/`](tests/replay/)).
-- **Measured Azure costs**: figures validated against real bills (~$83/mo observed on cost-optimized), not just guessed from list prices ([`docs/cost.md`](docs/cost.md)).
+Earlier releases (v1.1, v1.0) are in the [roadmap](#roadmap).
 
 ---
 
-## The mental model
+## The components
 
-Think of AzureAgentForge as a small operations center for agent teams.
-
-- **PaperClip** is the front desk and work dashboard.
-- **Hermes** is where the agents actually do the work.
-- **OpenClaw** support is planned as an additional agent execution option.
-- **Honcho** is the memory layer that keeps context private.
+- **PaperClip** is the orchestrator: the UI, the issue board, and the work dashboard.
+- **Hermes** runs the agents that do the work. **OpenClaw** is planned as a second runtime option.
+- **Honcho** is the memory layer that keeps agent context inside your network.
 - **Memory Governor** is the optional governance layer over that memory. It decides what's worth remembering, how much to trust it, and what to forget.
-- **Model Router** is the spending guardrail.
+- **Model Router** enforces the spending limits.
 - **Azure AI Foundry** is the preferred model gateway.
-- **Azure** is the secure building everything runs inside.
+- **Azure** is where all of it runs.
 
-You bring the goals.
-
-The platform gives your agents a place to work, remember, call tools, stay within budget, talk to people, and leave an audit trail.
+You bring the goals. The platform gives your agents a place to work, remember, call tools, stay within budget, talk to people, and leave an audit trail.
 
 ---
 
@@ -224,7 +219,7 @@ Each is designed so the *default* outcome is "nothing destructive happens," and 
 request has to defeat all of them. See it traced end to end, with reproducible
 replay fixtures, in the [governance &amp; blast-radius walkthrough](docs/walkthroughs/governance-and-blast-radius.md).
 
-### Deployable on Azure, not just runnable on a laptop
+### Deployable on Azure
 
 Terraform provisions the Azure foundation, including:
 
@@ -237,11 +232,11 @@ Terraform provisions the Azure foundation, including:
 
 CI validates and plans clean on every commit.
 
-### Observable without container archaeology
+### Observability: logs and GenAI traces
 
-Every service logs to a shared Log Analytics workspace. Application Insights is optional.
+Every service logs to a shared Log Analytics workspace. As of v1.3, each model-router LLM call also emits an OpenTelemetry GenAI span (model, token counts, estimated cost) to Application Insights when you set `OBSERVABILITY_ENABLED`. Content is redacted, and the flag is off by default.
 
-You should be able to understand what happened without SSHing into containers and spelunking through logs like it is 2007.
+You can see what an agent did and what it spent without SSHing into a container and reading logs line by line.
 
 ### Built for where people already work
 
@@ -254,7 +249,7 @@ discord_enabled  = true
 
 Both are off by default.
 
-Full Microsoft Teams integration shipped in v1.2 — the `teams-bridge` Bot Framework service — so agent teams can move closer to the place many organizations already coordinate work.
+Full Microsoft Teams integration shipped in v1.2: the `teams-bridge` Bot Framework service, with Bot Framework JWT validation added on the inbound endpoint in v1.3. Teams joins Telegram and Discord as a place agents can reach people where they already work.
 
 ### Voice as a first-class interface
 
@@ -288,7 +283,7 @@ AzureAgentForge gives you the starting foundation: orchestration, runtime, memor
 
 ## What is included today
 
-As of v1.2, AzureAgentForge includes:
+As of v1.3, AzureAgentForge includes:
 
 - Full Terraform IaC for the Azure foundation
 - Two infrastructure cost profiles
@@ -298,33 +293,31 @@ As of v1.2, AzureAgentForge includes:
 - OpenAI-compatible fallback support
 - Sanitized Dockerfiles and service configuration
 - Key Vault-based secret loading
-- Log Analytics integration
+- Log Analytics integration plus opt-in GenAI traces to Application Insights
 - Private VNet design
 - Local working slice with PostgreSQL and the model router
 - Optional Telegram, Discord, and Microsoft Teams surfaces
 - Governance & blast-radius walkthrough with reproducible replay fixtures
 - Destroy-aware approval gate (Forge Console + reference CI/CD pipeline)
 - 14 golden orchestration replay fixtures (agent-behavior regression tests)
-- Governed memory: governor service, retrieval planner, background loops, hybrid vector retrieval, and self-improvement watchdog (shipped, flag-gated off)
-- Automated end-to-end Azure deploy: image build/push, Key Vault seeding, and post-deploy smoke tests
+- Governed memory: governor service, retrieval planner, background loops, hybrid vector retrieval, schema migrations, and self-improvement watchdog (shipped, flag-gated off)
+- Obsidian memory interface: two-way memory↔vault CLI for the governor
+- Sandbox execution seam in PaperClip (shipped unwired)
+- Automated end-to-end Azure deploy: image build/push, Key Vault seeding, and post-deploy smoke tests, with a turnkey CI/CD setup page in the Forge Console
 - One-command full local stack (`scripts/local-stack.sh up`)
 - Multi-tenant architecture design and early scaffolding
 
-The current local quickstart brings up PostgreSQL and the model router; the full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The full end-to-end Azure deploy is automated in v1.2 (`scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline).
+The local quickstart brings up PostgreSQL and the model router. The full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The end-to-end Azure deploy is automated (`scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline, which now runs green end to end).
 
 ---
 
 ## What's not finished yet
 
-AzureAgentForge is not a one-click SaaS product.
+AzureAgentForge is not a one-click SaaS product. Standing up your own instance takes real setup: an Azure subscription, GitHub-to-Azure IAM (OIDC), and a handful of environment-specific values.
 
-v1.2 gives you the architecture, Terraform, model router, role schema, Docker/config scaffolding, the full local stack, the Forge Console, a reference deploy pipeline, and automated image build/push + Key Vault seeding for the full Azure deploy. Standing up your own instance still takes real setup work: an Azure subscription, GitHub-to-Azure IAM (OIDC), and a handful of environment-specific configuration values.
+The v1.3 release gives you the architecture, Terraform, model router, role schema, Docker and config scaffolding, the full local stack, the Forge Console, a reference deploy pipeline that now runs green end to end, and automated image build/push plus Key Vault seeding. The end-to-end Azure deploy is validated against a clean subscription.
 
-Full end-to-end deploy automation shipped in v1.2 and is validated against a clean subscription — but it is not a one-click product: expect to wire IAM and supply a handful of environment values.
-
-If you want magic, this is not magic.
-
-If you want a serious foundation you can inspect, fork, improve, and run in your own Azure environment, you are in the right place.
+What you get is a foundation you can inspect, fork, improve, and run in your own Azure environment.
 
 ---
 
@@ -353,7 +346,9 @@ that writes your `terraform.tfvars` (with preview), then live-streamed
 `init → validate → plan → apply` in a terminal pane. Local Terraform state
 is handled automatically, so a first deploy needs zero pre-provisioned
 infrastructure. `apply` and `destroy` require typing the environment name,
-so there are no accidental clicks. Details and the security model:
+so there are no accidental clicks. v1.3 adds a CI/CD Setup page that scaffolds
+the OIDC app, Terraform state backend, and GitHub variables for the reference
+deploy pipeline. Details and the security model:
 [`installer/README.md`](installer/README.md).
 
 Prefer a guided walkthrough with an AI assistant instead? Start with
@@ -419,7 +414,7 @@ terraform -chdir=infrastructure/environments/dev apply \
 
 This provisions infrastructure. It does not yet build and push all service images or seed every runtime secret.
 
-The complete end-to-end deploy flow shipped in v1.2 — see the [deployment walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console).
+The complete end-to-end deploy flow shipped in v1.2; see the [deployment walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console).
 
 See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walkthrough, including Key Vault secret seeding.
 
@@ -482,6 +477,15 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Full Microsoft Teams integration
 - ✅ First fully validated end-to-end Azure deployment from a clean subscription ([walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console))
 
+### Shipped in v1.3
+
+- ✅ GenAI observability: an OpenTelemetry GenAI span per model-router call to Application Insights (flag-gated off), plus a list-price cost estimate for Claude-tier calls
+- ✅ Sandbox execution seam in PaperClip: provider-pluggable contract + `local` adapter, shipped unwired
+- ✅ Turnkey CI/CD setup: Forge Console page + `scripts/scaffold-cicd.sh` + `scripts/bootstrap.sh`; the reference `deploy.yml` runs green end to end
+- ✅ Obsidian memory interface: a two-way `memory ↔ vault` CLI in the governor
+- ✅ Governor schema migrations: an idempotent overlay applied on startup
+- ✅ Bot Framework JWT validation on the Teams inbound endpoint
+
 ### Future releases
 
 - ⬜ OpenClaw support as an additional agent runtime
@@ -495,10 +499,10 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ⬜ Skills manager
 - ⬜ Artifacts and work products
 - ⬜ Cloud sandbox agents
-- ⬜ Deeper observability pipeline
+- ⬜ Deeper observability pipeline: SLO burn-rate alerts and a `gen_ai.usage` cost metric on top of the v1.3 spans
 - ⬜ Agent inventory and operational dashboard patterns
 - ⬜ Private enterprise RAG patterns with Azure AI Search
-- ⬜ Azure Container Apps Sandboxes exploration
+- ⬜ Azure Container Apps dynamic-sessions provider behind the v1.3 sandbox seam
 - ⬜ Microsoft Foundry Agent Service alignment
 - ⬜ Microsoft 365 and Agent 365 publishing exploration
 - ⬜ Work IQ API exploration
@@ -529,7 +533,7 @@ AzureAgentForge is intentionally aligned with where Microsoft is moving the agen
 - **Log Analytics and Application Insights** for operations and troubleshooting
 - **Microsoft 365 and Agent 365** as future distribution points where agents can meet users where they already work
 
-AzureAgentForge does not chase every new service that ships. It picks the ones that pull their weight and makes itself a practical bridge between open-source agent tooling and the Microsoft cloud capabilities that make agent systems safer and easier to operate inside real organizations.
+AzureAgentForge does not chase every new service that ships. It picks the ones that pull their weight, connecting open-source agent tooling to the Microsoft cloud features that make agent systems safer and easier to operate inside real organizations.
 
 ---
 
@@ -570,6 +574,7 @@ Multi-tenant support is designed and partially scaffolded.
 | [`docs/agents.md`](docs/agents.md) | The 14-role model and how to add your own |
 | [`docs/design/memory-system.md`](docs/design/memory-system.md) | Governed-memory architecture (four planes, six classes, trust model, self-improvement loop); shipped flag-gated off; code under [`services/memory-governor/`](services/memory-governor/) + [`services/watchdog/`](services/watchdog/) |
 | [`docs/deploy-pipeline.md`](docs/deploy-pipeline.md) | Reference GitHub Actions deploy pipeline with a destroy-aware approval gate (OIDC, no stored secrets) |
+| [`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md) | Two-way memory ↔ Obsidian vault CLI: export governed memory, curate in Obsidian, sync edits back |
 
 ---
 
@@ -602,7 +607,7 @@ AzureAgentForge is designed with a private-by-default posture:
 
 Before using this for sensitive workloads, review [`docs/security.md`](docs/security.md), validate your own Azure policies, and complete your own threat model.
 
-This is infrastructure you control, not a security guarantee you outsource.
+You own and control this infrastructure; the security posture is yours to verify.
 
 ---
 

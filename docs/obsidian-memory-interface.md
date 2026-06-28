@@ -1,8 +1,8 @@
 # Obsidian memory interface
 
-A two-way bridge between AzureAgentForge's **governed memory** and a local
+A two-way interface between AzureAgentForge's **governed memory** and a local
 [Obsidian](https://obsidian.md) vault. The governed-memory six-class model maps
-1:1 onto Markdown-note-with-frontmatter, so an Obsidian vault *is* the UI — there
+1:1 onto Markdown notes with frontmatter, so an Obsidian vault *is* the UI; there
 is no frontend to install.
 
 - **`export`** projects every governed memory into `<vault>/<id>.md`.
@@ -11,7 +11,7 @@ is no frontend to install.
 
 Implementation: [`services/memory-governor/src/governor/vault.py`](../services/memory-governor/src/governor/vault.py).
 It is a thin `httpx` client over the governor's operator API plus pure
-render/parse/diff — no database access and no Azure SDK.
+render/parse/diff, with no database access and no Azure SDK.
 
 ---
 
@@ -35,7 +35,7 @@ Enable and deploy it:
    secret mount.
 
 > The governor ingress is **internal** (VNet-only), exactly like the model
-> router — it is intentionally not exposed to the public internet.
+> router; it is intentionally not exposed to the public internet.
 
 ---
 
@@ -61,13 +61,13 @@ export GOVERNOR_API_KEY="$(az keyvault secret show \
 Because `ca-memory-governor-dev` has internal ingress, a laptop cannot hit it
 directly. Pick one:
 
-- **Run from inside the VNet** — e.g. a one-off container/job in the same
-  Container Apps environment (the most reliable path; the same approach used to
-  probe the internal router).
+- **Run from inside the VNet**: e.g. a one-off container or job in the same
+  Container Apps environment (the most reliable path, and the same approach used
+  to probe the internal router).
 - **Tunnel** to the internal FQDN (VPN, Cloudflare tunnel, or a jump host), then
   set `GOVERNOR_BASE_URL` to the reachable address.
-- **Auth-proxy** — if a public mission-control host fronts the governor, set
-  `MEMORY_API_BASE_URL` + `MEMORY_API_TOKEN` and skip the VNet entirely.
+- **Auth-proxy**: if a public mission-control host fronts the governor, set
+  `MEMORY_API_BASE_URL` and `MEMORY_API_TOKEN` and skip the VNet entirely.
 
 ---
 
@@ -101,7 +101,7 @@ Empty/None fields are omitted.
 
 ---
 
-## Repeated exports — no duplicates
+## Repeated exports: no duplicates
 
 **Re-running `export` never creates duplicates.** Each note is named by the
 memory's **stable governor id** (`<id>.md`), so a second export *overwrites the
@@ -109,12 +109,12 @@ same file in place*; it is idempotent. The baseline file is likewise rewritten.
 
 Two things to know before you re-export, though:
 
-1. **Re-export overwrites notes wholesale** — it re-renders each note from the
-   current server state, so it **clobbers any local edits you have not synced
-   yet**. The intended loop is **export → curate → `sync` → (optionally re-export
-   to refresh)**. Always `sync` before re-exporting if you have pending edits.
-2. **Export does not prune** — notes for memories that were *forgotten/deleted
-   server-side* are not removed from the vault; the stale `<id>.md` lingers (it is
+1. **Re-export overwrites notes wholesale.** It re-renders each note from the
+   current server state, so it clobbers any local edits you have not synced yet.
+   The intended loop is **export → curate → `sync` → (optionally re-export to
+   refresh)**. Always `sync` before re-exporting if you have pending edits.
+2. **Export does not prune.** Notes for memories that were forgotten or deleted
+   server-side are not removed from the vault; the stale `<id>.md` lingers (it is
    stale, not a duplicate). To get a clean mirror, export into a fresh directory,
    or delete notes whose ids no longer appear in a fresh `list`. (`sync` *does*
    treat a note you delete locally as a `forget`.)
@@ -141,8 +141,8 @@ governor actions (all attributed to `actor=operator`):
 
 **Conflict safety:** before applying, `sync` re-fetches current server state and
 **skips any memory whose class/verification changed on the server since your
-export** (listed in the output). The governor stays the source of truth — nothing
-is silently clobbered. Re-`export` to pick up those server changes, then curate
+export** (listed in the output). The governor stays the source of truth, and
+nothing is silently clobbered. Re-`export` to pick up those server changes, then curate
 again.
 
 **Not handled:** editing a note's **body/content** is *not* synced (creating a
