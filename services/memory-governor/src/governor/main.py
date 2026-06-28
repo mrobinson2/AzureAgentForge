@@ -36,8 +36,18 @@ async def require_key(x_governor_key: str | None = Header(default=None)) -> None
 @app.on_event("startup")
 async def _startup() -> None:
     import asyncio
+    import logging
 
-    from . import annotator, contradiction, scope_watcher, skill_miner
+    from . import annotator, contradiction, migrate, scope_watcher, skill_miner
+
+    # Apply the governed-memory schema overlay (idempotent) before the loops run,
+    # so a fresh deployment has the columns/tables the governor queries. Fail-open:
+    # a migration error is logged, not fatal (the API still serves; loops fail closed).
+    try:
+        await migrate.apply()
+    except Exception:
+        logging.getLogger("governor.main").exception(
+            "schema migration failed — governed memory may not work until resolved")
 
     # Always-spawn, gate-inside: each loop checks its own feature flag every
     # cycle and idles when off, so spawning them is a no-op until a flag is on.
