@@ -76,7 +76,13 @@ jobs:
       tag: ${{ steps.b.outputs.tag }}
       built: ${{ steps.b.outputs.built }}
     steps:
+      # submodules:recursive pulls apps/hermes/src + apps/honcho/src (public
+      # github.com submodules) — the upstream image builds (hermes/honcho/
+      # paperclip) copy and patch that source, so without them they fail on
+      # missing files (e.g. hermes_state.py).
       - uses: actions/checkout@v7
+        with:
+          submodules: recursive
 
       - name: registry configured?
         id: reg
