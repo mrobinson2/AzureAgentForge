@@ -40,7 +40,7 @@ Pick a path:
 
 The local router registers a `gpt4o-mini` primary tier when you provide either
 the `AZURE_FOUNDRY_*` pair or the direct `GPT4O_*` pair (the former is aliased
-to the latter in `docker-compose.yml`) — point either at any OpenAI-compatible
+to the latter in `docker-compose.yml`). Point either at any OpenAI-compatible
 endpoint: Azure AI Foundry, Ollama, vLLM, or a hosted API. Optional tiers
 (Grok, Kimi, Claude, Phi) register only when their own env vars are set.
 
@@ -240,7 +240,7 @@ Image build, push, and service startup are automated in v1.2 via
 ### 6. Seed Key Vault secrets
 
 After apply, the Container Apps pull secrets from Key Vault by name. Seed them
-with [`scripts/seed-keyvault.sh`](../scripts/seed-keyvault.sh) — it generates the
+with [`scripts/seed-keyvault.sh`](../scripts/seed-keyvault.sh); it generates the
 internal secrets (JWT keys, admin passwords) and reads external ones (provider
 keys, bot tokens, the Postgres connection strings) from like-named environment
 variables:
@@ -250,7 +250,7 @@ KV=$(terraform output -raw key_vault_name)
 
 # Pass the keys/tokens you have; an unset external gets a non-empty `__unset__`
 # placeholder and stays inert until you set it and re-run. The Postgres
-# connection strings are a SECOND pass — they can only be known now that the
+# connection strings are a SECOND pass: they can only be known now that the
 # database exists, so derive them from your Postgres resource.
 AI_FOUNDRY_API_KEY="<your-key>" \
 POSTGRES_CONNECTION_STRING="<from your Postgres resource>" \
@@ -259,9 +259,9 @@ PAPERCLIP_DB_URL="<from your Postgres resource>" \
 ```
 
 `scripts/seed-keyvault.sh --list` prints the full inventory and the env var each
-secret reads. Note the Azure AI Foundry **endpoint** is *not* a Key Vault secret
-— it's the `ai_foundry_endpoint` Terraform variable (set in `terraform.tfvars`
-or the Forge form); only the API key (`ai-foundry-api-key`) is a secret.
+secret reads. Note the Azure AI Foundry **endpoint** is *not* a Key Vault secret;
+it is the `ai_foundry_endpoint` Terraform variable (set in `terraform.tfvars`
+or the Forge form). Only the API key (`ai-foundry-api-key`) is a secret.
 
 ### 7. After deploy
 
@@ -279,7 +279,7 @@ From here, the same steps as the local path apply:
 - Enable Telegram: [`../integrations/telegram/README.md`](../integrations/telegram/README.md)
 - Enable Discord: [`../integrations/discord/README.md`](../integrations/discord/README.md)
 - Enable Teams: [`../integrations/teams/README.md`](../integrations/teams/README.md)
-- Public ingress / a chat surface going live (e.g. Teams) needs a Cloudflare tunnel + DNS — managed by the `cloudflare-tunnel` Terraform module under `infrastructure/modules/`.
+- Public ingress or a chat surface going live (e.g. Teams) needs a Cloudflare tunnel and DNS, managed by the `cloudflare-tunnel` Terraform module under `infrastructure/modules/`.
 
 ---
 
@@ -303,37 +303,37 @@ A full end-to-end deploy of the cloud stack from a **clean subscription** via th
 Forge Console (`PYTHON=python3.13 ./forge`). Image builds run server-side in ACR
 (`az acr build`), so no local Docker is required.
 
-1. **Build & push the images** — `scripts/build-and-push.sh` (server-side `az acr build`; run `--list` first to preview the seven images):
+1. **Build and push the images** with `scripts/build-and-push.sh` (server-side `az acr build`; run `--list` first to preview the seven images):
    ![Image build to ACR](assets/deploy-1-acr-build.png)
-2. **Preflight checks** — Terraform, `az` login, and subscription detection:
+2. **Preflight checks**: Terraform, `az` login, and subscription detection:
    ![Forge Console preflight](assets/deploy-2-preflight.png)
-3. **Configuration wizard** — the tfvars form with live preview:
+3. **Configuration wizard**: the tfvars form with live preview:
    ![tfvars wizard](assets/deploy-3-config-wizard.png)
-4. **Plan** — live-streamed `terraform plan`:
+4. **Plan**: live-streamed `terraform plan`:
    ![terraform plan](assets/deploy-4-plan.png)
-5. **Destroy-aware apply gate** — typed confirmation; routine changes apply, any delete/replace blocks:
+5. **Destroy-aware apply gate**: typed confirmation; routine changes apply, any delete/replace blocks:
    ![apply gate](assets/deploy-5-apply-gate.png)
-6. **Apply complete** — infrastructure provisioned:
+6. **Apply complete**: infrastructure provisioned:
    ![apply complete](assets/deploy-6-apply-complete.png)
-7. **Running stack** — the resource group with the Container Apps environment and the deployed apps:
+7. **Running stack**: the resource group with the Container Apps environment and the deployed apps:
    ![resource group](assets/deploy-7-resource-group.png)
-8. **Post-deploy smoke + live UI** — `scripts/smoke-test.sh` PASS and the PaperClip UI over the Cloudflare tunnel:
+8. **Post-deploy smoke and live UI**: `scripts/smoke-test.sh` PASS and the PaperClip UI over the Cloudflare tunnel:
    ![smoke pass and PaperClip UI](assets/deploy-8-smoke-and-ui.png)
 
 > Key Vault is seeded with `scripts/seed-keyvault.sh` (the generate-class secrets,
 > incl. `postgres-admin-password`, must exist before the first `terraform apply`).
 > The same flow runs unattended via the [reference deploy pipeline](deploy-pipeline.md).
 
-### Deploy inputs — how to obtain each one
+### Deploy inputs: how to obtain each one
 
 Everything the Forge form (and `terraform.tfvars`) asks for, and where each value
-comes from — fill these in and you won't need to hand-edit `terraform.tfvars`:
+comes from. Fill these in and you won't need to hand-edit `terraform.tfvars`:
 
 | Input | What it is | How to get it |
 |---|---|---|
 | `subscription_id` | Your Azure subscription GUID | `az account show --query id -o tsv` |
 | `ai_foundry_endpoint` | The Azure AI Foundry project endpoint URL | Portal → your Foundry / AI Services resource → **Endpoint**, e.g. `https://<name>.cognitiveservices.azure.com/` |
-| `ai_foundry_deployment_id` | The **name of a model deployment** you created in Foundry (e.g. `gpt-4o-mini`) — a deployment name, **not** a GUID. Defaults to `gpt-4o-mini`. | `az cognitiveservices account deployment list -n <foundry> -g <rg> -o table` |
+| `ai_foundry_deployment_id` | The **name of a model deployment** you created in Foundry (e.g. `gpt-4o-mini`), a deployment name and **not** a GUID. Defaults to `gpt-4o-mini`. | `az cognitiveservices account deployment list -n <foundry> -g <rg> -o table` |
 | `keyvault_admin_object_ids` | Your Entra **object id**, granted Key Vault Secrets Officer so the seed step can write secrets (without it the seed 403s) | `az ad signed-in-user show --query id -o tsv` (or a service principal's object id) |
 | Container image tag | The commit short-SHA `scripts/build-and-push.sh` pushes (e.g. `9bf1a51`); blank uses `latest`. The Forge **Container image tag** field fans one tag out to all four service images. | `git rev-parse --short HEAD`, or `az acr repository show-tags -n <registry> --repository paperclip --orderby time_desc --top 1 -o tsv` |
 
@@ -353,5 +353,5 @@ container up by hand outside the provided Terraform:
   Azure; the deploy wires the cluster-internal names for you.
 
 Key Vault secret names are kept consistent across what `scripts/seed-keyvault.sh`
-seeds, what the container-apps modules reference, and what `data.tf` reads — so a
+seeds, what the container-apps modules reference, and what `data.tf` reads, so a
 fresh deploy resolves every secret reference without manual reconciliation.
