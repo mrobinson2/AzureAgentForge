@@ -120,6 +120,16 @@ run() {
   "$@"
 }
 
+# Find-or-create an Azure role assignment (idempotent). grant ASSIGNEE ROLE SCOPE
+grant() {
+  local assignee="$1" role="$2" scope="$3"
+  if [ -n "$(az role assignment list --assignee "$assignee" --role "$role" --scope "$scope" --query '[0].id' -o tsv 2>/dev/null || true)" ]; then
+    echo "  role exists: $role on $scope"
+  else
+    run az role assignment create --assignee "$assignee" --role "$role" --scope "$scope"
+  fi
+}
+
 SUBSCRIPTION_ID="" ; TENANT_ID=""
 resolve_account() {
   if az account show >/dev/null 2>&1; then
@@ -262,9 +272,10 @@ fi
 echo
 
 # ── Step B2: low-privilege PLAN identity (least-privilege split) ─────────────
-# build/seed/plan/smoke run as this Reader-only identity; only `apply` uses the
-# privileged app above (deploy.yml selects per job). A poisoned dependency in a
-# pre-approval job therefore can't reach subscription Contributor.
+# build + seed (the jobs that fetch untrusted dependencies) run as this identity;
+# plan/apply/smoke run as the privileged app above (deploy.yml selects per job).
+# A poisoned dependency in build/seed therefore can't reach subscription Contributor.
+# (Step B3 adds the registry-scoped Contributor + KV roles these jobs actually need.)
 echo "-- step B2: low-privilege plan identity ($PLAN_APP_NAME) --"
 PLAN_APP_ID="<plan-app-id>"
 if [ "$APPLY" -eq 1 ]; then
@@ -277,7 +288,8 @@ if [ "$APPLY" -eq 1 ]; then
   fi
   az ad sp show --id "$PLAN_APP_ID" >/dev/null 2>&1 || run az ad sp create --id "$PLAN_APP_ID"
   # Reader @ subscription (read, never mutate) + Storage Blob Data Contributor @
-  # state RG (read/write tfstate only). NEVER Contributor on this identity.
+  # state RG (read/write tfstate only). NEVER subscription-scoped Contributor here
+  # (Step B3 may add registry-scoped Contributor, which `az acr build` needs).
   for pr in "Reader|$SUB_SCOPE" "Storage Blob Data Contributor|$STATE_SCOPE"; do
     prole="${pr%%|*}"; pscope="${pr##*|}"
     if [ -n "$(az role assignment list --assignee "$PLAN_APP_ID" --role "$prole" --scope "$pscope" --query '[0].id' -o tsv 2>/dev/null || true)" ]; then
@@ -300,6 +312,48 @@ if [ "$APPLY" -eq 1 ]; then
 else
   echo "+ az ad app create --display-name $PLAN_APP_NAME       (find-or-create, Reader-only)"
   echo "+ roles: Reader @ subscription + Storage Blob Data Contributor @ $STATE_RG (never Contributor)"
+fi
+echo
+
+# ── Step B3: runtime data-plane + registry roles deploy.yml actually needs ───
+# Control-plane Contributor/Reader above is NOT enough to run the pipeline:
+#   - the azurerm backend reaches the state blob over AAD (use_azuread_auth), so
+#     BOTH identities need a blob DATA role on the state account — Contributor
+#     alone (control plane) does not grant blob data access.
+#   - terraform plan/apply READ Key Vault secrets (data.tf) → KV data-plane role.
+#   - seed-keyvault.sh creates/reads secrets → KV write (Secrets Officer).
+#   - `az acr build` uploads build context → registry write (listBuildSourceUploadUrl);
+#     AcrPush alone is insufficient, so the build identity needs Contributor on
+#     the registry resource (scoped — still not subscription Contributor).
+# Split per deploy.yml: plan/apply/smoke = privileged ($APP_ID); build/seed = plan
+# identity ($PLAN_APP_ID). The registry/Key Vault are resolved by name; if they
+# don't exist yet (greenfield — created by the first deploy) the matching grants
+# are skipped with a note to re-run scaffold once they exist.
+echo "-- step B3: runtime data-plane + registry roles --"
+if [ "$APPLY" -eq 1 ]; then
+  # State blob over AAD: privileged runs plan/apply/smoke (B2 already covers the
+  # plan identity for the local→remote migration path).
+  grant "$APP_ID" "Storage Blob Data Contributor" "$STATE_SCOPE"
+  if [ -n "$REGISTRY" ]; then
+    REG_ID="$(az acr show -n "$REGISTRY" --query id -o tsv 2>/dev/null || true)"
+    if [ -n "$REG_ID" ]; then
+      grant "$PLAN_APP_ID" "Contributor" "$REG_ID"
+    else
+      echo "  note: registry '$REGISTRY' not found yet — re-run scaffold after the first deploy creates it (build needs Contributor on it)."
+    fi
+  fi
+  if [ -n "$KEY_VAULT" ]; then
+    KV_ID="$(az keyvault show -n "$KEY_VAULT" --query id -o tsv 2>/dev/null || true)"
+    if [ -n "$KV_ID" ]; then
+      grant "$APP_ID" "Key Vault Secrets User" "$KV_ID"          # plan/apply read data.tf
+      grant "$PLAN_APP_ID" "Key Vault Secrets Officer" "$KV_ID"  # seed create/read secrets
+    else
+      echo "  note: key vault '$KEY_VAULT' not found yet — re-run scaffold after the first deploy creates it (plan/seed need KV roles on it)."
+    fi
+  fi
+else
+  echo "+ privileged: Storage Blob Data Contributor @ $STATE_RG; Key Vault Secrets User @ ${KEY_VAULT:-<key-vault>}"
+  echo "+ plan id:    Contributor @ ${REGISTRY:-<registry>} (registry resource); Key Vault Secrets Officer @ ${KEY_VAULT:-<key-vault>}"
 fi
 echo
 
