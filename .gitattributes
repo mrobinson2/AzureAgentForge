@@ -1,0 +1,11 @@
+# Line-ending normalization. Shell scripts MUST be checked out LF even on
+# Windows (git core.autocrlf=true) — a CRLF shebang fails under WSL/Linux with
+#   /usr/bin/env: 'bash\r': No such file or directory
+* text=auto eol=lf
+*.sh   text eol=lf
+*.bash text eol=lf
+
+# Windows-native scripts keep CRLF.
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf

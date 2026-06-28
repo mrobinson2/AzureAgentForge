@@ -159,9 +159,16 @@ discord_enabled  = false
 ```
 
 Fill in your `subscription_id`. Change `location` if you want a different
-Azure region. The `container_registry_name` variable (in `variables.tf`)
-defaults to `"aafregistry"`, which must be globally unique, so override it
-in `terraform.tfvars` if that name is taken.
+Azure region.
+
+**Globally-unique names.** Three resources need names unique across all of Azure:
+the Container Registry (`container_registry_name`, default `"aafregistry"`), the
+Key Vault, and the storage account. The latter two derive from `project_name`
+(default `"aaf-vault"` → `aaf-vault-<env>-kv` and `aafvault<env>sa`). The defaults
+**will collide** with other adopters, so set `project_name` and
+`container_registry_name` in `terraform.tfvars` to values unique to your
+subscription. `scripts/bootstrap.sh` preflights all three up front and tells you
+exactly which one to change if it's already taken.
 
 ### 4. Choose a cost profile
 

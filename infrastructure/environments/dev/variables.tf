@@ -4,7 +4,7 @@ variable "subscription_id" {
 }
 
 variable "project_name" {
-  description = "Project name prefix for all resources"
+  description = "Project name prefix for all resources. Drives GLOBALLY-UNIQUE names — the Key Vault (<project>-<env>-kv) and the storage account (<project><env>sa, dashes stripped, 24 chars) — so the default 'aaf-vault' WILL collide with other adopters. Set it to a value unique to your subscription; scripts/bootstrap.sh preflights availability and tells you if it's taken."
   type        = string
   default     = "aaf-vault"
 }
