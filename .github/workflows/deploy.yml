@@ -317,7 +317,9 @@ jobs:
   # ── 5. Post-deploy smoke check ──────────────────────────────────────────────
   smoke:
     needs: apply
-    if: needs.apply.result == 'success'
+    # always() && … so a skipped `gate` (non-destructive plan) doesn't propagate a
+    # skip down the needs-chain; run the health probe whenever apply actually succeeded.
+    if: always() && needs.apply.result == 'success'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
