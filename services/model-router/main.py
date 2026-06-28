@@ -428,14 +428,32 @@ OBSERVABILITY_ENABLED = os.environ.get("OBSERVABILITY_ENABLED", "").strip().lowe
 )
 
 _tracer = None
+_tracer_provider = None
 _tracer_initialised = False
 
 
+def _build_tracer_provider(exporter):
+    """Build a SELF-CONTAINED TracerProvider that exports spans via `exporter`.
+
+    Deliberately does NOT use configure_azure_monitor / the global OTel provider.
+    configure_azure_monitor was called lazily on the first model call, but OTel
+    refuses to override an already-set global TracerProvider — so the Azure span
+    processor never attached and spans were never exported (logs + metrics were,
+    which masked the bug). Owning our own provider makes span export deterministic
+    and unit-testable (swap in an in-memory exporter)."""
+    from opentelemetry.sdk.trace import TracerProvider
+    from opentelemetry.sdk.trace.export import BatchSpanProcessor
+    provider = TracerProvider()
+    provider.add_span_processor(BatchSpanProcessor(exporter))
+    return provider
+
+
 def _init_tracer():
-    """Lazily configure the Azure Monitor OTel tracer once. Returns the tracer or
-    None when no connection string is set or setup fails. Swap point: replace the
-    configure_azure_monitor call with any OTLP exporter for a non-Azure backend."""
-    global _tracer, _tracer_initialised
+    """Lazily build the Azure Monitor span exporter once. Returns a tracer bound to
+    our own provider (see _build_tracer_provider) or None when no connection string
+    is set or setup fails. Swap the exporter for any OTLP exporter for a non-Azure
+    backend."""
+    global _tracer, _tracer_provider, _tracer_initialised
     if _tracer_initialised:
         return _tracer
     _tracer_initialised = True
@@ -443,10 +461,11 @@ def _init_tracer():
     if not conn:
         return None
     try:
-        from azure.monitor.opentelemetry import configure_azure_monitor
-        from opentelemetry import trace
-        configure_azure_monitor(connection_string=conn)
-        _tracer = trace.get_tracer("model-router")
+        from azure.monitor.opentelemetry.exporter import AzureMonitorTraceExporter
+        _tracer_provider = _build_tracer_provider(
+            AzureMonitorTraceExporter(connection_string=conn)
+        )
+        _tracer = _tracer_provider.get_tracer("model-router")
     except Exception as e:  # pragma: no cover - requires live azure.monitor SDK
         log.warning("observability: tracer init failed, disabling: %s", e)
         _tracer = None

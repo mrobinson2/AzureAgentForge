@@ -94,6 +94,30 @@ class TestObserveGenai:
         assert recorded["gen_ai.usage.input_tokens"] == 5
         assert recorded["agent.run_id"] == "r9"
 
+    def test_build_tracer_provider_wires_exporter(self, router):
+        """The fix's core: _build_tracer_provider attaches a span processor that
+        exports via the given exporter. The old code relied on
+        configure_azure_monitor overriding the global TracerProvider (OTel refuses
+        to override an already-set one), so NO Azure exporter was wired and
+        gen_ai.chat spans never left the process — only logs/metrics did.
+
+        Structural assertion so it's immune to the suite's global OTel SDK state
+        (real spans aren't recorded in this test env because a dependency disables
+        the SDK). The observe_genai → span attribute path is covered by
+        test_emits_span_with_attrs, and real end-to-end export is verified live
+        against App Insights."""
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+            InMemorySpanExporter,
+        )
+        exporter = InMemorySpanExporter()
+        provider = router._build_tracer_provider(exporter)
+        assert isinstance(provider, TracerProvider)
+        active = provider._active_span_processor
+        procs = getattr(active, "_span_processors", (active,))
+        assert any(getattr(p, "span_exporter", None) is exporter for p in procs), \
+            "_build_tracer_provider must wire the exporter into a span processor"
+
 
 class TestAnthropicCostEstimate:
     def test_sonnet_rates(self, router):
