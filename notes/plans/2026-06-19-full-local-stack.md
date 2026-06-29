@@ -6,7 +6,7 @@
 
 **Architecture:** Repair and complete the single-file `full` compose profile (correct build contexts, a one-shot migration runner, service env + dev-only secrets, healthchecks and ordering), add `.env.example`, a `smoke-local.sh` no-creds health gate, a `local-stack.sh` wrapper, and a path-scoped CI smoke workflow. Builds on PR #17 (which made all 7 images buildable).
 
-**Tech Stack:** Docker Compose v2, Postgres (pgvector), bash, GitHub Actions. Spec: `docs/superpowers/specs/2026-06-19-full-local-stack-design.md`.
+**Tech Stack:** Docker Compose v2, Postgres (pgvector), bash, GitHub Actions. Spec: `notes/specs/2026-06-19-full-local-stack-design.md`.
 
 **Verification note:** the authoring machine has **no Docker daemon**, so per-task verification is static (`python3` YAML parse, `bash -n`, `shellcheck` if present). The live `up`+smoke integration runs in **CI / on the operator's machine** (Task 8). Confirm-during-implementation items are flagged inline.
 
