@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Hourly warm-standby share sync (self-hosted PRIMARY site).
+     Runs sync/sync.sh every 3600s: azcopy the two file shares local -> cloud and
+     stamp a freshness event into the shared agent_events spine. No-ops when the
+     lease mirror does not name this site (pushing over the cloud's authoritative
+     copies would clobber them). The database is SHARED and never synced.
+     Install:  cp sync/com.azureagentforge.sync.plist ~/Library/LaunchAgents/
+               launchctl load ~/Library/LaunchAgents/com.azureagentforge.sync.plist -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.azureagentforge.sync</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <!-- Absolute path to the repo checkout on the host; edit to match. -->
+        <string>~/Code/AzureAgentForge/deploy/mac-site/sync/sync.sh</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>3600</integer>
+
+    <!-- Edit these to absolute paths under your $HOME/aaf/logs. -->
+    <key>StandardOutPath</key>
+    <string>/Users/CHANGEME/aaf/logs/sync.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGEME/aaf/logs/sync.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

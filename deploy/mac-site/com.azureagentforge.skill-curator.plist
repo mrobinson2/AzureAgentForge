@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Daily skill-curator job (self-hosted PRIMARY site).
+     Runs the one-shot skill-curator service (jobs profile) daily at 03:30 local
+     via `docker compose --profile jobs run --rm skill-curator`. Guarded to skip
+     when the lease mirror does not name this site, so it never double-runs
+     against the shared DB while the cloud standby is live.
+     Install:  cp com.azureagentforge.skill-curator.plist ~/Library/LaunchAgents/
+               launchctl load ~/Library/LaunchAgents/com.azureagentforge.skill-curator.plist -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.azureagentforge.skill-curator</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <!-- Edit the repo path to match your checkout. -->
+        <string>cd ~/Code/AzureAgentForge/deploy/mac-site &amp;&amp; if [ "$(cat ~/aaf/active-site 2>/dev/null | tr -d '[:space:]')" = local ]; then docker compose --profile jobs run --rm skill-curator; else echo 'skip: lease mirror != local'; fi</string>
+    </array>
+
+    <key>StartCalendarInterval</key>
+    <dict>
+        <key>Hour</key>
+        <integer>3</integer>
+        <key>Minute</key>
+        <integer>30</integer>
+    </dict>
+
+    <!-- Edit these to absolute paths under your $HOME/aaf/logs. -->
+    <key>StandardOutPath</key>
+    <string>/Users/CHANGEME/aaf/logs/skill-curator.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGEME/aaf/logs/skill-curator.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

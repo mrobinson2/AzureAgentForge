@@ -3,6 +3,25 @@
 # Or use the wrapper:                scripts/local-stack.sh up
 # See .env.example and docs/local-development.md.
 
+# ── Router model-tier config (name + output cap + daily budget) ──────────────
+# The router registers a model tier only when it can map that tier to a concrete
+# model NAME plus a per-tier output cap and daily USD budget. Supplying the
+# *_BASE_URL / *_API_KEY for a tier in .env activates it; this anchor threads the
+# model name, max output tokens, and daily budget through to the router so a
+# configured tier registers cleanly instead of falling through to passthrough
+# (a tier with a URL/key but no model mapping can't resolve a deployment and the
+# call fails). Values are generic defaults; override any of them in .env.
+x-router-models: &router-models
+  # Primary tier (gpt4o-mini): the model name is fixed in the router; these
+  # only tune its output ceiling and per-day spend cap.
+  GPT4O_MAX_TOKENS: ${GPT4O_MAX_TOKENS:-4096}
+  GPT4O_DAILY_BUDGET_USD: ${GPT4O_DAILY_BUDGET_USD:-5.00}
+  # Budget fallback tier (phi4): model name IS read from env, so it must be set
+  # for the tier to register.
+  PHI_MODEL: ${PHI_MODEL:-Phi-4}
+  PHI_MAX_TOKENS: ${PHI_MAX_TOKENS:-2048}
+  PHI_DAILY_BUDGET_USD: ${PHI_DAILY_BUDGET_USD:-0.50}
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -21,6 +40,8 @@ services:
   model-router:
     build: ./services/model-router
     environment:
+      # Model-tier names, output caps, and daily budgets (see x-router-models).
+      <<: *router-models
       LLM_PROVIDER: ${LLM_PROVIDER:-azure_foundry}
       # Primary tier: set AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API_KEY,
       # or GPT4O_BASE_URL + GPT4O_API_KEY directly. Both pairs activate gpt4o-mini.
@@ -28,6 +49,9 @@ services:
       AZURE_FOUNDRY_API_KEY: ${AZURE_FOUNDRY_API_KEY:-}
       GPT4O_BASE_URL: ${GPT4O_BASE_URL:-${AZURE_FOUNDRY_ENDPOINT:-}}
       GPT4O_API_KEY: ${GPT4O_API_KEY:-${AZURE_FOUNDRY_API_KEY:-}}
+      # Budget fallback tier (phi4) endpoint + key; leave unset to skip the tier.
+      PHI_BASE_URL: ${PHI_BASE_URL:-}
+      PHI_API_KEY: ${PHI_API_KEY:-}
       OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
     ports: ["${ROUTER_PORT:-8080}:8080"]
@@ -82,7 +106,10 @@ services:
       # Honcho reads DB_CONNECTION_URI (pydantic env_prefix DB_) with the
       # psycopg3 scheme — NOT DATABASE_URL. Wrong/unset → it falls back to its
       # localhost default and exits 1.
-      DB_CONNECTION_URI: postgresql+psycopg://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD:-localdev}@postgres:5432/${POSTGRES_DB:-aaf}
+      # POSTGRES_PASSWORD_URLENC: percent-encoded twin of the password for URI
+      # userinfo (libpq/SQLAlchemy reject raw special chars there); defaults to
+      # the plain password, which is safe for the local dev default.
+      DB_CONNECTION_URI: postgresql+psycopg://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD_URLENC:-${POSTGRES_PASSWORD:-localdev}}@postgres:5432/${POSTGRES_DB:-aaf}
       # Honcho constructs an LLM client per specialist AT IMPORT (deriver/summary
       # default to google, dream to anthropic) and raises "Missing client" if the
       # key is absent. Placeholder keys let it BOOT with no creds; the deriver's
@@ -90,6 +117,38 @@ services:
       LLM_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-localdev-honcho-placeholder}
       LLM_OPENAI_API_KEY: ${OPENAI_API_KEY:-localdev-honcho-placeholder}
       LLM_GEMINI_API_KEY: ${GEMINI_API_KEY:-localdev-honcho-placeholder}
+      # Reasoning-level config. Honcho's summary/deriver specialists and its five
+      # dialectic reasoning levels each build an LLM client from a PROVIDER+MODEL
+      # pair at startup; if ANY of the five levels (minimal/low/medium/high/max)
+      # is missing its provider+model the service crash-loops on boot. Point them
+      # all at the OpenAI-compatible provider with a small default model so the
+      # stack comes up; override per level to tune cost/latency.
+      SUMMARY_PROVIDER: ${SUMMARY_PROVIDER:-openai}
+      SUMMARY_MODEL: ${SUMMARY_MODEL:-gpt-4o-mini}
+      DERIVER_PROVIDER: ${DERIVER_PROVIDER:-openai}
+      DERIVER_MODEL: ${DERIVER_MODEL:-gpt-4o-mini}
+      # Nested pydantic-settings path (env_prefix DIALECTIC_ + "__" delimiter);
+      # the flat DIALECTIC_MINIMAL_PROVIDER form is silently ignored.
+      DIALECTIC_LEVELS__minimal__PROVIDER: openai
+      DIALECTIC_LEVELS__minimal__MODEL: gpt-4o-mini
+      DIALECTIC_LEVELS__minimal__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__minimal__MAX_TOOL_ITERATIONS: "1"
+      DIALECTIC_LEVELS__low__PROVIDER: openai
+      DIALECTIC_LEVELS__low__MODEL: gpt-4o-mini
+      DIALECTIC_LEVELS__low__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__low__MAX_TOOL_ITERATIONS: "2"
+      DIALECTIC_LEVELS__medium__PROVIDER: openai
+      DIALECTIC_LEVELS__medium__MODEL: gpt-4o-mini
+      DIALECTIC_LEVELS__medium__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__medium__MAX_TOOL_ITERATIONS: "3"
+      DIALECTIC_LEVELS__high__PROVIDER: openai
+      DIALECTIC_LEVELS__high__MODEL: gpt-4o-mini
+      DIALECTIC_LEVELS__high__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__high__MAX_TOOL_ITERATIONS: "4"
+      DIALECTIC_LEVELS__max__PROVIDER: openai
+      DIALECTIC_LEVELS__max__MODEL: gpt-4o-mini
+      DIALECTIC_LEVELS__max__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__max__MAX_TOOL_ITERATIONS: "5"
     ports: ["${HONCHO_PORT:-8000}:8000"]
 
   # Bundles the Hermes runtime (the adapter spawns it per task in-container).
@@ -137,7 +196,9 @@ services:
       honcho:
         condition: service_started
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD:-localdev}@postgres:5432/${POSTGRES_DB:-aaf}
+      # POSTGRES_PASSWORD_URLENC: percent-encoded password for URI userinfo
+      # (raw special chars are rejected there); defaults to the plain password.
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD_URLENC:-${POSTGRES_PASSWORD:-localdev}}@postgres:5432/${POSTGRES_DB:-aaf}
       ROUTER_BASE_URL: http://model-router:8080/v1
       HONCHO_BASE_URL: http://honcho:8000
       GOVERNOR_API_KEY: ${GOVERNOR_API_KEY:-localdev}
@@ -155,7 +216,9 @@ services:
       migrate:
         condition: service_completed_successfully
     environment:
-      AGENT_EVENTS_DSN: postgresql://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD:-localdev}@postgres:5432/${POSTGRES_DB:-aaf}
+      # POSTGRES_PASSWORD_URLENC: percent-encoded password for URI userinfo
+      # (raw special chars are rejected there); defaults to the plain password.
+      AGENT_EVENTS_DSN: postgresql://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD_URLENC:-${POSTGRES_PASSWORD:-localdev}}@postgres:5432/${POSTGRES_DB:-aaf}
       WATCHDOG_COMPANY_ID: local
       WATCHDOG_BASE_URL: http://paperclip:3100
       PAPERCLIP_AUTOMATION_JWT_SECRET: ${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-automation-secret-change-me}

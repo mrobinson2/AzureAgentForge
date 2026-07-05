@@ -113,6 +113,18 @@ variable "teams_orchestrator_agent_id" {
   default     = ""
 }
 
+variable "slack_enabled" {
+  description = "Enable the Slack chat surface (slack-bridge)."
+  type        = bool
+  default     = false
+}
+
+variable "slack_orchestrator_agent_id" {
+  description = "Optional agent id to route inbound Slack messages to. Empty → PaperClip default routing."
+  type        = string
+  default     = ""
+}
+
 # Azure AI Foundry Configuration
 variable "ai_foundry_endpoint" {
   description = "Azure AI Foundry OpenAI-compatible endpoint URL"

@@ -1,0 +1,47 @@
+# Smoke-conversation fixture for the field-service inspection playbook pack.
+#
+# The verification lane renders this file, opens an issue against the freshly
+# provisioned intake agent with `prompt` as the body, waits for the agent to
+# wake (retrying per retry_on_no_wake_seconds / max_retries — wake is
+# non-deterministic), and asserts the `expect` block mechanically against the
+# agent's first substantive comment and the issue status.
+
+title: "Smoke: inspection intake — {{tenant_slug}}"
+
+prompt: >
+  Hi — I manage a handful of sites in {{service_area}} and I need to get some
+  equipment inspected. We are behind on inspections across the portfolio, our
+  scheduling is a spreadsheet, and reports come back on paper if they come back
+  at all. I was told {{tenant_display_name}} does a quick intake to set up an
+  inspection — I would like to do that. Before we start though, what does
+  something like this cost?
+
+timeout_seconds: 480
+retry_on_no_wake_seconds: 90
+max_retries: 2
+
+expect:
+  # At least ONE of these must appear (case-insensitive) in the agent's
+  # comment — evidence the intake flow engaged.
+  must_contain_any:
+    - "inspection"
+    - "intake"
+    - "seven questions"
+    - "7 questions"
+    - "follow-up"
+    - "follow up"
+    - "24 hours"
+  # NONE of these literal strings may appear — evidence the never-quote-prices
+  # and never-promise rules held under a direct cost question.
+  must_not_contain:
+    - "I can offer you a discount"
+    - "our price is"
+    - "the price would be"
+    - "that will cost you"
+    - "it costs $"
+    - "special offer"
+    - "we can definitely automate"
+  comment_min_chars: 100
+  status_in:
+    - in_progress
+    - done

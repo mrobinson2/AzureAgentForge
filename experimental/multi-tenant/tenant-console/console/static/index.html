@@ -1,0 +1,214 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tenant Console — AzureAgentForge</title>
+<style>
+  :root { --bg:#0f1720; --panel:#16212e; --edge:#243447; --ink:#dce6f2; --muted:#8399b3;
+          --ok:#3fb950; --warn:#d29922; --bad:#f85149; --accent:#4c9aff; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+         background:var(--bg); color:var(--ink); }
+  header { padding:16px 24px; border-bottom:1px solid var(--edge); display:flex; align-items:baseline; gap:12px; }
+  header h1 { font-size:16px; margin:0; }
+  header .sub { color:var(--muted); font-size:12px; }
+  main { max-width:960px; margin:0 auto; padding:24px; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--edge); margin-bottom:20px; }
+  .tab { padding:8px 16px; cursor:pointer; color:var(--muted); border-bottom:2px solid transparent; }
+  .tab.active { color:var(--ink); border-bottom-color:var(--accent); }
+  .panel { display:none; } .panel.active { display:block; }
+  label { display:block; font-size:12px; color:var(--muted); margin:12px 0 4px; }
+  input, textarea { width:100%; background:var(--panel); border:1px solid var(--edge);
+    color:var(--ink); border-radius:6px; padding:8px 10px; font-family:ui-monospace,Menlo,monospace; font-size:13px; }
+  textarea { min-height:320px; resize:vertical; }
+  .row { display:flex; gap:12px; } .row > * { flex:1; }
+  button { background:var(--accent); color:#04121f; border:0; border-radius:6px; padding:9px 16px;
+    font-weight:600; cursor:pointer; margin-top:16px; }
+  button.ghost { background:transparent; color:var(--ink); border:1px solid var(--edge); }
+  button.danger { background:var(--bad); color:#fff; }
+  button:disabled { opacity:.5; cursor:not-allowed; }
+  pre { background:var(--panel); border:1px solid var(--edge); border-radius:6px; padding:12px;
+    overflow:auto; font-size:12.5px; white-space:pre-wrap; }
+  .step { display:flex; gap:8px; padding:4px 0; align-items:baseline; }
+  .glyph { width:16px; text-align:center; }
+  .ok{color:var(--ok)} .bad{color:var(--bad)} .pending{color:var(--warn)} .muted{color:var(--muted)}
+  .card { background:var(--panel); border:1px solid var(--edge); border-radius:8px; padding:16px; margin:12px 0; }
+  .kv { display:grid; grid-template-columns:170px 1fr; gap:2px 12px; font-size:13px; }
+  .kv .k { color:var(--muted); }
+  .banner { padding:10px 14px; border-radius:6px; margin:12px 0; font-size:13px; }
+  .banner.err { background:#3d1418; border:1px solid var(--bad); }
+  .banner.ok { background:#0f2e17; border:1px solid var(--ok); }
+  code { color:var(--accent); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Tenant Console</h1>
+  <span class="sub">AzureAgentForge tenant provisioning · loopback-only</span>
+</header>
+<main>
+  <div class="tabs">
+    <div class="tab active" data-tab="contract">1 · Contract</div>
+    <div class="tab" data-tab="preview">2 · Preview</div>
+    <div class="tab" data-tab="provision">3 · Provision</div>
+    <div class="tab" data-tab="decommission">Decommission</div>
+  </div>
+
+  <section class="panel active" id="contract">
+    <p class="muted">Paste or edit the tenant contract (YAML). The four structural
+      variables (<code>tenant_slug</code>, <code>tenant_display_name</code>,
+      <code>vertical</code>, <code>workspace</code>) are derived — don't set them.</p>
+    <label>Tenant contract</label>
+    <textarea id="yaml"></textarea>
+    <div class="row">
+      <div><label>API base URL</label><input id="baseUrl" value="" /></div>
+      <div><label>Admin token (blank → mint from Key Vault)</label><input id="token" type="password" placeholder="optional" /></div>
+    </div>
+    <button onclick="doPreview()">Preview plan →</button>
+    <div id="contractMsg"></div>
+  </section>
+
+  <section class="panel" id="preview">
+    <div id="previewOut"><p class="muted">Run a preview from the Contract tab.</p></div>
+    <button id="toProvision" class="ghost" style="display:none" onclick="showTab('provision')">Looks right — go to Provision →</button>
+  </section>
+
+  <section class="panel" id="provision">
+    <p class="muted">Provisioning executes the plan against the stack. Every step is
+      idempotent — a failed run re-runs cleanly.</p>
+    <label><input type="checkbox" id="skipSmoke" style="width:auto" /> skip the smoke conversation</label>
+    <button id="provBtn" onclick="doProvision()">Provision tenant</button>
+    <div id="provSteps" class="card" style="display:none"></div>
+    <div id="provOutcome"></div>
+  </section>
+
+  <section class="panel" id="decommission">
+    <div class="banner err">Decommission archives the company, cancels open issues, removes
+      agents, and expires the tenant's memory partition. Type
+      <code>decommission &lt;slug&gt;</code> to confirm.</div>
+    <label>Confirmation phrase</label>
+    <input id="confirm" placeholder="decommission example-fieldservice" />
+    <button class="danger" onclick="doDecommission()">Decommission tenant</button>
+    <div id="decSteps" class="card" style="display:none"></div>
+    <div id="decOutcome"></div>
+  </section>
+</main>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get("token") || "";
+let BASE = "";
+const $ = (id) => document.getElementById(id);
+const glyph = (s) => s==="ok"?["✓","ok"]:s==="failed"?["✗","bad"]:s==="pending"?["…","pending"]:s==="skipped"?["–","muted"]:["·","muted"];
+
+function showTab(name){
+  document.querySelectorAll(".tab").forEach(t=>t.classList.toggle("active",t.dataset.tab===name));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.toggle("active",p.id===name));
+}
+document.querySelectorAll(".tab").forEach(t=>t.onclick=()=>showTab(t.dataset.tab));
+
+async function api(path, body){
+  const r = await fetch(path, {method:"POST", headers:{"Content-Type":"application/json","x-console-token":TOKEN}, body:JSON.stringify(body)});
+  const data = await r.json().catch(()=>({}));
+  if(!r.ok) throw new Error(typeof data.detail==="string"?data.detail:JSON.stringify(data.detail||data));
+  return data;
+}
+function body(extra){ return Object.assign({contract_yaml:$("yaml").value, base_url:$("baseUrl").value, token:$("token").value}, extra||{}); }
+
+async function boot(){
+  try{
+    const r = await fetch(`/api/bootstrap?token=${encodeURIComponent(TOKEN)}`);
+    const d = await r.json();
+    BASE = d.default_base_url; $("baseUrl").value = BASE;
+  }catch(e){ $("contractMsg").innerHTML = `<div class="banner err">Open the console via the URL printed at startup.</div>`; }
+}
+
+async function doPreview(){
+  $("contractMsg").innerHTML = "";
+  try{
+    const p = await api("/api/preview", body());
+    showTab("preview");
+    const agents = p.agents.map(a=>`<div class="step"><span class="${a.error?'bad':'ok'} glyph">${a.error?'✗':'✓'}</span>
+      <b>${a.slug}</b> <span class="muted">band ${a.band} · ${a.model}${a.reports_to?` · → ${a.reports_to}`:''} · ${a.error||a.instructions}</span></div>`).join("");
+    const env = Object.entries(p.agent_env).map(([k,v])=>`<div class="k">${k}</div><div>${v}</div>`).join("");
+    const probs = p.pack_problems.length?`<div class="banner err">pack problems: ${p.pack_problems.join("; ")}</div>`:"";
+    $("previewOut").innerHTML = `
+      ${probs}
+      <div class="card"><div class="kv">
+        <div class="k">tenant</div><div>${p.display_name} <span class="muted">(${p.slug})</span></div>
+        <div class="k">vertical</div><div>${p.vertical}</div>
+        <div class="k">workspace</div><div><code>${p.workspace}</code></div>
+        <div class="k">budgets</div><div>$${p.budgets.daily_usd}/day · $${p.budgets.per_run_usd}/run · ${p.budgets.monthly_cents} cents/mo</div>
+        <div class="k">channels</div><div>${p.channels.join(", ")}</div>
+        <div class="k">seed memories</div><div>${p.seed_error?`<span class="bad">${p.seed_error}</span>`:p.seed_count}</div>
+      </div></div>
+      <div class="card"><b>Agents</b>${agents}</div>
+      <div class="card"><b>Per-agent env binding</b><div class="kv" style="margin-top:8px">${env}</div></div>`;
+    $("toProvision").style.display = p.pack_problems.length?"none":"inline-block";
+  }catch(e){ $("contractMsg").innerHTML = `<div class="banner err">${e.message}</div>`; }
+}
+
+function streamInto(stepsEl, outcomeEl, onDone){
+  stepsEl.style.display="block"; stepsEl.innerHTML=""; outcomeEl.innerHTML="";
+  const seen = {};
+  const es = new EventSource(`/api/stream?token=${encodeURIComponent(TOKEN)}`);
+  es.onmessage = (m)=>{
+    const e = JSON.parse(m.data);
+    if(e.phase==="keepalive") return;
+    if(e.name==="__done__"){
+      es.close();
+      const cls = (e.outcome||"").startsWith("fail")||e.outcome==="error"?"err":"ok";
+      outcomeEl.innerHTML = `<div class="banner ${cls}">outcome: <b>${e.outcome||e.error}</b>${e.error?` — ${e.error}`:''}</div>`;
+      if(onDone) onDone(e);
+      return;
+    }
+    if(e.phase==="start" && !seen[e.name]){
+      seen[e.name]=document.createElement("div"); seen[e.name].className="step";
+      seen[e.name].innerHTML=`<span class="glyph pending">…</span><b>${e.name}</b>`;
+      stepsEl.appendChild(seen[e.name]);
+    }
+    if(e.phase==="end"){
+      const [g,c]=glyph(e.status);
+      (seen[e.name]||stepsEl).innerHTML=`<span class="glyph ${c}">${g}</span><b>${e.name}</b> <span class="muted">${e.detail||''}</span>`;
+    }
+  };
+  es.onerror = ()=>{ es.close(); };
+}
+
+async function doProvision(){
+  $("provBtn").disabled=true;
+  try{
+    streamInto($("provSteps"), $("provOutcome"), ()=>{ $("provBtn").disabled=false; });
+    await api("/api/provision", body({skip_smoke:$("skipSmoke").checked}));
+  }catch(e){ $("provOutcome").innerHTML=`<div class="banner err">${e.message}</div>`; $("provBtn").disabled=false; }
+}
+
+async function doDecommission(){
+  try{
+    streamInto($("decSteps"), $("decOutcome"));
+    await api("/api/decommission", body({confirm:$("confirm").value}));
+  }catch(e){ $("decOutcome").innerHTML=`<div class="banner err">${e.message}</div>`; }
+}
+
+$("yaml").value = `tenant:
+  slug: "example-fieldservice"
+  display_name: "Acme Field Services"
+  vertical: "example-fieldservice"
+  budgets:
+    daily_usd: 5.00
+    per_run_usd: 0.50
+  variables:
+    service_area: "the Example metro area"
+    pricing_bands: "standard inspection tier; extended inspection tier; follow-up work quoted on-site"
+    escalation_contact: "the on-call operations lead - ops@example.com"
+    business_hours: "Mon-Fri 8:00 AM-5:00 PM; Sat 9:00 AM-noon"
+    intake_agent_name: "Intake Assistant"
+    coordinator_agent_name: "Dispatch Desk"
+  channels:
+    - kind: external_webhook
+    - kind: paperclip-issues
+`;
+boot();
+</script>
+</body>
+</html>

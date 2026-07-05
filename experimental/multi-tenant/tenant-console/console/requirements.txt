@@ -1,0 +1,6 @@
+# Tenant Console (P2) — operator-local web GUI over the P1 executor.
+fastapi>=0.110
+uvicorn>=0.29
+pydantic>=2
+PyYAML>=6
+requests>=2.31

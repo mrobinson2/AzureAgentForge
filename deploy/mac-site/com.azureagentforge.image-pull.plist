@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Image freshness keeper (self-hosted PRIMARY site).
+     Runs pull-images.sh every 600s: registry login, compose pull, and — only on
+     an image digest change — roll the live profile. No-ops when the lease mirror
+     does not name this site (a cheap file check only, no az call).
+     Install:  cp com.azureagentforge.image-pull.plist ~/Library/LaunchAgents/
+               launchctl load ~/Library/LaunchAgents/com.azureagentforge.image-pull.plist -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.azureagentforge.image-pull</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <!-- Absolute path to the repo checkout on the host; edit to match. -->
+        <string>~/Code/AzureAgentForge/deploy/mac-site/pull-images.sh</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>600</integer>
+
+    <!-- Edit these to absolute paths under your $HOME/aaf/logs. -->
+    <key>StandardOutPath</key>
+    <string>/Users/CHANGEME/aaf/logs/image-pull.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGEME/aaf/logs/image-pull.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

@@ -1,0 +1,17 @@
+{
+  "external_id": "intake-2f9c1a",
+  "source": "voice-agent",
+  "contact": {
+    "name": "Jordan Rivers",
+    "email": "jordan@example.com",
+    "phone": "+15555550142"
+  },
+  "summary": "Caller wants help scoping an automation project; small team, no in-house engineers.",
+  "transcript": "https://provider.example.com/recordings/2f9c1a",
+  "fields": {
+    "team_size": "3-5",
+    "primary_goal": "reduce manual data entry",
+    "timeline": "next quarter",
+    "budget_band": "medium"
+  }
+}

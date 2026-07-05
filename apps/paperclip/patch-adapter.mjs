@@ -16,6 +16,9 @@ import { readFileSync, writeFileSync } from "node:fs";
 // AzureAgentForge cost-envelope — per-run env injection (pure, unit-tested).
 import { injectRouterRunEnv } from "./patch-adapter-router-env.mjs";
 
+// AzureAgentForge sandbox seam — guarded build-time wiring (pure, unit-tested).
+import { injectSandboxSeam } from "./patch-adapter-sandbox.mjs";
+
 // pnpm uses a content-addressable store — the REAL files live under .pnpm/,
 // not at the symlinked path. We must find the actual location at build time.
 import { realpathSync } from "node:fs";
@@ -307,6 +310,24 @@ if (returnMatch) {
   console.log("[patch-adapter] Injected instructions file loading into buildPrompt()");
 } else {
   console.error("[patch-adapter] WARN: Could not find return statement in buildPrompt — instructions loading skipped");
+}
+
+// ── Sandbox seam — guarded build-time wiring of the spawn path ──────────────
+// Routes the adapter's child spawn through createSandbox(SANDBOX_PROVIDER),
+// which returns today's exact LocalSandbox behavior unless SANDBOX_PROVIDER=
+// aca-job. Default is `local`, so the wired runtime path is byte-equivalent
+// unless an operator opts in; `aca-job` is not enabled in any environment.
+// No-ops LOUD if the spawn anchor is absent (default behavior unchanged).
+{
+  const _sb = injectSandboxSeam(execute);
+  if (_sb.applied) {
+    execute = _sb.src;
+    console.log("[patch-adapter] Sandbox seam wired (default local)");
+  } else {
+    console.warn(
+      "[patch-adapter] WARN: sandbox spawn anchor not found — seam NOT wired (default behavior unchanged)",
+    );
+  }
 }
 
 writeFileSync(executePath, execute);

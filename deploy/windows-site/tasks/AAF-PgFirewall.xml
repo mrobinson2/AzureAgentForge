@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shared-PG firewall keeper (Windows PRIMARY site, WSL2 variant).
+     Windows equivalent of com.azureagentforge.pg-firewall.plist. Fires at Windows
+     startup AND every 15 minutes, invoking the SHARED pg-firewall-update.sh in
+     WSL: on a home WAN IP change it upserts the `home-ip` firewall rule on the
+     shared managed PostgreSQL server. Placeholders substituted by
+     Install-WindowsSite.ps1. -->
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <URI>\AzureAgentForge\AAF-PgFirewall</URI>
+    <Description>PG firewall keeper — runs deploy/mac-site/pg-firewall-update.sh in WSL every 15 minutes (mirrors launchd com.azureagentforge.pg-firewall, StartInterval 900).</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+      <Repetition>
+        <Interval>PT15M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+    </BootTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT30M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>wsl.exe</Command>
+      <Arguments>-d {{WSL_DISTRO}} -u {{WSL_USER}} -e bash -lc &quot;{{REPO}}/deploy/mac-site/pg-firewall-update.sh&quot;</Arguments>
+    </Exec>
+  </Actions>
+</Task>

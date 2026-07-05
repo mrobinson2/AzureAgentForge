@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.3-blue" alt="Release v1.3"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.4-blue" alt="Release v1.4"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
@@ -80,6 +80,14 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 ---
 
 ## What's new
+
+New in v1.4 (since v1.3):
+
+- **Multi-tenant tenant console (reference)**: playbook-driven onboarding — one tenant contract renders an intake/coordinator agent pack, seeds per-tenant governed memory, provisions an isolated workspace, and enforces a per-tenant daily budget cap. Ships as a badged reference with a worked field-service pack ([`experimental/multi-tenant/tenant-console/`](experimental/multi-tenant/tenant-console/)).
+- **Self-hosted-primary topology**: a cost profile that runs the full stack on an always-on machine you own as the primary site, with Azure as a dormant warm standby sharing one managed Postgres — so failover is a stateless compute switch. Includes a `scripts/aaf-site` failover/failback helper and an ADR ([`deploy/mac-site/`](deploy/mac-site/), [`deploy/windows-site/`](deploy/windows-site/)).
+- **Inbound-intake webhook (reference)**: a vendor-neutral handler that turns an inbound intake/lead payload into a routed Orchestrator issue, with signature verification and a fenced untrusted-content boundary ([`integrations/webhook-intake/`](integrations/webhook-intake/)).
+- **Slack bridge**: a flag-gated `slack-bridge` service at parity with Discord/Telegram/Teams — a Slack Events API endpoint that verifies the signing-secret HMAC, turns inbound messages into Orchestrator issues, and replies via `chat.postMessage`. Off by default (`slack_enabled`), internal ingress, bot token from Key Vault ([`services/slack-bridge/`](services/slack-bridge/)).
+- **ACA `aca-job` sandbox provider (scaffold)**: the v1.3 sandbox seam gains an Azure Container Apps dynamic-sessions provider with an injectable, fully unit-tested transport and a spawn-path patch gated on `SANDBOX_PROVIDER`. The one live REST call is marked unverified and `aca-job` stays disabled (default `local`) pending a spike against a real session pool ([`apps/paperclip/sandbox.mjs`](apps/paperclip/sandbox.mjs)).
 
 New in v1.3 (since v1.2):
 

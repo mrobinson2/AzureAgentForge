@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Daily skill-curator job (Windows PRIMARY site, WSL2 variant).
+     Windows equivalent of com.azureagentforge.skill-curator.plist. Daily at 03:30
+     local, runs the one-shot skill-curator service (jobs profile) via the SHARED
+     compose in WSL. Guarded to skip when the lease mirror != local so it never
+     double-runs against the shared DB while the cloud is live. Placeholders
+     substituted by Install-WindowsSite.ps1. -->
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <URI>\AzureAgentForge\AAF-SkillCurator</URI>
+    <Description>Skill curator — daily 03:30 one-shot `docker compose --profile jobs run --rm skill-curator` in WSL (mirrors launchd com.azureagentforge.skill-curator).</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <CalendarTrigger>
+      <Enabled>true</Enabled>
+      <StartBoundary>2026-01-01T03:30:00</StartBoundary>
+      <ScheduleByDay>
+        <DaysInterval>1</DaysInterval>
+      </ScheduleByDay>
+    </CalendarTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT30M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>wsl.exe</Command>
+      <Arguments>-d {{WSL_DISTRO}} -u {{WSL_USER}} -e bash -lc &quot;cd {{REPO}}/deploy/mac-site &amp;&amp; if [ \&quot;$(cat ~/aaf/active-site 2>/dev/null | tr -d '[:space:]')\&quot; = local ]; then docker compose --profile jobs run --rm skill-curator; else echo 'skip: lease mirror != local'; fi&quot;</Arguments>
+    </Exec>
+  </Actions>
+</Task>
