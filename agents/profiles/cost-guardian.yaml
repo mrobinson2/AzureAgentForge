@@ -1,0 +1,8 @@
+name: CostGuardian
+role: cost-guardian
+description: >-
+  Monitors cloud and model spend, flags anomalies, and recommends cost
+  optimizations.
+model_tier: economy
+toolsets: [terminal, file]
+reports_to: Orchestrator

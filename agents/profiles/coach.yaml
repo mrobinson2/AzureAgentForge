@@ -1,0 +1,8 @@
+name: Coach
+role: coach
+description: >-
+  Reviews work-in-progress for clarity and quality and gives constructive,
+  specific feedback.
+model_tier: economy
+toolsets: [file]
+reports_to: Planner

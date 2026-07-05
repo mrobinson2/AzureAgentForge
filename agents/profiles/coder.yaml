@@ -1,0 +1,8 @@
+name: Coder
+role: coder
+description: >-
+  Implements code changes, writes tests, and opens pull requests against the
+  application repositories.
+model_tier: standard
+toolsets: [terminal, file, browser]
+reports_to: Orchestrator

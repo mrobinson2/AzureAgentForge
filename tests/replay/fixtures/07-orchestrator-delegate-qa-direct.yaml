@@ -1,0 +1,163 @@
+fixture_id: 07-orchestrator-delegate-qa-direct
+description: >
+  Single-specialist delegation: the Orchestrator routes a pure
+  test / verify / reproduce request directly to the QA role as the
+  PRIMARY agent — not as the downstream reviewer of a Coder's diff.
+  This models a real "reproduce and verify this regression on main"
+  request where no code change is being asked for: the deliverable is
+  a reproduction + a regression report, and QA owns it end to end.
+
+  The failure mode this guards against is collapsing QA into the Coder
+  lane: the Orchestrator reads "tests" or "verify" and reflexively
+  spawns a Coder child to *write code* or *implement a fix*, when the
+  task is a quality gate that must be RUN, not built. That misroute is
+  costly because it (a) silently swaps the deliverable — you asked for
+  evidence of a bug and got an untested patch — and (b) lets a "fix"
+  land with no independent verifier, defeating the whole point of a
+  separate QA role. The contract therefore pins exactly one QA child,
+  forbids every other role, and forbids any "write code / implement /
+  deploy / terraform" framing from leaking into the QA child's brief.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Run the existing integration test suite on main and produce a regression report"
+  body: |
+    A teammate reported that delegation started intermittently failing
+    after the last merge to `main`: some issues route to the wrong agent
+    and a couple of tests "pass on retry." Before anyone writes a fix, I
+    need this reproduced and quantified. Delegate this to QA as a
+    standalone QA audit. NO new code change is needed — this is a quality
+    audit / reproduction of the current state on `main`, and the
+    deliverable is evidence, not a patch.
+
+    QA should:
+
+    1. Check out the current `main` branch (do not branch, do not edit).
+    2. Run the full integration test suite to reproduce the reported
+       breakage:
+       `pytest tests/orchestrator/test_delegation_orchestration.py`
+       `pytest tests/replay/` (if any tests exist there)
+    3. Capture every hard failure and every flaky test — define flaky as
+       a >5% intermittent failure rate measured over 5 runs of the same
+       test. Record the exact reproduction command and seed for each.
+    4. Produce a regression report with severity ratings:
+       - CRITICAL: blocks delegation entirely
+       - HIGH: degraded but a workaround exists
+       - MEDIUM: cosmetic / non-blocking
+    5. Post the regression report as a comment when complete.
+
+    Do not create child issues for individual fixes, and do not attempt
+    to fix anything — that's a separate triage step we'll do after
+    seeing the report.
+
+expected:
+  parent:
+    # Orchestrator's own work is just the routing decision — once the QA
+    # child exists and is referenced, the parent is fully delegated.
+    status: done
+    # Guard against the parent stalling: it must not sit half-routed.
+    status_must_not_be: in_progress
+    comment_count_min: 1
+    # The hand-off summary must name the QA lane, proving the route
+    # landed on QA (not silently on Coder).
+    summary_comment_must_reference: [qa]
+    # The summary must link the child it created, so the audit trail is
+    # traceable from parent to delegated QA issue.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # Exactly one child: this is single-specialist delegation, not a fan-out.
+    count: 1
+    # That one child is owned by QA — the only correct lane for a
+    # reproduce/verify/run-tests task.
+    exactly_one_per_agent: [qa]
+    # No other role may receive a child. Coder is listed FIRST because it
+    # is the primary misroute risk: "tests" must not become "write code".
+    forbidden_agents: [coder, infrastructure, security, cost-guardian, curator, researcher]
+
+    by_agent:
+      qa:
+        # QA child starts queued (todo), not pre-completed.
+        status: todo
+        # Title must read as a QA/test/regression/audit task.
+        title_must_match: "(?i)(qa|test|regression|integration|qa|audit|run)"
+        # Child must be linked back to the originating parent issue.
+        parent_id_set: true
+        # Orchestrator must propagate concrete acceptance criteria, not a
+        # vague hand-off.
+        description_must_contain: "Acceptance criteria"
+        # Every term below must survive the hand-off into the QA brief, so
+        # the specialist receives the full, untruncated task (no dropped
+        # scope, no role bleed).
+        description_must_match_all:
+          - "(?i)standalone QA|QA audit|quality audit"
+          - "(?i)integration test suite"
+          - "(?i)main"
+          - "pytest"
+          - "tests/orchestrator/test_delegation_orchestration\\.py"
+          - "tests/replay/"
+          - "(?i)flaky"
+          - "(?i)>5%|5\\s*runs|five\\s*runs"
+          - "(?i)severity"
+          - "(?i)critical"
+          - "(?i)high"
+          - "(?i)medium"
+          - "(?i)regression report"
+          - "(?i)do not create child issues|no child issues.*fixes|separate triage"
+        # Off-lane guards: the QA brief must never be reframed as build
+        # work. If any of these match, QA has been collapsed into the
+        # Coder/Infra lane — the exact failure this fixture exists to catch.
+        description_must_not_match:
+          - "(?i)write code"
+          - "(?i)implement.*(function|module|handler|class|service)"
+          - "(?i)(write|update|modify|create).*terraform"
+          - "(?i)(write|create).*python (module|function|class|service|implementation)"
+          - "(?i)deploy"
+          # The body explicitly forbids fixing/patching — the QA brief must
+          # stay a reproduce-and-report task, never a remediation task.
+          - "(?i)(fix|patch|remediate) the (bug|regression|failing test)"
+          # No git mutation: QA reproduces on main, it does not branch/commit.
+          - "(?i)(open|create|submit) a (pull request|PR|merge request)"
+
+negative_assertions:
+  # Ordering guard: the parent cannot be closed out as "done" until the
+  # QA child actually exists — prevents claiming a successful delegation
+  # with no child to back it.
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # The run must show both halves of the delegation: spawn the QA child,
+  # then link it back on the parent.
+  behavior_required:
+    - create_child_issue_for_qa
+    - comment_parent_with_child_ref
+  # Any one of these is a valid way to have created the QA child — the
+  # delegation can go through the CLI, the SDK helper, or the raw API,
+  # but the target agent must be qa in every case.
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent qa"
+    - "paperclip\\.create_child_issue.*qa"
+    - "POST .*companies/.*/issues.*qa"
+  forbidden_in_trace:
+    # Routing must be clean — no contested ownership of the QA task.
+    - "ownership conflict"
+    # Internal playbook paths must not surface in a sanitized trace.
+    - "/opt/data/skills/playbooks"
+    # The decisive misroute guard: a child must never be created for any
+    # non-QA agent. Catches "tests" being handed to Coder/Infra/etc.
+    - "pc-delegate\\.sh create-child .* --agent (coder|infrastructure|security|cost-guardian|curator|researcher)"
+
+trace_assertions_todo:
+  # Honesty gate: if child creation failed, the run must not report the
+  # delegation as successful (no silent fabrication of a routed task).
+  must_not_claim_success_if_child_creation_failed: true

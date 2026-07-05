@@ -1,0 +1,8 @@
+name: Business
+role: business
+description: >-
+  Analyzes business context, requirements, and trade-offs to keep work aligned
+  with goals.
+model_tier: economy
+toolsets: [file]
+reports_to: Planner

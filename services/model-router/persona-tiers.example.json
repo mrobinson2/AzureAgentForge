@@ -1,0 +1,16 @@
+{
+  "orchestrator": "gpt4o-mini",
+  "researcher": "gpt4o-mini",
+  "strategy": "gpt4o-mini",
+  "coder": "gpt4o-mini",
+  "infrastructure": "gpt4o-mini",
+  "security": "gpt4o-mini",
+  "planner": "phi4",
+  "coach": "phi4",
+  "business": "phi4",
+  "psychology": "phi4",
+  "qa": "phi4",
+  "cost-guardian": "phi4",
+  "curator": "phi4",
+  "generalist": "phi4"
+}

@@ -1,0 +1,222 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1654" height="1140" viewBox="0 0 1654 1140" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="azBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3399E5"/>
+      <stop offset="1" stop-color="#0066B4"/>
+    </linearGradient>
+    <linearGradient id="azGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0B65C"/>
+      <stop offset="1" stop-color="#C18B27"/>
+    </linearGradient>
+    <linearGradient id="azGrey" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#AEB9C4"/>
+      <stop offset="1" stop-color="#8593A1"/>
+    </linearGradient>
+    <linearGradient id="azMem" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4E8CC0"/>
+      <stop offset="1" stop-color="#2E6CA3"/>
+    </linearGradient>
+    <marker id="arrNavy" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0B3D66"/></marker>
+    <marker id="arrMemS" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrMemE" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrGold" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#C9851F"/></marker>
+    <marker id="arrGrey" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="none" stroke="#9AA7B4" stroke-width="1.4"/></marker>
+  </defs>
+
+  <rect width="1654" height="1140" fill="#FFFFFF"/>
+
+  <!-- ===== TITLE BLOCK ===== -->
+  <rect x="40" y="32" width="1574" height="62" fill="#0B3D66"/>
+  <text x="60" y="71" fill="#FFFFFF" font-size="22" font-weight="700">AzureAgentForge — Request &amp; Agent Data Flow</text>
+  <text x="1594" y="68" fill="#BBD7EE" font-size="12" text-anchor="end">Happy-path agent request, end to end · numbered sequence with memory side-writes · v1.3</text>
+
+  <!-- ===== LANE HEADERS ===== -->
+  <!-- User -->
+  <rect x="60" y="116" width="160" height="64" rx="10" fill="#F5F7FA" stroke="#AEB9C4" stroke-width="1.5"/>
+  <g transform="translate(74,126)">
+    <circle cx="20" cy="13" r="8" fill="url(#azBlue)"/>
+    <path d="M5,36 a15,13 0 0 1 30,0 Z" fill="url(#azBlue)"/>
+  </g>
+  <text x="120" y="142" fill="#1B2733" font-size="13" font-weight="700">End user</text>
+  <text x="120" y="158" fill="#5B6B7B" font-size="9">Web UI · Telegram</text>
+  <text x="120" y="170" fill="#5B6B7B" font-size="9">· Discord surface</text>
+
+  <!-- PaperClip -->
+  <rect x="280" y="116" width="190" height="64" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="294" y="126" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M303,150 v-14 h8 a4,4 0 0 1 0,8 h-8" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  <text x="332" y="141" fill="#1B2733" font-size="13" font-weight="700">PaperClip</text>
+  <text x="332" y="156" fill="#5B6B7B" font-size="9">Orchestrator + Web UI</text>
+  <text x="332" y="168" fill="#5B6B7B" font-size="9">Container App · :3100</text>
+
+  <!-- Hermes -->
+  <rect x="540" y="116" width="200" height="64" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="554" y="126" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M563,150 l6,-14 l6,14 M565,145 h8" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  <text x="592" y="141" fill="#1B2733" font-size="13" font-weight="700">Hermes</text>
+  <text x="592" y="156" fill="#5B6B7B" font-size="9">Agent runtime · :8080</text>
+  <text x="592" y="168" fill="#5B6B7B" font-size="9">per-agent model_tier</text>
+
+  <!-- Model Router -->
+  <rect x="810" y="116" width="230" height="64" rx="8" fill="#EFF6FC" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="824" y="127" width="28" height="28" rx="3" fill="url(#azBlue)"/>
+  <path d="M830,141 h14 M837,135 l7,6 l-7,6" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="860" y="141" fill="#1B2733" font-size="13" font-weight="700">Model Router</text>
+  <text x="860" y="156" fill="#5B6B7B" font-size="9">OpenAI-compat gateway · sidecar :8080</text>
+  <text x="860" y="168" fill="#5B6B7B" font-size="9">per-tier budget · fallback chain</text>
+
+  <!-- Azure AI Foundry -->
+  <rect x="1110" y="116" width="210" height="64" rx="8" fill="#FBF7F0" stroke="#C9A45B" stroke-width="1.5"/>
+  <rect x="1124" y="127" width="28" height="28" rx="3" fill="url(#azGold)"/>
+  <circle cx="1138" cy="141" r="7" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="1138" cy="141" r="3" fill="url(#azGold)"/>
+  <text x="1160" y="141" fill="#1B2733" font-size="13" font-weight="700">Azure AI Foundry</text>
+  <text x="1160" y="156" fill="#8A6D1F" font-size="9">primary inference · per-tier</text>
+  <text x="1160" y="168" fill="#8A6D1F" font-size="9">Foundry deployments</text>
+
+  <!-- Honcho memory -->
+  <rect x="1392" y="116" width="222" height="64" rx="8" fill="#F4F9FD" stroke="#7FB2DC" stroke-width="1.5"/>
+  <rect x="1406" y="127" width="28" height="28" rx="3" fill="url(#azMem)"/>
+  <ellipse cx="1420" cy="135" rx="8" ry="3" fill="#FFFFFF"/>
+  <path d="M1412,135 v11 a8,3 0 0 0 16,0 v-11" fill="none" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="1442" y="141" fill="#1B2733" font-size="13" font-weight="700">Honcho memory</text>
+  <text x="1442" y="156" fill="#5B6B7B" font-size="9">:8000 + PostgreSQL / pgvector</text>
+  <text x="1442" y="168" fill="#5B6B7B" font-size="9">(VNet-private)</text>
+
+  <!-- ===== LIFELINES ===== -->
+  <line x1="140" y1="184" x2="140" y2="1010" stroke="#AEB9C4" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="375" y1="184" x2="375" y2="1010" stroke="#7FA9CE" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="640" y1="184" x2="640" y2="1010" stroke="#7FA9CE" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="925" y1="184" x2="925" y2="1010" stroke="#7FA9CE" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="1215" y1="184" x2="1215" y2="1010" stroke="#D8C28A" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <line x1="1503" y1="184" x2="1503" y2="1010" stroke="#7FB2DC" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+  <!-- ===== OPTIONAL: MEMORY GOVERNOR LANE ===== -->
+  <rect x="1352" y="208" width="262" height="700" rx="2" fill="#FBFCFD" stroke="#9AA7B4" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <rect x="1362" y="216" width="22" height="22" rx="3" fill="url(#azGrey)"/>
+  <text x="1390" y="231" fill="#6B7886" font-size="10" font-weight="700">Memory Governor (optional ·</text>
+  <text x="1390" y="243" fill="#6B7886" font-size="10" font-weight="700">memory_governor_enabled, off by default)</text>
+  <text x="1362" y="262" fill="#6B7886" font-size="9">When enabled, all agent memory traffic is</text>
+  <text x="1362" y="274" fill="#6B7886" font-size="9">mediated by the governor instead of going</text>
+  <text x="1362" y="286" fill="#6B7886" font-size="9">straight to Honcho: POST /admit (write) and</text>
+  <text x="1362" y="298" fill="#6B7886" font-size="9">POST /plan-retrieval (read). With every flag</text>
+  <text x="1362" y="310" fill="#6B7886" font-size="9">off, /admit returns "disabled", /plan-retrieval</text>
+  <text x="1362" y="322" fill="#6B7886" font-size="9">returns enabled=false, callers keep Honcho ctx.</text>
+
+  <!-- admission box -->
+  <rect x="1362" y="344" width="242" height="118" rx="8" fill="#FFFFFF" stroke="#9AA7B4" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="1372" y="364" fill="#42505E" font-size="11" font-weight="700">POST /admit — admission control</text>
+  <text x="1372" y="384" fill="#6B7886" font-size="9">write-time choke point:</text>
+  <text x="1372" y="397" fill="#6B7886" font-size="9">classify → validate scope → check</text>
+  <text x="1372" y="410" fill="#6B7886" font-size="9">writer authority → dedupe →</text>
+  <text x="1372" y="423" fill="#6B7886" font-size="9">retention decision → persist to</text>
+  <text x="1372" y="436" fill="#6B7886" font-size="9">Honcho documents (sync_state=pending)</text>
+
+  <!-- retrieval box -->
+  <rect x="1362" y="560" width="242" height="118" rx="8" fill="#FFFFFF" stroke="#9AA7B4" stroke-width="1" stroke-dasharray="4 3"/>
+  <text x="1372" y="580" fill="#42505E" font-size="11" font-weight="700">POST /plan-retrieval — read planner</text>
+  <text x="1372" y="600" fill="#6B7886" font-size="9">read-time planner: 4-plane package</text>
+  <text x="1372" y="613" fill="#6B7886" font-size="9">(A always-on · C governed pgvector</text>
+  <text x="1372" y="626" fill="#6B7886" font-size="9">+ trigram · D session · failure-lesson</text>
+  <text x="1372" y="639" fill="#6B7886" font-size="9">injection), filtered by read authority,</text>
+  <text x="1372" y="652" fill="#6B7886" font-size="9">ranked by hybrid score</text>
+
+  <!-- governor dotted hops -->
+  <path d="M1372,296 V560" fill="none" stroke="#9AA7B4" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrGrey)"/>
+  <path d="M1362,430 V403" fill="none" stroke="#9AA7B4" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arrGrey)"/>
+  <text x="1228" y="394" fill="#6B7886" font-size="8" font-style="italic">when governor on:</text>
+  <text x="1228" y="404" fill="#6B7886" font-size="8" font-style="italic">/admit + /plan-retrieval</text>
+
+  <!-- ===== ROUTER DECISION CALLOUT ===== -->
+  <rect x="780" y="588" width="290" height="120" rx="8" fill="#EFF6FC" stroke="#0078D4" stroke-width="1" stroke-dasharray="3 3"/>
+  <text x="790" y="608" fill="#1B2733" font-size="11" font-weight="700">Router decision (select_tier → budget → fallback)</text>
+  <text x="790" y="628" fill="#42505E" font-size="9">1. resolve persona/role → tier (PERSONA_TIERS_JSON)</text>
+  <text x="790" y="641" fill="#42505E" font-size="9">2. if gpt4o-mini over daily budget → downgrade to phi4</text>
+  <text x="790" y="654" fill="#42505E" font-size="9">3. build fallback chain (fit context); try primary tier</text>
+  <text x="790" y="667" fill="#42505E" font-size="9">4. on failure/over-budget, walk the chain:</text>
+  <text x="790" y="680" fill="#42505E" font-size="9">     Foundry tiers → gpt4o-mini → phi4 (phi4 required)</text>
+
+  <!-- ===== PHASE LABELS ===== -->
+  <text x="60" y="220" fill="#5B7A95" font-size="10" font-weight="700" letter-spacing="1">REQUEST  (inbound)</text>
+  <line x1="60" y1="766" x2="1340" y2="766" stroke="#C7D2DD" stroke-width="1" stroke-dasharray="2 4"/>
+  <text x="60" y="786" fill="#5B7A95" font-size="10" font-weight="700" letter-spacing="1">RETURN  (reply back to the user)</text>
+
+  <!-- ===== NUMBERED MESSAGES ===== -->
+  <!-- 1 user -> paperclip -->
+  <text x="270" y="230" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">message arrives (web / Telegram / Discord)</text>
+  <path d="M140,236 H375" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="158" cy="236" r="10" fill="#0B3D66"/><text x="158" y="240" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">1</text>
+
+  <!-- 2 paperclip -> honcho (read) -->
+  <text x="940" y="290" fill="#2E6CA3" font-size="10" font-weight="700" text-anchor="middle">fetch session memories (read)</text>
+  <path d="M375,296 H1503" fill="none" stroke="#2E6CA3" stroke-width="2" marker-end="url(#arrMemE)"/>
+  <circle cx="393" cy="296" r="10" fill="#2E6CA3"/><text x="393" y="300" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">2</text>
+
+  <!-- 3 paperclip -> hermes (dispatch) -->
+  <text x="520" y="350" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">dispatch task to the chosen agent role</text>
+  <path d="M375,356 H640" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="393" cy="356" r="10" fill="#0B3D66"/><text x="393" y="360" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">3</text>
+
+  <!-- 4 hermes <-> honcho (r/w) -->
+  <text x="1050" y="424" fill="#2E6CA3" font-size="10" font-weight="700" text-anchor="middle">read prior context + write new facts (memory r/w)</text>
+  <path d="M640,430 H1503" fill="none" stroke="#2E6CA3" stroke-width="2" marker-start="url(#arrMemS)" marker-end="url(#arrMemE)"/>
+  <circle cx="658" cy="430" r="10" fill="#2E6CA3"/><text x="658" y="434" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">4</text>
+
+  <!-- 5 hermes -> router -->
+  <text x="790" y="494" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">/v1/chat/completions  +  persona / role id</text>
+  <path d="M640,500 H925" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="658" cy="500" r="10" fill="#0B3D66"/><text x="658" y="504" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">5</text>
+
+  <!-- 6 router -> foundry -->
+  <text x="1070" y="724" fill="#C9851F" font-size="10" font-weight="700" text-anchor="middle">inference (primary tier deployment)</text>
+  <path d="M925,730 H1215" fill="none" stroke="#C9851F" stroke-width="2" marker-end="url(#arrGold)"/>
+  <circle cx="943" cy="730" r="10" fill="#C9851F"/><text x="943" y="734" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">6</text>
+  <!-- 6b fallback loop -->
+  <path d="M1010,730 V722 H1090 V730" fill="none" stroke="#C9851F" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrGold)"/>
+  <text x="1096" y="744" fill="#C9851F" font-size="9" font-style="italic">6b  fallback chain on failure / over-budget</text>
+
+  <!-- 7 foundry -> router -->
+  <text x="1060" y="810" fill="#C9851F" font-size="10" font-weight="700" text-anchor="middle">completion + token usage  (router records cost / budget)</text>
+  <path d="M1215,816 H925" fill="none" stroke="#C9851F" stroke-width="2" marker-end="url(#arrGold)"/>
+  <circle cx="1197" cy="816" r="10" fill="#C9851F"/><text x="1197" y="820" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">7</text>
+
+  <!-- 8 router -> hermes -->
+  <text x="775" y="862" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">return completion to the agent</text>
+  <path d="M925,868 H640" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="907" cy="868" r="10" fill="#0B3D66"/><text x="907" y="872" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">8</text>
+
+  <!-- 8w hermes -> honcho (return-side write) -->
+  <text x="1050" y="880" fill="#2E6CA3" font-size="9" font-style="italic" text-anchor="middle">memory side-write: persist outcome / new facts</text>
+  <path d="M640,890 H1503" fill="none" stroke="#2E6CA3" stroke-width="1.5" stroke-dasharray="4 3" marker-end="url(#arrMemE)"/>
+
+  <!-- 9 hermes -> paperclip -->
+  <text x="505" y="922" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">agent output back to the orchestrator</text>
+  <path d="M640,928 H375" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="622" cy="928" r="10" fill="#0B3D66"/><text x="622" y="932" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">9</text>
+
+  <!-- 10 paperclip -> user -->
+  <text x="270" y="974" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">reply back to the originating surface</text>
+  <path d="M375,980 H140" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="358" cy="980" r="10" fill="#0B3D66"/><text x="358" y="984" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">10</text>
+
+  <!-- ===== SECRET / CONTROL NOTE ===== -->
+  <text x="60" y="1024" fill="#7A8895" font-size="9" font-style="italic">Secrets are read once at container startup (Key Vault), not per request; telemetry streams to Log Analytics out-of-band. Both are control-plane, kept off</text>
+  <text x="60" y="1036" fill="#7A8895" font-size="9" font-style="italic">the request path — see system-architecture diagram.</text>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="60" y="1058" width="1110" height="44" rx="4" fill="#FFFFFF" stroke="#AEB9C4"/>
+  <text x="74" y="1084" fill="#1B2733" font-size="11" font-weight="700">Legend</text>
+
+  <line x1="140" y1="1080" x2="184" y2="1080" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="161" cy="1080" r="9" fill="#0B3D66"/><text x="161" y="1084" fill="#FFFFFF" font-size="9" font-weight="700" text-anchor="middle">n</text>
+  <text x="190" y="1084" fill="#42505E" font-size="10">numbered request / return step</text>
+
+  <line x1="388" y1="1080" x2="432" y2="1080" stroke="#2E6CA3" stroke-width="2" marker-start="url(#arrMemS)" marker-end="url(#arrMemE)"/>
+  <text x="440" y="1084" fill="#42505E" font-size="10">Honcho memory read / write (side-write)</text>
+
+  <line x1="700" y1="1080" x2="744" y2="1080" stroke="#C9851F" stroke-width="2" marker-end="url(#arrGold)"/>
+  <text x="752" y="1084" fill="#42505E" font-size="10">LLM inference (solid = primary · dotted = fallback)</text>
+
+  <text x="1188" y="1084" fill="#6B7886" font-size="10" font-style="italic">Dashed outline / muted grey = optional, flag-gated</text>
+  <text x="1188" y="1096" fill="#6B7886" font-size="10" font-style="italic">service (Memory Governor; off by default).</text>
+</svg>

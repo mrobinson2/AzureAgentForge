@@ -1,0 +1,106 @@
+fixture_id: 08-orchestrator-answer-direct
+description: >
+  ANSWER classification path — the Orchestrator (the front door for every
+  incoming issue) must recognize a simple, stable, version-agnostic question
+  it can answer directly from its own protocol knowledge, and answer it inline
+  instead of manufacturing a delegation.
+
+  Real-world scenario: a teammate opens an issue asking a one-shot procedural
+  factoid about the coordination protocol itself ("what status should the
+  parent be in after you delegate?"). The correct front-door behavior is to
+  reply in a comment and close the issue. There is nothing to build, run, or
+  research, so no specialist is needed.
+
+  Failure mode this guards against: over-delegation. The Orchestrator treats
+  *every* PaperClip issue as COORDINATE work and spawns an unnecessary child
+  (or a whole delegation chain) for a question it already knows the answer to.
+  That is costly several ways — it burns a specialist agent run on a non-task,
+  it leaves a coordination parent sitting in `in_progress` waiting on a child
+  that never had real work, it pollutes the issue graph with orphan children,
+  and it trains the wrong reflex (delegate-by-default) that later collapses
+  judgment on requests that genuinely *should* be answered at the front door.
+  The contract: ANSWER directly, children.count == 0, no create-child calls in
+  the trace.
+
+  When to ANSWER vs DELEGATE: ANSWER when the request is a self-contained,
+  stable factoid the front door already knows (protocol rules, definitions,
+  "what status / which field" procedural questions) — no tools, no build, no
+  external lookup, no version-specific or environment-specific investigation.
+  DELEGATE only when answering requires a specialist's tools or knowledge
+  (writing code, provisioning infra, running QA, security review, research).
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  # A pure procedural question about the coordination protocol itself. It is
+  # stable (the protocol rule doesn't drift), version-agnostic (no SDK/tool
+  # version matters), and self-contained — exactly the shape the front door
+  # should answer without involving any specialist.
+  title: "What status should a coordination parent issue be in after you delegate?"
+  body: |
+    Quick protocol question — not a task, nothing to build or run.
+
+    When you (the Orchestrator) delegate part of a coordination parent issue
+    out to a specialist by creating a child issue, what status should the
+    PARENT issue be moved to while that child is being worked, and what does
+    it move to once all children are resolved?
+
+    Please just answer in 1-2 sentences in a comment from your own protocol
+    knowledge — do NOT create a child issue or delegate this — then mark the
+    issue done.
+
+expected:
+  parent:
+    # Front door answered inline and closed the loop itself.
+    status: done
+    # If the parent is left in_progress, it almost always means a child was
+    # spawned and the parent is now waiting on it — the exact over-delegation
+    # failure this fixture exists to catch.
+    status_must_not_be: in_progress
+    # The answer is delivered as at least one comment on the parent.
+    comment_count_min: 1
+    # The correct procedural answer necessarily names these protocol terms:
+    # the parent goes to `in_progress` while a `child` is worked after you
+    # `delegate`. Requiring them confirms a real answer was given, not a stub.
+    summary_comment_must_reference:
+      - in_progress
+      - child
+      - delegate
+
+  children:
+    # The crux of the contract: a simple factoid must NOT produce any child
+    # issue. Zero delegation, zero specialist runs.
+    count: 0
+    # A redundant safety net on count == 0: none of these specialist roles may be
+    # pulled in for a question the front door should answer itself. Catches a
+    # delegation even if it were mis-counted.
+    forbidden_agents: [coder, infrastructure, qa, security, cost-guardian, curator, researcher]
+
+timeouts:
+  wait_for_completion_seconds: 180
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions_todo:
+  # An ANSWER-path run must never touch any delegation/child-creation machinery.
+  # Each pattern below is a distinct way the Orchestrator could manufacture the
+  # unnecessary delegation this fixture forbids — none may appear in the trace.
+  forbidden_in_trace:
+    # The delegate helper's create-child subcommand — the canonical "spawn a
+    # specialist" action.
+    - "pc-delegate\\.sh create-child"
+    # The programmatic equivalent via the PaperClip client.
+    - "paperclip\\.create_child_issue"
+    # The raw REST write that creates an issue under a company — any child
+    # issue creation, however it's reached.
+    - "POST .*companies/.*/issues"
+    # If two agents both think they own this issue, something over-routed it;
+    # an answered factoid should never produce an ownership conflict.
+    - "ownership conflict"
+    # Any generic "create a child issue" phrasing in the trace also indicates
+    # the over-delegation failure for a question that needs none.
+    - "create[ _-]child[ _-]issue"

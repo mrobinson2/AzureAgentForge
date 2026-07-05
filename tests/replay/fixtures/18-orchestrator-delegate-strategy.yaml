@@ -1,0 +1,158 @@
+fixture_id: 18-orchestrator-delegate-strategy
+description: >
+  Single-specialist delegation: the Orchestrator routes a broad,
+  high-stakes goal ("should we change platform direction, and in what
+  sequence?") to exactly ONE child — the Strategy role — and to no one
+  else. This models the moment a real operator brings a multi-quarter,
+  partly-irreversible decision to the platform and expects a sequencing /
+  build-vs-buy recommendation BEFORE any execution work begins.
+
+  The failure mode this fixture guards against is the Orchestrator
+  jumping straight to implementation specialists — fanning the goal out
+  to Infrastructure, Coder, or Planner to "just start migrating" — instead
+  of getting a strategy/sequencing pass first. That failure is expensive:
+  it commits engineering effort (Terraform, container-app rewrites, a
+  premature tactical plan) to a direction that has not been pressure-tested
+  for cost-of-being-wrong or irreversibility, and it collapses the
+  strategic question into a tactical one whose framing is already locked in.
+
+  Strategic ≠ tactical. The question here is "should we change
+  direction, and which moves can be undone if we're wrong?", not "how do
+  we execute the current direction?". So the contract is strict: exactly
+  one child, owned by Strategy; every implementation/decomposition role is
+  forbidden; and the delegated brief must NOT pre-empt Planner by handing
+  off a tactical migration plan before the strategic call is made.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Should we migrate from Azure Container Apps to Kubernetes for the agent platform?"
+  body: |
+    Broad goal: figure out our hosting direction for the agent platform
+    and the SEQUENCE of moves to get there — I need the call and the
+    ordering before anyone starts building.
+
+    We're at 13 agents on ACA today, planning to scale to 30+ over the
+    next quarter. The Container Apps platform has been mostly fine but
+    we're starting to hit limits:
+
+    - Per-app revision rollover causes brief 502s during deploy
+    - Sleepable / scale-to-zero doesn't compose well with our test
+      harness
+    - Limited control over networking between agents (no service mesh)
+    - Per-agent cost is hard to attribute under consumption pricing
+
+    Kubernetes would give us more control but adds operational burden
+    (we don't have a dedicated platform engineer; I'm it).
+
+    I want a strategic recommendation and a sequenced set of moves, not a
+    tactical migration plan yet. Specifically:
+
+    - Is the right move to (a) stay on ACA and live with the limits,
+      (b) migrate to AKS, (c) something else (managed K8s elsewhere,
+      Nomad, etc.)?
+    - Weigh the trade-offs: what's the cost of being wrong on this
+      decision in either direction (ACA-now-AKS-later vs.
+      AKS-now-but-too-early)?
+    - What's the irreversibility profile? Which direction can be
+      undone if the call is wrong, and in what order should we make the
+      reversible bets first?
+
+    Decompose into a tactical plan AFTER you (Strategy) make the call —
+    don't let Planner run with this, and don't spin up Infrastructure or
+    Coder to start migrating, until the strategic direction is set.
+
+expected:
+  parent:
+    # After delegating, the Orchestrator closes its own issue — the work
+    # now lives in the Strategy child, so the parent must NOT linger
+    # in_progress (that would mean it kept the task instead of routing it).
+    status: done
+    status_must_not_be: in_progress
+    # The parent must leave a summary comment that names the role it
+    # delegated to and links the child issue, so the audit trail is intact.
+    comment_count_min: 1
+    summary_comment_must_reference: [strategy]
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # The crux of single-specialist delegation: exactly ONE child, no fan-out.
+    count: 1
+    # That one child must be owned by Strategy and by no other role.
+    exactly_one_per_agent: [strategy]
+    # The guard against the failure mode: the Orchestrator must NOT jump to
+    # implementation / decomposition specialists before the strategic call is
+    # made. Planner is included here precisely because tactical breakdown is
+    # premature until Strategy returns a direction.
+    forbidden_agents: [coder, infrastructure, qa, security, cost-guardian, curator, researcher, coach, business, psychology, planner]
+
+    by_agent:
+      strategy:
+        # Child starts as fresh work for Strategy to pick up, not pre-completed.
+        status: todo
+        # Title must read as a strategic/direction question, not an impl ticket.
+        title_must_match: "(?i)(strateg|migrat|kubernetes|aks|strategy|direction|architectur)"
+        # Delegated child must be linked back to the originating parent issue.
+        parent_id_set: true
+        # The brief handed to Strategy must carry forward the full decision
+        # frame — both options, the scale numbers that make it material, the
+        # trade-off, the irreversibility lens, and an explicit ask for a
+        # recommendation. If any term is dropped, the delegation was truncated.
+        description_must_match_all:
+          - "(?i)azure container apps?|aca"          # the incumbent option
+          - "(?i)kubernetes|aks"                      # the alternative option
+          - "(?i)13 agents"                           # current scale (why it matters now)
+          - "(?i)30\\+?|next quarter"                 # the growth pressure / horizon
+          - "(?i)trade[- ]?off|cost of being wrong"   # decision must be weighed, not asserted
+          - "(?i)irreversib"                          # the reversibility/sequencing lens
+          - "(?i)recommendation"                      # Strategy must commit to a call
+          - "Acceptance criteria"                     # delegated child carries a clear DoD
+        # The off-lane guard: a Strategy brief must stay at the decision level.
+        # It must never instruct hands-on implementation (code, Terraform,
+        # container-app changes) and must never pre-empt Planner by handing off
+        # a tactical plan before the strategic direction exists.
+        description_must_not_match:
+          - "(?i)write code"
+          - "(?i)implement.*(function|module|handler|class|service)"
+          - "(?i)(write|update|modify|create).*terraform"
+          - "(?i)(deploy|configure|update|create).*container app"
+          - "(?i)create.*tactical plan|run with this"   # don't pre-empt Planner
+        # Reinforces that the delegated child includes a concrete done-definition.
+        description_must_contain: "Acceptance criteria"
+
+negative_assertions:
+  # Ordering guard: the parent may only be closed AFTER the Strategy child
+  # exists. Closing first would be "silent success" — claiming the work was
+  # routed when no child was actually created.
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # The two observable actions a correct delegation must produce in the trace.
+  behavior_required:
+    - create_child_issue_for_strategy
+    - comment_parent_with_child_ref
+  # Any of these tool invocations counts as a valid "create child for Strategy"
+  # (CLI wrapper, SDK call, or raw issues API) — equivalent surfaces, one intent.
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent strategy"
+    - "paperclip\\.create_child_issue.*strategy"
+    - "POST .*companies/.*/issues.*strategy"
+  forbidden_in_trace:
+    - "ownership conflict"                       # delegation must not collide on ownership
+    - "/opt/data/skills/playbooks"               # must not leak internal playbook paths
+    # Hard guard on the failure mode: creating a child for ANY non-Strategy role
+    # is forbidden. This is the trace-level twin of forbidden_agents — it catches
+    # the Orchestrator fanning out to implementation/decomposition specialists.
+    - "pc-delegate\\.sh create-child .* --agent (coder|infrastructure|qa|security|cost-guardian|curator|researcher|coach|business|psychology|planner)"
+
+trace_assertions_todo:
+  must_not_claim_success_if_child_creation_failed: true

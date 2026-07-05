@@ -1,0 +1,481 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Forge Console — AzureAgentForge</title>
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --border: #2d3646;
+    --text: #e6edf3; --dim: #8b97a8; --accent: #58a6ff; --accent2: #7c5cff;
+    --ok: #3fb950; --warn: #d29922; --err: #f85149; --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 14px; padding: 18px 28px;
+           border-bottom: 1px solid var(--border);
+           background: linear-gradient(135deg, #131a2a 0%, #0d1117 70%); }
+  header .flame { font-size: 26px; }
+  header h1 { font-size: 19px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header h1 span { color: var(--accent); }
+  header .sub { color: var(--dim); font-size: 13px; margin-left: auto; }
+  main { display: grid; grid-template-columns: 380px 1fr; gap: 0; height: calc(100vh - 63px); }
+  nav.steps { border-right: 1px solid var(--border); overflow-y: auto; padding: 18px; }
+  .step { border: 1px solid var(--border); border-radius: 10px; background: var(--panel);
+          margin-bottom: 14px; overflow: hidden; }
+  .step > .head { display: flex; align-items: center; gap: 10px; padding: 12px 14px;
+                  cursor: pointer; user-select: none; }
+  .step .num { width: 26px; height: 26px; border-radius: 50%; background: var(--panel2);
+               border: 1px solid var(--border); display: flex; align-items: center;
+               justify-content: center; font-size: 13px; color: var(--dim); flex: none; }
+  .step.done .num { background: var(--ok); border-color: var(--ok); color: #04130a; }
+  .step.active .num { background: var(--accent); border-color: var(--accent); color: #06121f; }
+  .step .title { font-weight: 600; font-size: 14px; }
+  .step .body { padding: 0 14px 14px 50px; display: none; }
+  .step.active .body { display: block; }
+  label { display: block; font-size: 12.5px; color: var(--dim); margin: 10px 0 4px; }
+  input[type=text], select { width: 100%; padding: 8px 10px; border-radius: 7px;
+      border: 1px solid var(--border); background: var(--panel2); color: var(--text);
+      font-size: 14px; }
+  input:focus, select:focus { outline: none; border-color: var(--accent); }
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+  .chk { display: flex; align-items: center; gap: 8px; font-size: 13.5px; margin-top: 8px; }
+  .chk input { accent-color: var(--accent); }
+  button { border: 0; border-radius: 8px; padding: 9px 16px; font-size: 14px;
+           font-weight: 600; cursor: pointer; background: var(--accent); color: #06121f; }
+  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: var(--err); color: #fff; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btns { display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+  .check-line { display: flex; gap: 8px; align-items: baseline; font-size: 13.5px;
+                margin: 6px 0; font-family: var(--mono); }
+  .check-line .dot { flex: none; }
+  .ok { color: var(--ok); } .bad { color: var(--err); } .dim { color: var(--dim); }
+  .pill { font-size: 11px; padding: 1px 8px; border-radius: 20px;
+          border: 1px solid var(--border); color: var(--dim); }
+  section.console { display: flex; flex-direction: column; min-width: 0; }
+  .console .bar { display: flex; align-items: center; gap: 10px; padding: 10px 18px;
+                  border-bottom: 1px solid var(--border); font-size: 13px; color: var(--dim); }
+  .statusdot { width: 9px; height: 9px; border-radius: 50%; background: var(--dim); }
+  .statusdot.running { background: var(--warn); animation: pulse 1.2s infinite; }
+  .statusdot.succeeded { background: var(--ok); }
+  .statusdot.failed { background: var(--err); }
+  @keyframes pulse { 50% { opacity: .35; } }
+  pre#log { flex: 1; margin: 0; padding: 16px 20px; overflow-y: auto;
+            font: 12.5px/1.55 var(--mono); color: #c9d6e3; background: #0a0e14;
+            white-space: pre-wrap; word-break: break-word; }
+  pre#log .meta { color: var(--accent2); }
+  pre#log .err { color: var(--err); }
+  pre#log .ok { color: var(--ok); }
+  .preview { background: #0a0e14; border: 1px solid var(--border); border-radius: 8px;
+             padding: 10px 12px; font: 12px/1.5 var(--mono); white-space: pre;
+             overflow-x: auto; color: #9fb3c8; margin-top: 8px; }
+  .note { font-size: 12.5px; color: var(--dim); margin-top: 8px; }
+  .note b { color: var(--warn); }
+  dialog { background: var(--panel); color: var(--text); border: 1px solid var(--border);
+           border-radius: 12px; padding: 22px; max-width: 440px; }
+  dialog::backdrop { background: rgba(0,0,0,.55); }
+  dialog.destroy { border: 2px solid var(--err); box-shadow: 0 0 0 4px rgba(248,81,73,.15); }
+  dialog.destroy h3 { color: var(--err); }
+  dialog.destroy pre { background: #0a0e14; border: 1px solid var(--err); border-radius: 8px;
+                       padding: 10px 12px; max-height: 180px; overflow-y: auto;
+                       font: 12px/1.5 var(--mono); color: #f0b8b4; white-space: pre-wrap; }
+</style>
+</head>
+<body>
+<header>
+  <div class="flame">⚒️</div>
+  <h1>Forge <span>Console</span> <span class="pill">AzureAgentForge</span></h1>
+  <div class="sub" id="repoPath"></div>
+</header>
+<main>
+  <nav class="steps">
+
+    <div class="step active" id="step-checks">
+      <div class="head" onclick="open_('checks')"><div class="num">1</div>
+        <div class="title">Prerequisites</div></div>
+      <div class="body">
+        <div id="checksOut" class="dim">Checking…</div>
+        <div class="btns">
+          <button class="secondary" onclick="loadChecks()">Re-check</button>
+        </div>
+        <div class="note">Azure path needs <code>terraform</code> + <code>az</code> (logged in).
+        Local path needs Docker.</div>
+      </div>
+    </div>
+
+    <div class="step" id="step-config">
+      <div class="head" onclick="open_('config')"><div class="num">2</div>
+        <div class="title">Configure</div></div>
+      <div class="body">
+        <label>Azure subscription</label>
+        <select id="subscription"></select>
+        <div class="row">
+          <div><label>Region</label><input type="text" id="location" value="eastus"></div>
+          <div><label>Environment</label><input type="text" id="environment" value="dev"></div>
+        </div>
+        <label>Cost profile</label>
+        <select id="profile">
+          <option value="cost-optimized">cost-optimized — budget-friendly defaults</option>
+          <option value="hardened">hardened — HA Postgres, private Key Vault, tunnel</option>
+        </select>
+        <label>Azure AI Foundry endpoint <span class="dim">(optional — can set later)</span></label>
+        <input type="text" id="foundry" placeholder="https://your-project.openai.azure.com/">
+        <div class="note">Your Foundry / AI-Services resource's endpoint: Azure Portal → the resource → <b>Endpoint</b>. Leave blank to wire a model later.</div>
+        <label>Foundry deployment id <span class="dim">(optional)</span></label>
+        <input type="text" id="foundryDeployment" value="gpt-4o-mini" placeholder="gpt-4o-mini">
+        <div class="note">The <b>name of a model deployment</b> you created in Foundry (e.g. <code>gpt-4o-mini</code>) — a deployment name, not a GUID. List yours: <code>az cognitiveservices account deployment list -n &lt;foundry&gt; -g &lt;rg&gt; -o table</code></div>
+        <label>Container image tag <span class="dim">(optional — applies to all services; blank = "latest")</span></label>
+        <input type="text" id="imageTag" placeholder="e.g. a git SHA like 9bf1a51, or latest">
+        <div class="note">The short git SHA <code>scripts/build-and-push.sh</code> prints after pushing images (e.g. <code>9bf1a51</code>). Blank uses <code>latest</code>.</div>
+        <label>Key Vault admin object IDs <span class="dim">(your Azure AD object ID; comma-separated for more — needed to seed secrets)</span></label>
+        <input type="text" id="kvAdmins" placeholder="az ad signed-in-user show --query id -o tsv">
+        <div class="chk"><input type="checkbox" id="telegram"><label for="telegram" style="margin:0">Enable Telegram surface</label></div>
+        <div class="chk"><input type="checkbox" id="discord"><label for="discord" style="margin:0">Enable Discord surface</label></div>
+        <div class="btns">
+          <button class="secondary" onclick="previewConfig()">Preview tfvars</button>
+          <button onclick="writeConfig()">Write configuration</button>
+        </div>
+        <div id="configPreview"></div>
+        <div class="note">Writes <code>terraform.tfvars</code> (git-ignored) and a local-state
+        <code>backend_override.tf</code> — no pre-provisioned state storage needed.</div>
+      </div>
+    </div>
+
+    <div class="step" id="step-deploy">
+      <div class="head" onclick="open_('deploy')"><div class="num">3</div>
+        <div class="title">Deploy to Azure</div></div>
+      <div class="body">
+        <div class="note" style="margin:0 0 10px">Target environment:
+        <b id="deployEnvName">dev</b> <span class="dim">— set in step 2 (Configure)</span></div>
+        <div class="btns">
+          <button class="secondary" onclick="run('init')">init</button>
+          <button class="secondary" onclick="run('validate')">validate</button>
+          <button onclick="run('plan')">plan</button>
+          <button class="danger" onclick="confirmRun('apply')">apply ⚡</button>
+        </div>
+        <div class="note">Run <b>plan</b> and read it before <b>apply</b>. Apply creates real,
+        billable Azure resources (see docs/cost.md for what to expect).</div>
+        <div class="note"><b>First deploy?</b> The Key Vault module reads
+        <code>postgres-admin-password</code> as a data source, so the very first
+        <code>plan</code> fails until the vault is seeded. Run the one-time bootstrap from a
+        terminal first: <code>scripts/bootstrap.sh --apply</code> (creates the vault + seeds the
+        secret), then come back and <code>plan</code>/<code>apply</code> here. See
+        docs/deploy-pipeline.md.</div>
+        <div class="btns" style="margin-top:18px">
+          <button class="secondary" onclick="run('output')">show outputs</button>
+          <button class="danger" onclick="confirmRun('destroy')">destroy</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="step" id="step-local">
+      <div class="head" onclick="open_('local')"><div class="num">4</div>
+        <div class="title">Run locally instead</div></div>
+      <div class="body">
+        <div class="note">The working slice (Postgres + model-router) via Docker Compose.
+        Fill <code>.env</code> first — see docs/getting-started.md Path A.</div>
+        <div class="btns">
+          <button onclick="run('compose-up')">compose up</button>
+          <button class="secondary" onclick="run('compose-ps')">status</button>
+          <button class="secondary" onclick="run('compose-down')">compose down</button>
+        </div>
+      </div>
+    </div>
+
+  </nav>
+
+  <section class="console">
+    <div class="bar">
+      <div class="statusdot" id="statusDot"></div>
+      <span id="statusText">idle — output streams here</span>
+      <span style="margin-left:auto"><button class="secondary" style="padding:4px 10px;font-size:12px"
+        onclick="document.getElementById('log').textContent=''">clear</button></span>
+    </div>
+    <pre id="log"></pre>
+  </section>
+</main>
+
+<dialog id="confirmDialog">
+  <h3 style="margin-top:0" id="confirmTitle">Confirm</h3>
+  <p id="confirmText" style="font-size:14px"></p>
+  <input type="text" id="confirmInput" placeholder="environment name">
+  <div class="btns">
+    <button class="danger" id="confirmGo">Run it</button>
+    <button class="secondary" onclick="document.getElementById('confirmDialog').close()">Cancel</button>
+  </div>
+</dialog>
+
+<dialog id="destroyDialog" class="destroy">
+  <h3 style="margin-top:0">⚠ Destructive apply — extra approval required</h3>
+  <p id="destroyText" style="font-size:14px"></p>
+  <p class="note" style="margin-bottom:4px">These resources will be deleted or replaced:</p>
+  <pre id="destroyList"></pre>
+  <p style="font-size:14px">Type <code id="destroyToken"></code> to approve this destructive apply.</p>
+  <input type="text" id="destroyInput" placeholder="approval token" autocomplete="off">
+  <div class="btns">
+    <button class="danger" id="destroyGo">Approve &amp; apply</button>
+    <button class="secondary" onclick="document.getElementById('destroyDialog').close()">Cancel</button>
+  </div>
+</dialog>
+
+<script>
+const TOKEN = new URLSearchParams(location.search).get('token') || '';
+const $ = id => document.getElementById(id);
+let ENV_NAME = 'dev';
+
+async function api(path, opts = {}) {
+  const r = await fetch(path, {
+    ...opts,
+    headers: { 'x-forge-token': TOKEN, 'content-type': 'application/json', ...(opts.headers||{}) },
+  });
+  if (!r.ok) {
+    let msg = r.statusText, detail;
+    try { detail = (await r.json()).detail; if (typeof detail === 'string') msg = detail; } catch {}
+    const err = new Error(typeof detail === 'object' && detail ? (detail.message || msg) : msg);
+    if (detail && typeof detail === 'object') err.gate = detail;  // structured gate payload
+    throw err;
+  }
+  return r.json();
+}
+
+function open_(name) {
+  document.querySelectorAll('.step').forEach(s => s.classList.remove('active'));
+  $('step-' + name).classList.add('active');
+}
+function markDone(name) { $('step-' + name).classList.add('done'); }
+
+function logLine(text, cls) {
+  const log = $('log');
+  const atBottom = log.scrollTop + log.clientHeight >= log.scrollHeight - 40;
+  const span = document.createElement('span');
+  if (cls) span.className = cls;
+  span.textContent = text + '\n';
+  log.appendChild(span);
+  if (atBottom) log.scrollTop = log.scrollHeight;
+}
+
+async function loadChecks() {
+  $('checksOut').textContent = 'Checking…';
+  try {
+    const c = await api('/api/checks');
+    const rows = Object.entries(c).map(([k, v]) =>
+      `<div class="check-line"><span class="dot ${v.found?'ok':'bad'}">${v.found?'✔':'✘'}</span>` +
+      `<span>${k}</span><span class="dim">${(v.detail||'').replace(/</g,'&lt;')}</span></div>`).join('');
+    $('checksOut').innerHTML = rows;
+    if (c.az?.found && c.azure_login?.found && c.terraform?.found) markDone('checks');
+  } catch (e) { $('checksOut').innerHTML = `<span class="bad">${e.message}</span>`; }
+  try {
+    const subs = await api('/api/subscriptions');
+    $('subscription').innerHTML = subs.map(s =>
+      `<option value="${s.id}" ${s.isDefault?'selected':''}>${s.name} (${s.id.slice(0,8)}…)</option>`
+    ).join('') || '<option value="">— az login first —</option>';
+  } catch {}
+}
+
+function configBody(previewOnly) {
+  return JSON.stringify({
+    subscription_id: $('subscription').value,
+    location: $('location').value.trim(),
+    environment: $('environment').value.trim(),
+    profile: $('profile').value,
+    telegram_enabled: $('telegram').checked,
+    discord_enabled: $('discord').checked,
+    ai_foundry_endpoint: $('foundry').value.trim(),
+    ai_foundry_deployment_id: $('foundryDeployment').value.trim(),
+    image_tag: $('imageTag').value.trim(),
+    keyvault_admin_object_ids: $('kvAdmins').value.split(',').map(s => s.trim()).filter(Boolean),
+    preview_only: previewOnly,
+  });
+}
+
+async function previewConfig() {
+  try {
+    const r = await api('/api/config', { method: 'POST', body: configBody(true) });
+    $('configPreview').innerHTML = `<div class="preview">${r.preview.replace(/</g,'&lt;')}</div>`;
+  } catch (e) { $('configPreview').innerHTML = `<div class="note bad">${e.message}</div>`; }
+}
+
+async function writeConfig() {
+  try {
+    const r = await api('/api/config', { method: 'POST', body: configBody(false) });
+    ENV_NAME = $('environment').value.trim() || 'dev';
+    $('deployEnvName').textContent = ENV_NAME;
+    $('configPreview').innerHTML =
+      `<div class="preview">${r.preview.replace(/</g,'&lt;')}</div>` +
+      `<div class="note ok">✔ written — profile: ${r.profile_file.split('/').pop()}</div>`;
+    markDone('config'); open_('deploy');
+    logLine('[forge] configuration written: ' + r.tfvars, 'meta');
+  } catch (e) { $('configPreview').innerHTML = `<div class="note bad">${e.message}</div>`; }
+}
+
+async function run(step, confirm = '', approve_destroy = '') {
+  try {
+    await api('/api/run', { method: 'POST', body: JSON.stringify({ step, confirm, approve_destroy }) });
+    setStatus('running', step + ' running…');
+  } catch (e) {
+    // A destroy-aware apply gate returns a structured detail; surface the loud path.
+    const g = e.gate;
+    if (g && g.error === 'destroy_approval_required') { destroyGate(confirm, g); return; }
+    logLine('[forge] ' + e.message, 'err');
+  }
+}
+
+async function confirmRun(step) {
+  // ENV_NAME is set when you Write configuration, and matches the environment the
+  // server validates the typed token against (_last_config.environment). Don't
+  // re-read the live field here — an edit that wasn't re-written would show a name
+  // the server doesn't expect.
+  $('confirmTitle').textContent = 'Confirm ' + step;
+  $('confirmText').innerHTML = (step === 'apply'
+    ? 'Apply creates real, billable Azure resources from the saved plan. '
+    : 'Destroy permanently removes every resource Terraform manages in this environment. ')
+    + 'Type the environment name <code>' + ENV_NAME + '</code> to continue.';
+  $('confirmInput').value = '';
+  $('confirmInput').placeholder = ENV_NAME;
+  $('confirmGo').onclick = () => {
+    document.getElementById('confirmDialog').close();
+    run(step, $('confirmInput').value.trim());
+  };
+  $('confirmDialog').showModal();
+}
+
+// Second, deliberately-louder gate when the saved plan deletes/replaces things.
+function destroyGate(confirm, gate) {
+  const list = (gate.destroyed || []).map(a => '  • ' + a).join('\n');
+  $('destroyList').textContent = list || '(resources to be destroyed)';
+  $('destroyText').innerHTML = gate.message.replace(/</g, '&lt;');
+  $('destroyToken').textContent = gate.approval_token;
+  $('destroyInput').value = '';
+  $('destroyGo').onclick = () => {
+    document.getElementById('destroyDialog').close();
+    run('apply', confirm, $('destroyInput').value.trim());
+  };
+  $('destroyDialog').showModal();
+}
+
+function setStatus(state, text) {
+  $('statusDot').className = 'statusdot ' + state;
+  $('statusText').textContent = text;
+}
+
+function startStream() {
+  const es = new EventSource('/api/stream?token=' + encodeURIComponent(TOKEN));
+  es.onmessage = ev => {
+    const t = ev.data;
+    const cls = /error|Error|FAILED|failed \(exit/.test(t) ? 'err'
+              : /\[forge\]/.test(t) ? 'meta'
+              : /succeeded \(exit 0\)|Apply complete|Plan:/.test(t) ? 'ok' : '';
+    logLine(t, cls);
+  };
+  es.addEventListener('stepend', async ev => {
+    const st = await api('/api/state');
+    const last = st.history[st.history.length - 1];
+    if (last) setStatus(last.status, `${last.step} ${last.status}`);
+    if (last && last.status === 'succeeded' && last.step === 'apply') {
+      logLine('[forge] 🎉 deployment applied. Next steps:', 'ok');
+      logLine('[forge]   1. "show outputs" for service endpoints + the Key Vault name.', 'meta');
+      logLine('[forge]   2. Seed real provider keys + the Postgres connection strings (pass 2):', 'meta');
+      logLine('[forge]      POSTGRES_CONNECTION_STRING=... scripts/seed-keyvault.sh -v <vault>, then restart the apps.', 'meta');
+      logLine('[forge]   3. Enable a chat surface (Telegram/Discord/Teams) — see docs/getting-started.md.', 'meta');
+      markDone('deploy');
+    }
+  });
+  es.onerror = () => setStatus('', 'stream reconnecting…');
+}
+
+(async () => {
+  try {
+    const b = await api('/api/bootstrap?token=' + encodeURIComponent(TOKEN));
+    $('repoPath').textContent = b.repo_root;
+  } catch (e) {
+    document.body.innerHTML = '<p style="padding:40px;font-size:16px">' +
+      'Unauthorized. Open the console using the exact URL printed when you started <code>./forge</code>.</p>';
+    return;
+  }
+  startStream();
+  loadChecks();
+})();
+</script>
+
+<section id="cicd-setup">
+  <h2>CI/CD Setup</h2>
+  <p>One-time setup for the reference deploy pipeline: an Entra OIDC app, the
+     Terraform state backend, and GitHub variables/secrets + the
+     <code>deploy-destroy</code> approval environment. <strong>Preview first;</strong>
+     apply mutates Azure identity/RBAC and GitHub config.</p>
+
+  <label>GitHub repo (OWNER/REPO) <input id="sc-repo" placeholder="me/AzureAgentForge"></label>
+  <label>Subscription ID <input id="sc-subscription" placeholder="(current az account)"></label>
+  <label>App name <input id="sc-app-name" placeholder="aaf-deploy"></label>
+  <label>Location <input id="sc-location" placeholder="eastus"></label>
+  <label><input type="checkbox" id="sc-grant-uaa"> Grant User Access Administrator</label>
+  <label><input type="checkbox" id="sc-skip-github"> Azure only (skip GitHub)</label>
+
+  <fieldset>
+    <legend>Provider secrets (sent via env, never logged)</legend>
+    <label>GPT4O_API_KEY <input id="sc-sec-gpt4o" type="password"></label>
+    <label>AI_FOUNDRY_API_KEY <input id="sc-sec-foundry" type="password"></label>
+  </fieldset>
+
+  <button id="sc-preview">Preview</button>
+  <button id="sc-apply">Apply&#8230;</button>
+  <pre id="sc-output"></pre>
+</section>
+
+<script>
+(function () {
+  function scaffoldBody(apply, confirm) {
+    const params = {
+      repo: document.getElementById('sc-repo').value,
+      subscription: document.getElementById('sc-subscription').value,
+      app_name: document.getElementById('sc-app-name').value,
+      location: document.getElementById('sc-location').value,
+      grant_uaa: document.getElementById('sc-grant-uaa').checked,
+      skip_github: document.getElementById('sc-skip-github').checked,
+    };
+    const secrets = {};
+    const g = document.getElementById('sc-sec-gpt4o').value;
+    const f = document.getElementById('sc-sec-foundry').value;
+    if (g) secrets.GPT4O_API_KEY = g;
+    if (f) secrets.AI_FOUNDRY_API_KEY = f;
+    return { params, secrets, apply, confirm };
+  }
+
+  async function runScaffold(apply) {
+    let confirm = '';
+    if (apply) {
+      confirm = window.prompt(
+        "Apply mutates Azure identity/RBAC and GitHub config.\nType 'scaffold-apply' to proceed:"
+      );
+      if (confirm !== 'scaffold-apply') return;
+    }
+    const out = document.getElementById('sc-output');
+    out.textContent = '';
+    const resp = await fetch('/api/scaffold', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forge-token': TOKEN },
+      body: JSON.stringify(scaffoldBody(apply, confirm)),
+    });
+    if (!resp.ok) {
+      out.textContent = 'error: ' + (await resp.text());
+      return;
+    }
+    // Subscribe to the SSE stream to show live output in sc-output.
+    const es = new EventSource('/api/stream?token=' + encodeURIComponent(TOKEN));
+    es.onmessage = function(ev) {
+      out.textContent += ev.data + '\n';
+      out.scrollTop = out.scrollHeight;
+    };
+    es.addEventListener('stepend', function() { es.close(); });
+    es.onerror = function() { es.close(); };
+  }
+
+  document.getElementById('sc-preview').addEventListener('click', function() { runScaffold(false); });
+  document.getElementById('sc-apply').addEventListener('click', function() { runScaffold(true); });
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,8 @@
+name: Planner
+role: planner
+description: >-
+  Breaks an approved plan into concrete, estimable tasks and tracks their
+  dependencies.
+model_tier: economy
+toolsets: [terminal, file]
+reports_to: Strategy

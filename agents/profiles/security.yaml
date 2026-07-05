@@ -1,0 +1,8 @@
+name: Security
+role: security
+description: >-
+  Reviews changes and infrastructure for security risks and verifies that
+  mitigations exist.
+model_tier: standard
+toolsets: [terminal, file]
+reports_to: Infrastructure

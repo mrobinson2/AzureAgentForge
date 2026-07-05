@@ -1,0 +1,7 @@
+name: Curator
+role: curator
+description: >-
+  Curates durable memory: what the team should remember, retrieve, and forget.
+model_tier: economy
+toolsets: [terminal, file]
+reports_to: Orchestrator

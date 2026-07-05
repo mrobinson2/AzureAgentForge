@@ -1,0 +1,7 @@
+# Copy to terraform.tfvars and fill in. NEVER commit terraform.tfvars.
+subscription_id = ""   # az account show --query id -o tsv
+location        = "eastus"
+environment     = "dev"
+# Optional surfaces (all default off)
+telegram_enabled = false
+discord_enabled  = false

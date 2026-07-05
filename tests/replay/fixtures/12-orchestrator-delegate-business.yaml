@@ -1,0 +1,185 @@
+fixture_id: 12-orchestrator-delegate-business
+description: >
+  Single-specialist delegation: the Orchestrator routes a business-analysis
+  task — requirements gathering, trade-off articulation, customer-facing copy,
+  and pricing analysis in the abstract — to the Business role, and to that role
+  ONLY. This models the everyday case where a stakeholder asks for a strategic
+  memo (signals, framing, sensitivity numbers, a recommendation) rather than
+  code or infrastructure work.
+
+  The failure mode this fixture guards against is routing business/communication
+  work to a technical specialist (Coder, Infrastructure, QA, Security). That
+  mis-route is costly because a technical child issue produces an implementation
+  plan or a deployment, not the decision support the requester actually needs —
+  the stakeholder waits a full cycle, gets the wrong artifact, and the real
+  ask silently falls through. Pricing and rate-setting framed as analysis (not
+  as something to build) belong to Business.
+
+  Two adjacent domains are deliberately excluded so the Orchestrator cannot take
+  an easy off-by-one. The request is NOT career/leadership coaching (Coach) and
+  NOT emotional/interpersonal processing (Psychology): the requester explicitly
+  asks for a strategic memo with numbers, not a coaching session. The contract
+  also pins that the single Business child carries the full analytical scope
+  (both rate figures, market signals, client framing, sensitivity, risks, a
+  recommendation, and a falsification condition) and an explicit acceptance
+  criterion — so a truncated or scope-collapsed delegation fails loudly.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Should I raise my consulting day rate from $1,500 to $2,000?"
+  body: |
+    My plate is full and I'm declining work I'd otherwise want to take —
+    that's the strongest "should raise rates" signal I know. Booking is out
+    several weeks, two recent prospects accepted my current number without
+    pushback, and I'm turning down referrals for lack of capacity. But I'm
+    nervous about losing existing clients, especially the two I've been
+    working with for 18+ months who are on the current $1,500 day rate.
+
+    I'd like a structured business analysis — a decision memo, not an
+    implementation plan — covering:
+
+    - The market signals that say "raise" vs "don't raise" right now
+      (utilization, win rate at the current price, how long the pipeline
+      stays full, what comparable independents in this kind of work charge).
+    - How to frame the increase from $1,500 to $2,000 for existing clients:
+      timing, language for the announcement, and whether to grandfather the
+      two long-tenured clients or step them up on a delay.
+    - The financial impact of the 33% rate hike under a sensitivity analysis
+      if I lose 0, 1, or 2 existing clients — show the revenue math for each
+      case so I can see the break-even.
+    - Risks I'm not seeing (reputational, concentration, the chance the
+      raise reads as arbitrary, downstream effects on referrals).
+    - A specific recommendation, stated plainly, with a clear "what would
+      change my mind" condition — the single piece of evidence that would
+      flip the recommendation.
+
+    Deliverable is a strategic memo with numbers and a recommendation.
+    This is decision support, not a coaching session and not something to
+    build — I don't need code, infrastructure, or a deployment, just the
+    analysis and customer-facing framing.
+
+expected:
+  parent:
+    # The Orchestrator must close out the parent itself once the work is
+    # delegated — it owns routing, not the analysis. "done" (not in_progress)
+    # proves it didn't stall mid-delegation.
+    status: done
+    # Guards the truncated-delegation failure: a parent left in_progress means
+    # the Orchestrator created the child but never finished its own handoff.
+    status_must_not_be: in_progress
+    # At least one summary comment must exist tying the parent to the work it
+    # spun out — no silent delegation.
+    comment_count_min: 1
+    # The closing comment has to name the Business role, proving the route was
+    # acknowledged in the audit trail (not just inferred from the child).
+    summary_comment_must_reference: [business]
+    # And it must link the actual child issue(s) so the trail is navigable.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # Exactly one child: this is a single-specialist task. More than one child
+    # would mean the Orchestrator fanned a single-domain ask out unnecessarily.
+    count: 1
+    # That one child must belong to Business — the analytical/communication lane.
+    exactly_one_per_agent: [business]
+    # The core of this fixture: business-analysis work must NOT leak to any
+    # technical or adjacent specialist. Coder/Infrastructure/QA/Security would
+    # produce build/deploy artifacts; Coach/Psychology would mistake the memo
+    # for emotional or career coaching. Any child here is an instant fail.
+    forbidden_agents: [coder, infrastructure, qa, security, cost-guardian, curator, researcher, coach, psychology]
+
+    by_agent:
+      business:
+        # Newly created child starts as todo — the specialist hasn't begun yet.
+        status: todo
+        # Title must read as a pricing/business/strategy task, not a generic one.
+        title_must_match: "(?i)(rate|pricing|business|strategy|business|consulting)"
+        # Child must be wired back to the parent so the delegation tree is intact.
+        parent_id_set: true
+        # The child description must carry the FULL analytical scope forward.
+        # Each term below maps to a concrete ask in the body; a delegation that
+        # drops any of them has silently narrowed the task (scope collapse).
+        description_must_match_all:
+          # Both rate figures must survive — the analysis is meaningless without
+          # the actual from/to numbers.
+          - "(?i)\\$1,?500"
+          - "(?i)\\$2,?000"
+          # The "raise vs don't raise" evidence the requester asked for.
+          - "(?i)market signal"
+          # The relationship dimension — framing the change for current clients.
+          - "(?i)existing client"
+          # How to communicate the increase (grandfathering / timing / language).
+          - "(?i)(grandfather|grandfathering|timing|language)"
+          # The quantitative core: revenue under 0/1/2 lost clients.
+          - "(?i)(sensitivity|financial impact)"
+          # The downside the requester explicitly wanted surfaced.
+          - "(?i)risk"
+          # A concrete recommendation must be required, not just discussion.
+          - "(?i)recommendation"
+          # The falsification condition — what evidence would flip the call.
+          - "(?i)(would change my mind|change.*mind|would change.*recommendation)"
+          # Every delegated task must carry a definition of done.
+          - "Acceptance criteria"
+        # Negative scope: a Business analysis must never turn into a build/deploy
+        # or a coaching session. These pin the off-lane mis-route the fixture
+        # exists to catch — if any match, business work bled into a technical or
+        # therapeutic frame.
+        description_must_not_match:
+          - "(?i)write code"
+          - "(?i)implement.*(function|module|handler|class|service)"
+          - "(?i)(write|update|modify|create).*terraform"
+          - "(?i)(deploy|configure|update|create).*container app"
+          - "(?i)deploy"
+          - "(?i)coaching|emotional"
+          # Off-lane technical verbs that would signal the task was reframed as
+          # something to provision or ship rather than to analyze.
+          - "(?i)(provision|terraform apply|kubectl|helm install)"
+        # Redundant explicit check that the definition of done is present.
+        description_must_contain: "Acceptance criteria"
+
+negative_assertions:
+  # Ordering guard: the parent may only close AFTER the Business child exists.
+  # Marking the parent done first would be a false "completed" with no actual
+  # delegated work behind it.
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # The two actions the trace MUST show, in effect: spin out the Business child
+  # and comment the parent with a link back to it. Both are required for a clean,
+  # auditable single-specialist delegation.
+  behavior_required:
+    - create_child_issue_for_business
+    - comment_parent_with_child_ref
+  # Any one of these tool invocations satisfies "created a Business child" —
+  # the delegate script, the typed client call, or the raw issues API POST.
+  # All three are the same intent expressed through different surfaces.
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent business"
+    - "paperclip\\.create_child_issue.*business"
+    - "POST .*companies/.*/issues.*business"
+  # Must NEVER appear in the trace:
+  forbidden_in_trace:
+    # An ownership/lock collision means the routing logic raced or mis-claimed.
+    - "ownership conflict"
+    # Reaching into the playbooks share is off-path for a simple delegation and
+    # would indicate the Orchestrator went spelunking instead of routing.
+    - "/opt/data/skills/playbooks"
+    # The headline guard: a create-child for ANY non-Business agent is the exact
+    # mis-route this fixture exists to catch.
+    - "pc-delegate\\.sh create-child .* --agent (coder|infrastructure|qa|security|cost-guardian|curator|researcher|coach|psychology)"
+
+trace_assertions_todo:
+  # Anti-fabrication guard: if the child-issue creation call actually failed,
+  # the Orchestrator must not report the delegation as succeeded. Silently
+  # claiming success on a failed create would close the parent over nothing.
+  must_not_claim_success_if_child_creation_failed: true

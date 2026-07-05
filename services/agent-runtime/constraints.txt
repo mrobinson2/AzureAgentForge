@@ -1,0 +1,31 @@
+# AAF security force-upgrade list for the Hermes agent-runtime image.
+#
+# WHY THIS FILE EXISTS
+# apps/hermes/src is an upstream git submodule (NousResearch/hermes-agent),
+# pinned by SHA — we cannot commit dependency bumps into it from this repo.
+# Hermes also pins several deps with EXACT '==', so a pip *constraints* file
+# can't override them. Instead the Dockerfile installs Hermes, then runs
+# `pip install --upgrade -r` against this file to FORCE the advisory fix
+# versions into the built image (overriding the upstream pins). Repo-owned,
+# idempotent, reversible (delete the file + the second pip step to revert).
+#
+# Source: Hermes SCA scan (NousResearch/hermes-agent@a4091e4, 2026-06-25).
+# Each line is the advisory fix version. Bump as new advisories land; the
+# security-checks workflow and Dependabot watch for drift.
+#
+# Runtime-only: dev-only fixes (e.g. pytest 9.0.3) are handled in the Hermes
+# fork, not force-installed into the production image.
+
+# ── HTTP stack (request-path / DoS — highest priority) ──────────────────────
+aiohttp==3.14.1
+starlette==1.3.1
+tornado==6.5.7
+python-multipart==0.0.31
+
+# ── Crypto / serialization / misc ───────────────────────────────────────────
+cryptography==48.0.1
+pynacl==1.6.2
+pydantic-settings==2.14.2
+msgpack==1.2.1
+cbor2==5.9.0
+pygments==2.20.0

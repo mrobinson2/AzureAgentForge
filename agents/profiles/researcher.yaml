@@ -1,0 +1,8 @@
+name: Researcher
+role: researcher
+description: >-
+  Gathers and synthesizes external information to answer open questions, citing
+  sources.
+model_tier: frontier
+toolsets: [terminal, file, browser]
+reports_to: Planner

@@ -1,0 +1,175 @@
+fixture_id: 20-orchestrator-ambiguous-default-plan
+description: >
+  Tests Orchestrator's "default plan" behavior on a genuinely ambiguous,
+  underspecified task body. Per his AGENT.md (Coordination Workflow step 1):
+  when delegation targets or acceptance criteria are ambiguous, the
+  Orchestrator's correct default is NOT to guess at a single specialist and
+  fire off premature execution work. It is to fail SAFE toward a plan —
+  infer the most likely interpretation, post a visible "Default plan"
+  comment stating exactly what it will do and why, and only then PROCEED
+  with delegation. Planning-first (route to Strategy/Planner or announce a
+  scoped default) beats guess-and-delegate because under ambiguity a wrong
+  guess is expensive in three ways: it burns a specialist's budget on the
+  wrong lane, it produces confidently-wrong artifacts the human must now
+  detect and unwind, and it buries the actual decision (what did we choose
+  and why?) instead of surfacing it for cheap correction.
+
+  The body here ("tighten our concurrency story") is deliberately vague and
+  could plausibly route to Coder (code-level locking / async), Infrastructure
+  (container scaling / resource limits), or QA (stress testing). All three
+  are defensible. The fixture asserts that the Orchestrator picks SOMETHING
+  reasonable AND announces the choice in a written default-plan comment — it
+  does NOT assert which specialists get picked. The announcement is the
+  load-bearing behavior: it converts an unverifiable silent guess into an
+  auditable, correctable decision.
+
+  Failure modes this catches:
+    - Freeze-on-ambiguity: Orchestrator stalls ("I need clarification before
+      delegating") and posts no plan and no children — the human is now
+      blocked on a round-trip the spec says to avoid.
+    - Silent guess: Orchestrator delegates to a specialist with no
+      default-plan comment, so the choice and its rationale are invisible
+      and cannot be cheaply corrected.
+    - Premature execution: Orchestrator skips the plan and treats a vague
+      one-liner as if it were fully specified, spending specialist effort on
+      a guessed interpretation.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Tighten our concurrency story across the agent platform"
+  body: |
+    Things get flaky when several agents run at the same time. Every so
+    often two of them seem to step on the same issue, and once in a while
+    a job just stalls until the next poll picks it up. I want to tighten
+    the story around concurrency, but I'll be honest — I haven't traced it
+    down to a single cause.
+
+    It could be a few different things and I genuinely don't know which:
+      - code-level: a race where two workers grab the same task because
+        the claim isn't atomic, or shared state that needs a lock / a move
+        to async so threads stop colliding
+      - infrastructure: container scaling and replica settings that let
+        too many instances run hot at once
+      - testing: we don't really have a stress test that reproduces this
+        under load, so we're guessing
+
+    Honestly could be all three. I don't have acceptance criteria for you
+    and I don't have a reproduction.
+
+    Please figure out the most reasonable next step and proceed. Don't sit
+    and wait for me to clarify — pick the most defensible interpretation,
+    write down what you're going to do and why, then go do it.
+
+expected:
+  parent:
+    # Parent stays in_progress: the Orchestrator has acted (planned +
+    # delegated) but the actual concurrency work lives in the children and
+    # is not yet finished.
+    status: in_progress
+    # Hard guard against the "premature closure" failure: an ambiguous task
+    # that was merely acknowledged must never be reported as done.
+    status_must_not_be: done
+    # Orchestrator should post BOTH a "Default plan" comment AND a
+    # delegation-summary comment. Floor of 2. A single comment usually means
+    # it either froze (planned but didn't delegate) or guessed silently
+    # (delegated but didn't announce the plan) — both are failures here.
+    comment_count_min: 2
+    # Critical assertion: a comment must contain "default plan" (or
+    # equivalent) language. This is the load-bearing check — it pins the
+    # spec'd "infer + ANNOUNCE + proceed" behavior and catches both the
+    # freeze-on-ambiguity mode and the silent-guess mode (delegating without
+    # ever writing down the chosen interpretation).
+    summary_comment_must_reference:
+      - "(?i)(default plan|going to|will proceed|I'll proceed|proceeding with)"
+    # The default-plan / summary comment must link the children it created,
+    # so the announced plan is traceable to concrete delegated work rather
+    # than being an empty promise.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # NOTE: Orchestrator could legitimately pick 1, 2, or 3 specialists for
+    # this prompt. The runner currently asserts exact count, so we
+    # pick the most-likely-Orchestrator-default (Coder for code, QA for
+    # stress tests = 2). If your run fails on count alone but the
+    # trace shows a real "Default plan" + at least one create-child
+    # call, that's also a pass — examine before flagging a regression.
+    count: 2
+    # Each child must be a distinct piece of work, not the same lane
+    # delegated twice — guards against a fan-out that only looks like a plan.
+    no_duplicate_titles: true
+    # Concurrency is a technical concern, so the soft/advisory lanes are
+    # off-limits as delegation targets. Note: Strategy/Planner are the RIGHT
+    # default for ambiguity-handling at the Orchestrator level, but the
+    # remediation work itself is engineering — so coaching/business/
+    # psychology/strategy must not receive a child here.
+    forbidden_agents: [coach, business, psychology, strategy]
+    by_agent:
+      coder:
+        # Coder is the most-likely-picked specialist for "code-level
+        # concurrency". If Orchestrator picks Infrastructure + QA instead and
+        # skips Coder, this fixture fails; that's a defensible default
+        # for Orchestrator too — so this is a SOFT signal, not a hard correctness
+        # check. Tune if needed.
+        # Fresh child, not yet started — proves the Orchestrator delegated
+        # rather than doing the work inline or pre-marking it complete.
+        status: todo
+        # The child's title must be on-topic for code-level concurrency. The
+        # vague body deliberately seeds all of these terms (race, lock,
+        # async, thread) so a reasonable default plan motivates this match.
+        title_must_match: "(?i)(concurrency|lock|async|coder|race|thread)"
+        # Child is wired back to the parent issue, so the delegation tree is
+        # intact and the announced plan is auditable end to end.
+        parent_id_set: true
+
+  # No `dependencies` block — for an ambiguous task with default plan,
+  # we don't enforce a specific specialist ordering.
+
+negative_assertions:
+  # Ordering guard: the parent cannot be closed before any child exists.
+  # Catches the "acknowledge and close" anti-pattern where an ambiguous task
+  # is waved through as done without real delegated follow-up work.
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # Ordered behaviors the trace must show: announce the default plan FIRST,
+  # then create work, then link it back. "Plan before delegation" is the
+  # whole point — it encodes fail-safe-toward-a-plan, not guess-then-execute.
+  behavior_required:
+    - post_default_plan_comment_before_delegation
+    - create_at_least_one_child_issue
+    - comment_parent_with_child_refs
+  # Any one of these is a legitimate way to create a child issue; the runner
+  # accepts the delegation however it's tooled.
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child"
+    - "paperclip\\.create_child_issue"
+    - "POST .*companies/.*/issues"
+  forbidden_in_trace:
+    # Two agents must not fight over the same task — a real concurrency bug
+    # leaking into the orchestration layer itself.
+    - "ownership conflict"
+    # Internal playbook path must never surface in a public-facing trace.
+    - "/opt/data/skills/playbooks"
+    # The freeze-on-ambiguity failure mode: the spec says infer + announce +
+    # proceed, so any of these "blocked on the human" phrases is a failure.
+    - "(?i)cannot proceed without clarification"
+    - "(?i)please clarify before"
+    - "(?i)waiting for clarification"
+
+trace_assertions_todo:
+  # Truthfulness guard: if child creation actually failed, the Orchestrator
+  # must not report a tidy "delegated successfully" — no fabricated success.
+  must_not_claim_success_if_child_creation_failed: true
+  # Re-pins the core ordering at the trace level: the written default plan
+  # must come before the first create-child call, never after the fact.
+  default_plan_comment_must_precede_first_create_child: true

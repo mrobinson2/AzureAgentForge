@@ -1,0 +1,169 @@
+# Default `docker compose up` = working slice: Postgres + model-router.
+# Full platform locally (no Azure):  docker compose --profile full up
+# Or use the wrapper:                scripts/local-stack.sh up
+# See .env.example and docs/local-development.md.
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-aaf}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-localdev}
+      POSTGRES_DB: ${POSTGRES_DB:-aaf}
+    ports: ["${POSTGRES_PORT:-5432}:5432"]
+    volumes: ["pgdata:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-aaf} -d ${POSTGRES_DB:-aaf}"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  model-router:
+    build: ./services/model-router
+    environment:
+      LLM_PROVIDER: ${LLM_PROVIDER:-azure_foundry}
+      # Primary tier: set AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API_KEY,
+      # or GPT4O_BASE_URL + GPT4O_API_KEY directly. Both pairs activate gpt4o-mini.
+      AZURE_FOUNDRY_ENDPOINT: ${AZURE_FOUNDRY_ENDPOINT:-}
+      AZURE_FOUNDRY_API_KEY: ${AZURE_FOUNDRY_API_KEY:-}
+      GPT4O_BASE_URL: ${GPT4O_BASE_URL:-${AZURE_FOUNDRY_ENDPOINT:-}}
+      GPT4O_API_KEY: ${GPT4O_API_KEY:-${AZURE_FOUNDRY_API_KEY:-}}
+      OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
+      OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+    ports: ["${ROUTER_PORT:-8080}:8080"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)\""]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  # ── full profile ───────────────────────────────────────────────────────────
+  # One-shot: applies the governor migrations (agent_events, feature_flags,
+  # memory_classes, …) to Postgres, then exits. Idempotent. Runs AFTER Honcho so
+  # the `documents` table exists (0002 ALTERs it) — Honcho owns that table.
+  migrate:
+    profiles: ["full"]
+    image: pgvector/pgvector:pg16
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # Honcho's entrypoint runs `alembic upgrade head` (creating `documents`)
+      # before it serves /openapi.json, so honcho-healthy ⟹ the table exists.
+      # (In Azure these migrations run as a later, post-deploy pipeline stage.)
+      honcho:
+        condition: service_healthy
+    volumes: ["./infrastructure/migrations:/migrations:ro"]
+    environment:
+      PGHOST: postgres
+      PGUSER: ${POSTGRES_USER:-aaf}
+      PGPASSWORD: ${POSTGRES_PASSWORD:-localdev}
+      PGDATABASE: ${POSTGRES_DB:-aaf}
+    entrypoint:
+      - sh
+      - -c
+      - |
+        set -e
+        for f in /migrations/*.sql; do
+          echo "[migrate] applying $${f}"
+          psql -v ON_ERROR_STOP=1 -f "$${f}"
+        done
+        echo "[migrate] all migrations applied"
+    restart: "no"
+
+  honcho:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: services/honcho/Dockerfile
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      # Honcho reads DB_CONNECTION_URI (pydantic env_prefix DB_) with the
+      # psycopg3 scheme — NOT DATABASE_URL. Wrong/unset → it falls back to its
+      # localhost default and exits 1.
+      DB_CONNECTION_URI: postgresql+psycopg://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD:-localdev}@postgres:5432/${POSTGRES_DB:-aaf}
+      # Honcho constructs an LLM client per specialist AT IMPORT (deriver/summary
+      # default to google, dream to anthropic) and raises "Missing client" if the
+      # key is absent. Placeholder keys let it BOOT with no creds; the deriver's
+      # actual memory processing needs real keys (override to drive it).
+      LLM_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-localdev-honcho-placeholder}
+      LLM_OPENAI_API_KEY: ${OPENAI_API_KEY:-localdev-honcho-placeholder}
+      LLM_GEMINI_API_KEY: ${GEMINI_API_KEY:-localdev-honcho-placeholder}
+    ports: ["${HONCHO_PORT:-8000}:8000"]
+
+  # Bundles the Hermes runtime (the adapter spawns it per task in-container).
+  paperclip:
+    profiles: ["full"]
+    build:
+      context: .
+      dockerfile: services/paperclip/Dockerfile
+      args:
+        PAPERCLIP_VERSION: ${PAPERCLIP_VERSION:-v2026.517.0}
+        PAPERCLIP_EXPECTED_SHA: ${PAPERCLIP_EXPECTED_SHA:-3e6610fb938d04638fa578a1fc0d119b434fa2e4}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      model-router:
+        condition: service_healthy
+      honcho:
+        condition: service_started
+    environment:
+      PORT: "3100"
+      OPENAI_BASE_URL: http://model-router:8080/v1
+      HONCHO_BASE_URL: http://honcho:8000
+      GOVERNOR_BASE_URL: http://memory-governor:8090
+      PAPERCLIP_AUTOMATION_JWT_SECRET: ${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-automation-secret-change-me}
+      PAPERCLIP_AGENT_JWT_SECRET: ${PAPERCLIP_AGENT_JWT_SECRET:-localdev-agent-secret-change-me}
+      PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@localhost}
+      PAPERCLIP_ADMIN_PASSWORD: ${PAPERCLIP_ADMIN_PASSWORD:-localdev-admin-change-me}
+    ports: ["${PAPERCLIP_PORT:-3100}:3100"]
+    volumes: ["paperclip-data:/paperclip"]
+
+  # Governed-memory sidecar. Every behavior is flag-gated OFF (migrations seed
+  # all flags false), so it idles and /admit returns "disabled" with a fresh DB.
+  memory-governor:
+    profiles: ["full"]
+    build: ./services/memory-governor
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+      model-router:
+        condition: service_healthy
+      honcho:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD:-localdev}@postgres:5432/${POSTGRES_DB:-aaf}
+      ROUTER_BASE_URL: http://model-router:8080/v1
+      HONCHO_BASE_URL: http://honcho:8000
+      GOVERNOR_API_KEY: ${GOVERNOR_API_KEY:-localdev}
+    ports: ["${GOVERNOR_PORT:-8090}:8090"]
+
+  # Self-improvement watchdog. A one-shot: it self-mints a JWT from the secret,
+  # checks AGENT_EVENTS_ENABLED in the DB (seeded false), prints "nothing to do"
+  # and exits 0. Present so the full platform is complete; inert until flags flip.
+  watchdog:
+    profiles: ["full"]
+    build: ./services/watchdog
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      AGENT_EVENTS_DSN: postgresql://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD:-localdev}@postgres:5432/${POSTGRES_DB:-aaf}
+      WATCHDOG_COMPANY_ID: local
+      WATCHDOG_BASE_URL: http://paperclip:3100
+      PAPERCLIP_AUTOMATION_JWT_SECRET: ${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-automation-secret-change-me}
+      GOVERNOR_BASE_URL: http://memory-governor:8090
+      GOVERNOR_API_KEY: ${GOVERNOR_API_KEY:-localdev}
+      GOVERNOR_WORKSPACE: local
+    restart: "no"
+
+volumes:
+  pgdata:
+  paperclip-data:

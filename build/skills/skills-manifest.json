@@ -1,0 +1,449 @@
+﻿[
+    {
+        "skillName":  "gws-cli",
+        "description":  "Google Workspace CLI for Gmail, Calendar, Drive",
+        "tier":  1,
+        "source":  "built-in",
+        "category":  "productivity",
+        "sourceRelativePath":  "productivity/gws-cli",
+        "containerPath":  "/paperclip/.hermes/skills/productivity/gws-cli",
+        "agents":  [
+                       "orchestrator"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "email-to-obsidian",
+        "description":  "Convert Gmail messages to Obsidian markdown notes",
+        "tier":  1,
+        "source":  "built-in",
+        "category":  "productivity",
+        "sourceRelativePath":  "productivity/email-to-obsidian",
+        "containerPath":  "/paperclip/.hermes/skills/productivity/email-to-obsidian",
+        "agents":  [
+                       "orchestrator",
+                       "curator"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "google-workspace",
+        "description":  "Google Workspace via Python OAuth2 (full API)",
+        "tier":  2,
+        "source":  "built-in",
+        "category":  "productivity",
+        "sourceRelativePath":  "productivity/google-workspace",
+        "containerPath":  "/paperclip/.hermes/skills/productivity/google-workspace",
+        "agents":  [
+                       "orchestrator"
+                   ],
+        "pythonDeps":  [
+                           "google-api-python-client",
+                           "google-auth-oauthlib"
+                       ]
+    },
+    {
+        "skillName":  "duckduckgo-search",
+        "description":  "Free web search fallback (no API key needed)",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "research",
+        "sourceRelativePath":  "research/duckduckgo-search",
+        "containerPath":  "/paperclip/.hermes/skills/research/duckduckgo-search",
+        "agents":  [
+                       "orchestrator",
+                       "curator",
+                       "researcher",
+                       "psychology",
+                       "cost-guardian"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "docker-management",
+        "description":  "Docker container/image/compose lifecycle management",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "devops",
+        "sourceRelativePath":  "devops/docker-management",
+        "containerPath":  "/paperclip/.hermes/skills/devops/docker-management",
+        "agents":  [
+                       "coder",
+                       "infrastructure",
+                       "planner",
+                       "security"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "one-three-one-rule",
+        "description":  "1-3-1 structured decision framework (prompt-only)",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "communication",
+        "sourceRelativePath":  "communication/one-three-one-rule",
+        "containerPath":  "/paperclip/.hermes/skills/communication/one-three-one-rule",
+        "agents":  [
+                       "orchestrator",
+                       "strategy",
+                       "business",
+                       "psychology"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "domain-intel",
+        "description":  "Domain/DNS intelligence gathering via terminal",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "research",
+        "sourceRelativePath":  "research/domain-intel",
+        "containerPath":  "/paperclip/.hermes/skills/research/domain-intel",
+        "agents":  [
+                       "infrastructure",
+                       "researcher",
+                       "security",
+                       "cost-guardian"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "parallel-cli",
+        "description":  "Parallel CLI task execution for batch operations",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "research",
+        "sourceRelativePath":  "research/parallel-cli",
+        "containerPath":  "/paperclip/.hermes/skills/research/parallel-cli",
+        "agents":  [
+                       "strategy",
+                       "planner",
+                       "security",
+                       "cost-guardian"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "cli",
+        "description":  "inference.sh CLI for running 150+ AI apps",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "devops",
+        "sourceRelativePath":  "devops/cli",
+        "containerPath":  "/paperclip/.hermes/skills/devops/cli",
+        "agents":  [
+                       "coder"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "qmd",
+        "description":  "Quarto markdown authoring for research documents",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "research",
+        "sourceRelativePath":  "research/qmd",
+        "containerPath":  "/paperclip/.hermes/skills/research/qmd",
+        "agents":  [
+                       "curator"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "scrapling",
+        "description":  "Web scraping framework for data extraction",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "research",
+        "sourceRelativePath":  "research/scrapling",
+        "containerPath":  "/paperclip/.hermes/skills/research/scrapling",
+        "agents":  [
+                       "curator",
+                       "psychology",
+                       "cost-guardian"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "last30days",
+        "description":  "Cross-platform social search scored by upvotes, likes, and real money",
+        "tier":  1,
+        "source":  "optional",
+        "category":  "research",
+        "sourceRelativePath":  "research/last30days",
+        "containerPath":  "/paperclip/.hermes/skills/research/last30days",
+        "agents":  [
+                       "orchestrator",
+                       "curator",
+                       "researcher",
+                       "cost-guardian"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "fastmcp",
+        "description":  "Build, test, deploy MCP servers with FastMCP",
+        "tier":  2,
+        "source":  "optional",
+        "category":  "mcp",
+        "sourceRelativePath":  "mcp/fastmcp",
+        "containerPath":  "/paperclip/.hermes/skills/mcp/fastmcp",
+        "agents":  [
+                       "coder"
+                   ],
+        "pythonDeps":  [
+                           "fastmcp"
+                       ]
+    },
+    {
+        "skillName":  "sherlock",
+        "description":  "OSINT username search across 400+ social networks",
+        "tier":  2,
+        "source":  "optional",
+        "category":  "security",
+        "sourceRelativePath":  "security/sherlock",
+        "containerPath":  "/paperclip/.hermes/skills/security/sherlock",
+        "agents":  [
+                       "researcher",
+                       "security"
+                   ],
+        "pythonDeps":  [
+                           "sherlock-project"
+                       ]
+    },
+    {
+        "skillName":  "1password",
+        "description":  "1Password CLI secrets management",
+        "tier":  2,
+        "source":  "optional",
+        "category":  "security",
+        "sourceRelativePath":  "security/1password",
+        "containerPath":  "/paperclip/.hermes/skills/security/1password",
+        "agents":  [
+                       "infrastructure",
+                       "researcher"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "oss-forensics",
+        "description":  "Open-source software forensic investigation",
+        "tier":  2,
+        "source":  "optional",
+        "category":  "security",
+        "sourceRelativePath":  "security/oss-forensics",
+        "containerPath":  "/paperclip/.hermes/skills/security/oss-forensics",
+        "agents":  [
+                       "researcher"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "memento-flashcards",
+        "description":  "Spaced-repetition flashcard creation",
+        "tier":  2,
+        "source":  "optional",
+        "category":  "productivity",
+        "sourceRelativePath":  "productivity/memento-flashcards",
+        "containerPath":  "/paperclip/.hermes/skills/productivity/memento-flashcards",
+        "agents":  [
+                       "curator"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "instructor",
+        "description":  "Structured LLM output with Instructor library",
+        "tier":  2,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/instructor",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/instructor",
+        "agents":  [
+                       "coach"
+                   ],
+        "pythonDeps":  [
+                           "instructor"
+                       ]
+    },
+    {
+        "skillName":  "agentmail",
+        "description":  "Agent-owned email inboxes via AgentMail MCP",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "email",
+        "sourceRelativePath":  "email/agentmail",
+        "containerPath":  "/paperclip/.hermes/skills/email/agentmail",
+        "agents":  [
+                       "orchestrator",
+                       "business"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "telephony",
+        "description":  "Phone calls and SMS via Twilio/Bland.ai/Vapi",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "productivity",
+        "sourceRelativePath":  "productivity/telephony",
+        "containerPath":  "/paperclip/.hermes/skills/productivity/telephony",
+        "agents":  [
+                       "orchestrator",
+                       "business"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "chroma",
+        "description":  "ChromaDB vector store operations",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/chroma",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/chroma",
+        "agents":  [
+                       "coach"
+                   ],
+        "pythonDeps":  [
+                           "chromadb"
+                       ]
+    },
+    {
+        "skillName":  "qdrant",
+        "description":  "Qdrant vector search integration",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/qdrant",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/qdrant",
+        "agents":  [
+                       "coach"
+                   ],
+        "pythonDeps":  [
+                           "qdrant-client"
+                       ]
+    },
+    {
+        "skillName":  "accelerate",
+        "description":  "HuggingFace Accelerate distributed training",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/accelerate",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/accelerate",
+        "agents":  [
+                       "qa"
+                   ],
+        "pythonDeps":  [
+                           "accelerate"
+                       ]
+    },
+    {
+        "skillName":  "pytorch-lightning",
+        "description":  "PyTorch Lightning training framework",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/pytorch-lightning",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/pytorch-lightning",
+        "agents":  [
+                       "qa"
+                   ],
+        "pythonDeps":  [
+                           "pytorch-lightning"
+                       ]
+    },
+    {
+        "skillName":  "flash-attention",
+        "description":  "FlashAttention integration",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/flash-attention",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/flash-attention",
+        "agents":  [
+                       "qa"
+                   ],
+        "pythonDeps":  [
+                           "flash-attn"
+                       ]
+    },
+    {
+        "skillName":  "tensorrt-llm",
+        "description":  "TensorRT-LLM deployment optimization",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/tensorrt-llm",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/tensorrt-llm",
+        "agents":  [
+                       "qa"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "torchtitan",
+        "description":  "TorchTitan distributed training at scale",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/torchtitan",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/torchtitan",
+        "agents":  [
+                       "qa"
+                   ],
+        "pythonDeps":  [
+
+                       ]
+    },
+    {
+        "skillName":  "huggingface-tokenizers",
+        "description":  "Tokenizer training and usage",
+        "tier":  3,
+        "source":  "optional",
+        "category":  "mlops",
+        "sourceRelativePath":  "mlops/huggingface-tokenizers",
+        "containerPath":  "/paperclip/.hermes/skills/mlops/huggingface-tokenizers",
+        "agents":  [
+                       "qa"
+                   ],
+        "pythonDeps":  [
+                           "tokenizers"
+                       ]
+    }
+]

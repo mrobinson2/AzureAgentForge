@@ -1,0 +1,6 @@
+[submodule "apps/hermes/src"]
+	path = apps/hermes/src
+	url = https://github.com/NousResearch/hermes-agent.git
+[submodule "apps/honcho/src"]
+	path = apps/honcho/src
+	url = https://github.com/plastic-labs/honcho.git

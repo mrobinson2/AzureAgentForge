@@ -1,0 +1,359 @@
+# Reference deploy pipeline — adopters wire this up against their own Azure
+# subscription. It is NOT run by this repo's own CI (which stays validate-only,
+# since the public repo holds no cloud credentials).
+#
+# Flow:  build ─┐
+#               ├─► plan ─► detect-destroy ─► (gate, only if destructive) ─► apply ─► smoke
+#         seed ─┘
+#
+#   build  — `az acr build` the service images and push to your ACR, then feed
+#            the resolved tag into the plan as -var=<svc>_image_tag. Self-
+#            contained images build from this repo; upstream-dependent ones
+#            (paperclip/honcho/hermes) are skipped until their apps/ sources are
+#            vendored (see scripts/build-and-push.sh + docs/local-development.md).
+#   seed   — idempotently seed Key Vault secrets the apps mount
+#            (scripts/seed-keyvault.sh). Steady-state only; the very first deploy
+#            needs a one-time vault bootstrap — see docs/deploy-pipeline.md.
+#   plan   — terraform plan with the built image tags baked in.
+#   gate   — the one idea worth copying: human approval fires ONLY when the plan
+#            would delete or replace a resource (installer/detect_destroy.py,
+#            the same verdict the Forge Console uses). Routine plans auto-apply.
+#   apply  — applies the SAVED plan verbatim, so what was reviewed is what ships.
+#   smoke  — real post-deploy health probes (scripts/smoke-test.sh →
+#            installer.smoke), non-zero exit fails the run.
+#
+# Auth is OIDC (federated) — no long-lived secrets stored in GitHub. See
+# docs/deploy-pipeline.md for the one-time Azure + GitHub Environment setup.
+
+name: Deploy (reference)
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment name"
+        type: choice
+        default: dev
+        options: [dev, staging, prod]
+      profile:
+        description: "Cost/security profile (-var-file)"
+        type: choice
+        default: cost-optimized
+        options: [cost-optimized, hardened]
+      location:
+        description: "Azure region (e.g. centralus, eastus)"
+        type: string
+        default: centralus
+      image_tag:
+        description: "Override the built image tag (default: short git SHA)"
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+  id-token: write        # required for azure/login OIDC
+
+env:
+  TF_DIR: infrastructure/environments/dev
+  TF_IN_AUTOMATION: "1"
+  ARM_USE_OIDC: "true"
+  # OIDC identity split. terraform plan/apply/smoke need privileged read actions
+  # (Microsoft.App/containerApps/listSecrets, Microsoft.Storage/.../listKeys) to
+  # REFRESH azurerm resources, so they run as the PRIVILEGED identity by default.
+  # Only build + seed — the jobs that fetch untrusted dependencies — drop to the
+  # LOW-PRIVILEGE plan identity (registry write + KV read only, see their per-job
+  # env overrides), so a poisoned dependency there cannot reach subscription
+  # Contributor. REQUIRES both vars.AZURE_CLIENT_ID (privileged) and
+  # vars.AZURE_CLIENT_ID_PLAN — provision both with scaffold-cicd.sh first.
+  ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+  ARM_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
+  ARM_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+jobs:
+  # ── 1a. Build + push service images ─────────────────────────────────────────
+  # Skips cleanly when CONTAINER_REGISTRY_NAME is unset (infra-only deploy).
+  build:
+    runs-on: ubuntu-latest
+    # Untrusted-dependency job → run as the LOW-PRIVILEGE plan identity (registry
+    # write + KV read only). A poisoned build dep cannot reach subscription Contributor.
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
+    outputs:
+      tag: ${{ steps.b.outputs.tag }}
+      built: ${{ steps.b.outputs.built }}
+    steps:
+      # submodules:recursive pulls apps/hermes/src + apps/honcho/src (public
+      # github.com submodules) — the upstream image builds (hermes/honcho/
+      # paperclip) copy and patch that source, so without them they fail on
+      # missing files (e.g. hermes_state.py).
+      - uses: actions/checkout@v7
+        with:
+          submodules: recursive
+
+      - name: registry configured?
+        id: reg
+        run: echo "name=${{ vars.CONTAINER_REGISTRY_NAME }}" >> "$GITHUB_OUTPUT"
+
+      - uses: azure/login@v3
+        if: steps.reg.outputs.name != ''
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: build and push
+        id: b
+        if: steps.reg.outputs.name != ''
+        run: |
+          TAG="${{ inputs.image_tag }}"
+          [ -n "$TAG" ] || TAG="${GITHUB_SHA::12}"
+          scripts/build-and-push.sh -r "${{ steps.reg.outputs.name }}" -t "$TAG" \
+            --skip-unbuildable --push-latest
+
+      - name: no registry configured
+        if: steps.reg.outputs.name == ''
+        run: echo "CONTAINER_REGISTRY_NAME not set — skipping image build (infra-only deploy)."
+
+  # ── 1b. Seed Key Vault secrets (idempotent) ─────────────────────────────────
+  # Skips cleanly when KEY_VAULT_NAME is unset. First deploy needs the one-time
+  # vault bootstrap documented in docs/deploy-pipeline.md before this can run.
+  seed:
+    runs-on: ubuntu-latest
+    # Low-privilege plan identity (KV read; existing secrets are kept untouched).
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID_PLAN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: vault configured?
+        id: v
+        run: echo "name=${{ vars.KEY_VAULT_NAME }}" >> "$GITHUB_OUTPUT"
+
+      - uses: azure/login@v3
+        if: steps.v.outputs.name != ''
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: seed secrets
+        if: steps.v.outputs.name != ''
+        env:
+          # External secrets — add the ones your deployment uses. Unset ones are
+          # skipped (you only need keys for the providers/surfaces you enable).
+          AI_FOUNDRY_API_KEY: ${{ secrets.AI_FOUNDRY_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          CLAUDE_API_KEY: ${{ secrets.CLAUDE_API_KEY }}
+          BRAVE_SEARCH_API_KEY: ${{ secrets.BRAVE_SEARCH_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
+          CF_TUNNEL_TOKEN: ${{ secrets.CF_TUNNEL_TOKEN }}
+          POSTGRES_CONNECTION_STRING: ${{ secrets.POSTGRES_CONNECTION_STRING }}
+          PAPERCLIP_DB_URL: ${{ secrets.PAPERCLIP_DB_URL }}
+        run: scripts/seed-keyvault.sh -v "${{ steps.v.outputs.name }}"
+
+      - name: no vault configured
+        if: steps.v.outputs.name == ''
+        run: echo "KEY_VAULT_NAME not set — skipping secret seeding."
+
+  # ── 2. Plan + classify ──────────────────────────────────────────────────────
+  plan:
+    needs: [build, seed]
+    runs-on: ubuntu-latest
+    outputs:
+      has_destroy: ${{ steps.detect.outputs.has_destroy }}
+      destroyed: ${{ steps.detect.outputs.destroyed }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.9.5"
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      # Map the images that were actually built this run to the image-tag vars
+      # the dev environment declares (router/hermes/honcho/paperclip). Images
+      # that were skipped keep whatever tag is already in state/tfvars.
+      - name: compose image-tag vars
+        id: img
+        run: |
+          TAG="${{ needs.build.outputs.tag }}"
+          VARS=""
+          if [ -n "$TAG" ]; then
+            for s in ${{ needs.build.outputs.built }}; do
+              case "$s" in
+                model-router)  VARS="$VARS -var=router_image_tag=$TAG" ;;
+                agent-runtime) VARS="$VARS -var=hermes_image_tag=$TAG" ;;
+                honcho)        VARS="$VARS -var=honcho_image_tag=$TAG" ;;
+                paperclip)     VARS="$VARS -var=paperclip_image_tag=$TAG" ;;
+              esac
+            done
+          fi
+          echo "vars=$VARS" >> "$GITHUB_OUTPUT"
+          echo "image-tag vars: ${VARS:-(none — using existing tags)}"
+
+      - name: terraform plan
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform plan -input=false -lock-timeout=300s \
+            -var-file="../../profiles/${{ inputs.profile }}.tfvars" \
+            -var="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -var="environment=${{ inputs.environment }}" \
+            -var="location=${{ inputs.location }}" \
+            -var="ai_foundry_endpoint=${{ vars.AI_FOUNDRY_ENDPOINT }}" \
+            -var="ai_foundry_deployment_id=${{ vars.AI_FOUNDRY_DEPLOYMENT_ID }}" \
+            -var='keyvault_admin_object_ids=${{ vars.KEYVAULT_ADMIN_OBJECT_IDS }}' \
+            -var="observability_enabled=${{ vars.OBSERVABILITY_ENABLED || 'false' }}" \
+            ${{ steps.img.outputs.vars }} \
+            -out=tfplan
+
+      - name: detect destroy
+        id: detect
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform show -json tfplan > plan.json
+          python -m installer.detect_destroy plan.json
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+
+      - name: upload plan
+        uses: actions/upload-artifact@v7
+        with:
+          name: tfplan-${{ inputs.environment }}
+          path: ${{ env.TF_DIR }}/tfplan
+          retention-days: 5
+          if-no-files-found: error
+
+  # ── 3. Human gate — ONLY reached when the plan is destructive ───────────────
+  # The `environment:` is what enforces approval: configure required reviewers
+  # on a GitHub Environment named `deploy-destroy` (see docs/deploy-pipeline.md).
+  # A non-destructive plan skips this job entirely and apply runs unattended.
+  gate:
+    needs: plan
+    if: needs.plan.outputs.has_destroy == 'true'
+    runs-on: ubuntu-latest
+    environment: deploy-destroy
+    steps:
+      - name: record approval
+        run: |
+          echo "Destructive plan approved by ${{ github.actor }}."
+          echo "Resources to be deleted/replaced:"
+          echo "${{ needs.plan.outputs.destroyed }}"
+
+  # ── 4. Apply ────────────────────────────────────────────────────────────────
+  # Runs when: the plan succeeded AND (it was non-destructive OR the gate was
+  # approved). `if: always()` lets it evaluate even though `gate` is skipped on
+  # non-destructive plans (a skipped need would otherwise skip apply too).
+  apply:
+    needs: [plan, gate]
+    if: >-
+      always() &&
+      needs.plan.result == 'success' &&
+      (needs.plan.outputs.has_destroy == 'false' || needs.gate.result == 'success')
+    runs-on: ubuntu-latest
+    # apply is the only job that MUTATES infra. It runs as the privileged identity
+    # (the default); pinned explicitly here to keep the single Contributor holder obvious.
+    env:
+      ARM_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.9.5"
+
+      - name: terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: download plan
+        uses: actions/download-artifact@v4
+        with:
+          name: tfplan-${{ inputs.environment }}
+          path: ${{ env.TF_DIR }}
+
+      # Apply the SAVED plan verbatim — never re-plans, so what was reviewed at
+      # the gate is exactly what is applied (image tags included).
+      - name: terraform apply
+        working-directory: ${{ env.TF_DIR }}
+        run: terraform apply -input=false -lock-timeout=300s tfplan
+
+  # ── 5. Post-deploy smoke check ──────────────────────────────────────────────
+  smoke:
+    needs: apply
+    # always() && … so a skipped `gate` (non-destructive plan) doesn't propagate a
+    # skip down the needs-chain; run the health probe whenever apply actually succeeded.
+    if: always() && needs.apply.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/login@v3
+        with:
+          client-id: ${{ env.ARM_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: "1.9.5"
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: terraform init
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ vars.TFSTATE_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ vars.TFSTATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=${{ vars.TFSTATE_CONTAINER }}" \
+            -backend-config="key=${{ inputs.environment }}.terraform.tfstate" \
+            -backend-config="subscription_id=${{ vars.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ vars.AZURE_TENANT_ID }}" \
+            -backend-config="use_oidc=true" \
+            -backend-config="use_azuread_auth=true"
+
+      - name: smoke test
+        env:
+          SMOKE_URL: ${{ vars.SMOKE_URL }}
+        run: |
+          RG="$(terraform -chdir=${{ env.TF_DIR }} output -raw resource_group_name)"
+          ARGS=(-g "$RG" -e "${{ inputs.environment }}")
+          [ -n "$SMOKE_URL" ] && ARGS+=(-u "$SMOKE_URL")
+          scripts/smoke-test.sh "${ARGS[@]}"

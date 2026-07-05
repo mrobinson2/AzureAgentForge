@@ -1,0 +1,261 @@
+fixture_id: 04-orchestrator-coordinate-three-specialists
+description: >
+  Three-specialist parallel coordination on a single end-to-end feature —
+  a deep /readyz health check. The Orchestrator must fan the one parent
+  request out into exactly three peer children, one per role: Coder
+  implements the FastAPI handler, Infrastructure wires the readiness probe
+  in Terraform, and QA independently runs the integration suite against
+  Coder's branch. This models the everyday "ship a vertical slice" request
+  that touches application code, infrastructure, and verification at once —
+  the work cannot be done by a single specialist, and naive routing tends
+  to flatten it.
+
+  This is the canonical stress test for delegation at N>2, where the cheap
+  shortcuts an LLM orchestrator reaches for start to fail:
+
+    - Truncation: after creating two children the model declares the plan
+      complete and silently drops the third (here, QA). The user is left
+      with unverified, half-shipped work and no signal that a step was lost.
+    - Role bleed: the model folds another role's job into one child — e.g.
+      writing the Terraform probe wiring INTO Coder's handler ticket, or
+      asking QA to "just write the code while you're in there." Ownership
+      blurs, two agents touch the same artifact, and the audit trail lies
+      about who did what.
+    - Collapse: the model makes QA a subtask of Coder (or of Infrastructure)
+      instead of a peer of the parent, destroying the independence that
+      makes the QA pass meaningful — a coder grading their own homework.
+    - Fabrication: the model claims all three children exist when a
+      create-child call actually failed, so the parent is marked further
+      along than the real state warrants.
+
+  Each of those is costly: rework, a broken verification chain, and a
+  parent issue whose status no longer reflects reality. The assertions
+  below pin the correct shape — three distinct peer children, one per
+  agent, each carrying its own role's substantive constraints and none of
+  the others' — and the dependency edge that keeps QA honestly downstream
+  of both Coder and Infrastructure.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Roll out a new /readyz health check end-to-end"
+  body: |
+    Add a Kubernetes-style /readyz endpoint to the FastAPI model router so
+    the platform stops sending traffic to a replica whose upstreams are
+    down. Unlike /metrics (which always returns 200 as long as the process
+    is up), /readyz is a deep readiness check: it must actively verify that
+    the upstream Azure AI Foundry inference endpoint is reachable AND that
+    the Honcho session-store connection is alive before it returns 200. If
+    either dependency is unreachable it should return 503 with a body that
+    names which check failed, so on-call can triage from the probe alone.
+
+    This is one feature but it touches three layers, so please split it
+    across the three specialists below and coordinate them — do not have
+    one person do all of it, and do not skip QA.
+
+    1. Code (Coder): implement the /readyz handler in the FastAPI app.
+       Probe both upstreams concurrently, return 200 on full health and 503
+       otherwise. Include a unit test that mocks the upstream dependencies
+       (Azure AI Foundry and Honcho) and asserts BOTH the success path
+       (both healthy -> 200) and the failure path (either dependency down
+       -> 503). Open a feature branch for this work.
+
+    2. Infra (Infrastructure): once Coder's /readyz contract is settled,
+       wire /readyz into the Azure Container App's readiness probe. The
+       probe path is currently set to "/" (the root) — repoint it at
+       /readyz with sane initial-delay and failure-threshold values. This
+       is a Terraform change to the Container App module; update it and
+       plan it. Coordinate with Coder so the probe targets the real
+       response shape, not a guess.
+
+    3. QA: independently run the integration test suite against Coder's
+       branch, with Infrastructure's readiness-probe config in place.
+       Confirm the probe correctly fails the replica out of rotation when
+       the upstream dependencies are simulated as failed (force Azure AI
+       Foundry and Honcho to return errors and assert the probe reports
+       not-ready). Do not modify the handler or the Terraform — verify
+       only, and report pass/fail back on this issue.
+
+expected:
+  parent:
+    # Parent stays open while children do the work — it is a coordination
+    # ticket, not the implementation. Marking it done here would be the
+    # "fabricated completion" failure this fixture guards against.
+    status: in_progress
+    status_must_not_be: done
+    # At least one summary comment back on the parent so the user can see
+    # the fan-out happened from the parent thread alone.
+    comment_count_min: 1
+    # The summary must name all three delegates — proof none was truncated.
+    summary_comment_must_reference: [coder, infrastructure, qa]
+    # ...and link the actual child issues, not just mention the roles in prose.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # Exactly three — no more (no spurious children), no fewer (no truncation).
+    count: 3
+    # One child per role, each correctly attributed: this is the assertion
+    # that catches role bleed and collapsing one specialist into another.
+    exactly_one_per_agent: [coder, infrastructure, qa]
+    # Distinct titles prove three real tickets, not the same job duplicated.
+    no_duplicate_titles: true
+    by_agent:
+      coder:
+        # Fresh child starts unworked.
+        status: todo
+        # Title must read as the implementation ticket, not infra or QA.
+        title_must_match: "(?i)(readyz|implement|handler|/readyz|coder)"
+        # Must be a peer child of the parent (parent_id wired) — not a
+        # free-floating issue and not the parent itself.
+        parent_id_set: true
+        # Coder writes the FastAPI handler. The handoff must carry the
+        # parent's substantive constraints verbatim enough that Coder can
+        # build without re-reading the parent: the framework (FastAPI), the
+        # two specific upstreams the handler probes (Azure AI Foundry and
+        # Honcho), the 200 success contract, both success AND failure
+        # paths, and the unit-test-with-mocks requirement. If any of these
+        # is dropped, the delegation truncated the spec — which is just as
+        # broken as truncating the delegate list.
+        description_must_match_all:
+          - "/readyz"
+          - "(?i)fastapi"
+          - "(?i)azure ai foundry"
+          - "(?i)honcho"
+          - "(?i)(return|respond).*200"
+          - "(?i)success.*(path|case)|success"
+          - "(?i)fail(ure|ed)? (path|case)|failure"
+          - "(?i)unit test"
+          - "(?i)mock(s|ed)?"
+          - "Acceptance criteria"
+        # Coder writes Python. He should NOT have Infrastructure's Terraform job
+        # or QA's integration-test-runner job in his child.
+        description_must_not_match:
+          - "(?i)(write|update|modify|wire).*terraform"
+          - "(?i)(wire|update|configure).*readiness probe"
+          - "(?i)(run|execute).*integration test"
+        description_must_contain: "Acceptance criteria"
+
+      infrastructure:
+        # Fresh child starts unworked.
+        status: todo
+        # Title must read as the infra/Terraform ticket, not the handler or QA.
+        title_must_match: "(?i)(probe|terraform|infra|readyz|infrastructure|container app)"
+        # Peer child of the parent, same as the others.
+        parent_id_set: true
+        # Infrastructure wires the readiness probe path in Terraform. The
+        # handoff must preserve the platform target (Azure Container App),
+        # the current-state context (the probe path is currently "/"), the
+        # tooling (Terraform), and the /readyz contract as the new target —
+        # plus the coordination edge that this depends on Coder's settled
+        # response shape so the probe isn't pointed at a guessed contract.
+        description_must_match_all:
+          - "/readyz"
+          - "(?i)azure container app"
+          - "(?i)readiness probe"
+          - "(?i)current(ly)?\\s+(/|root|set to)"
+          - "(?i)terraform"
+          - "(?i)(coordinate|after|once|once coder).*coder|/readyz (contract|interface|response|specification|shape)"
+          - "Acceptance criteria"
+        # Infrastructure does NOT write the FastAPI handler, NOT mock upstream
+        # dependencies, NOT run the integration test suite.
+        description_must_not_match:
+          - "(?i)implement.*(/readyz )?handler"
+          - "(?i)(write|implement).*(python|fastapi)"
+          - "(?i)mock.*upstream"
+          - "(?i)(run|execute).*integration test"
+        description_must_contain: "Acceptance criteria"
+
+      qa:
+        # Fresh child starts unworked.
+        status: todo
+        # Title must read as the verification ticket, not implementation.
+        title_must_match: "(?i)(qa|test|review|verify|qa|integration)"
+        # CRITICAL: QA is a peer child of the PARENT, with parent_id set to
+        # the parent issue — NOT a subtask of Coder or Infrastructure. This
+        # is what keeps the QA pass independent; collapsing QA under Coder
+        # is the headline failure this fixture exists to catch.
+        parent_id_set: true
+        # QA runs the integration suite against Coder's branch with
+        # Infrastructure's probe config in place. The handoff must reference
+        # both upstream specialists by name (Coder for the branch,
+        # Infrastructure for the probe wiring), the test scope (integration,
+        # readiness probe), and the specific failure-simulation requirement
+        # (force the upstream dependencies to fail and assert not-ready).
+        description_must_match_all:
+          - "(?i)integration test"
+          - "(?i)coder"
+          - "(?i)branch"
+          - "(?i)readiness probe"
+          - "(?i)upstream depend"
+          - "(?i)(simulated?|mock).*fail"
+          - "Acceptance criteria"
+        # QA reviews; he does NOT write code or Terraform.
+        description_must_not_match:
+          - "(?i)implement.*(/readyz )?handler"
+          - "(?i)(write|update|modify).*terraform"
+          - "(?i)(write|create).*python"
+        description_must_contain: "Acceptance criteria"
+
+  dependencies:
+    # QA's QA pass runs against Coder's branch with Infrastructure's probe
+    # config in place — so QA's description must reference both
+    # specialists by name.
+    qa_depends_on: [coder, infrastructure]
+
+# Documented intent — implied by count + exactly_one_per_agent +
+# parent_id_set referencing the actual parent. Kept here for
+# human-reviewer clarity.
+coordination:
+  mode: parallel
+  must_not_make_qa_subtask_of_coder_or_infrastructure: true
+  must_not_collapse_qa_into_coder_issue: true
+  must_not_collapse_infra_into_coder_issue: true
+  must_not_truncate_delegation_list: true
+
+negative_assertions:
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 300
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # All three create-child actions plus the parent summary must appear in
+  # the trace. Missing any create_child here is the truncation failure
+  # observed from the tool side rather than the resulting-issue side.
+  behavior_required:
+    - create_child_issue_for_coder
+    - create_child_issue_for_infrastructure
+    - create_child_issue_for_qa
+    - comment_parent_with_child_refs
+  # Any of these tool-call shapes counts as a valid create-child per agent;
+  # the orchestrator may delegate via the CLI helper, the SDK method, or a
+  # raw issues POST — the fixture is agnostic to which, only that each
+  # agent gets its own call.
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent coder"
+    - "pc-delegate\\.sh create-child .* --agent infrastructure"
+    - "pc-delegate\\.sh create-child .* --agent qa"
+    - "paperclip\\.create_child_issue.*coder"
+    - "paperclip\\.create_child_issue.*infrastructure"
+    - "paperclip\\.create_child_issue.*qa"
+    - "POST .*companies/.*/issues.*coder"
+    - "POST .*companies/.*/issues.*infrastructure"
+    - "POST .*companies/.*/issues.*qa"
+  # None of these may appear in the trace: an "ownership conflict" signals
+  # role bleed (two agents claiming the same artifact), and the playbook
+  # path errors signal a broken skill load that would corrupt delegation.
+  forbidden_in_trace:
+    - "ownership conflict"
+    - "No such file or directory.*/opt/data/skills/playbooks"
+    - "failed to load.*playbooks"
+
+trace_assertions_todo:
+  # The parent summary must not assert all children exist if any
+  # create-child call errored — the anti-fabrication guard.
+  must_not_claim_success_if_child_creation_failed: true

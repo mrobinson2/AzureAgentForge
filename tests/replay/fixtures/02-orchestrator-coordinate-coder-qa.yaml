@@ -1,0 +1,195 @@
+fixture_id: 02-orchestrator-coordinate-coder-qa
+description: >
+  Two-specialist coordination where the principal explicitly asks for
+  both code work and an independent QA pass. Tests that Orchestrator creates
+  real delegated child issues for Coder and QA, preserves the
+  substantive instructions from the parent task in each child's
+  description (so the assignee can actually do the work), preserves the
+  QA dependency on Coder's branch, and does not prematurely mark the
+  parent done.
+
+  Real-world scenario: an engineer files one feature ticket that bundles
+  two distinct responsibilities — implement a refactor AND have it
+  independently verified. The correct organizational shape is a fan-out:
+  the parent stays open as a coordination node, and exactly two sibling
+  children are created, one per role, each owning its own lane. QA's
+  child depends on Coder's, because QA cannot test a branch that does
+  not yet exist.
+
+  The primary failure mode this fixture guards against is QA collapse:
+  the Orchestrator folding the independent test pass into the Coder
+  child (e.g. "...and also run the tests yourself") or filing QA as a
+  subtask of Coder rather than a sibling. That destroys the very
+  property the principal asked for — an *independent* check. If the same
+  agent both writes and signs off on the code, a regression that the
+  author is blind to ships unchallenged, and the "QA passed" comment
+  becomes a fabrication of confidence rather than evidence. The
+  secondary failure modes are the usual delegation hazards: truncating
+  the parent's substantive instructions so the assignee cannot actually
+  do the work, role bleed (one child addressed to the wrong agent),
+  dropping the QA→Coder dependency so QA starts against a missing
+  branch, and prematurely marking the parent done before either child
+  has even been created.
+
+  Several assertions below are richer than the current replay runner
+  can fully verify (e.g. comment_count_min, exactly_one_per_agent,
+  description_must_match_all). They document intent. The runner skips
+  unknown fields with a warning today; a follow-up runner extension
+  will make them enforceable.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Refactor pc-delegate.sh argument parsing for clarity"
+  body: |
+    The argument parsing in pc-delegate.sh has drifted into copy-paste. Each
+    of the four subcommands (create-child, list-children, close-child,
+    reassign) re-implements its own `case "$1" in --foo) ... ;; esac` loop,
+    so the same flags (`--agent`, `--title`, `--parent`, `--dry-run`) are
+    validated three or four different ways and a bug fixed in one place
+    silently lingers in the others. We want this consolidated, and we want
+    the consolidation independently verified before it merges.
+
+    Please split this into two coordinated pieces of work, one per
+    specialist — do NOT have one person do both halves:
+
+    1. Implementation (Coder): refactor the per-subcommand arg parsing into
+       a single shared parser function and reuse it across every subcommand.
+       The existing flag set must stay identical and the existing exit codes
+       must be preserved unchanged (callers and CI depend on `2` for a usage
+       error and `0` on success — do not renumber them). Add a unit test that
+       exercises every subcommand's argument shape, including the missing-
+       required-flag and unknown-flag paths. Work on a feature branch.
+
+    2. Independent QA (QA): this is a separate sign-off, NOT something Coder
+       does to their own work. Check out Coder's branch and independently run
+       the existing test suite —
+       `pytest tests/orchestrator/test_delegation_orchestration.py` — plus the
+       new unit test, and post the results back on the ticket. Block merge on
+       any regression in the existing suite. QA can only begin once Coder's
+       branch exists.
+
+expected:
+  parent:
+    # The parent is a coordination node, not a unit of work — it must stay
+    # open while its children run, never auto-closed on delegation.
+    status: in_progress
+    # Hard floor on the QA-collapse / premature-done failure mode: marking
+    # the parent done here would mean the work was faked or swallowed.
+    status_must_not_be: done
+    # At least the fan-out summary comment must exist.
+    comment_count_min: 1
+    # The summary must name BOTH lanes — proof the Orchestrator coordinated
+    # two specialists, not one. If only "coder" appears, QA was collapsed.
+    summary_comment_must_reference: [coder, qa]
+    # And it must link the actual child issues, so the parent is traceable
+    # to its delegated work rather than just asserting it happened.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # Exactly two — one Coder child, one QA child. Three would mean spurious
+    # work; one would mean the two lanes were merged (the core failure mode).
+    count: 2
+    # Each role gets precisely one child. This is the anti-collapse assertion:
+    # if QA were folded into Coder's issue, there would be no qa-owned child.
+    exactly_one_per_agent: [coder, qa]
+    # Two near-identical titles would suggest a duplicated/forked delegation.
+    no_duplicate_titles: true
+    by_agent:
+      coder:
+        # Child starts unworked; Coder picks it up.
+        status: todo
+        title_must_match: "(?i)(refactor|pars|argument|coder)"
+        # Must be wired to the parent so the fan-out is a real tree, not orphans.
+        parent_id_set: true
+        # Regex alternations to tolerate paraphrasing without losing the
+        # substantive constraints from the parent task. These pin that the
+        # parent's real requirements survived delegation (weren't truncated):
+        description_must_match_all:
+          # The actual refactor: a single shared parser/function.
+          - "(?i)shared (parser|function)"
+          # The hard constraint that the flag set stays the same.
+          - "(?i)(existing|current|same|preserve|keep) (flag|flags)"
+          # Exit codes must be preserved — callers/CI depend on them.
+          - "(?i)exit code"
+          # Coder must add test coverage for the refactor.
+          - "(?i)unit test"
+          # Coverage spans every subcommand, not just one.
+          - "(?i)(every|all) subcommand"
+          # A delegated child must carry an explicit acceptance bar.
+          - "Acceptance criteria"
+        # Single-substring fallback the current runner DOES enforce.
+        description_must_contain: "Acceptance criteria"
+        # Off-lane guard: the Coder child must NOT contain QA's independent
+        # test-run instruction. If the literal pytest invocation against
+        # Coder's branch shows up here, the QA pass was collapsed into the
+        # Coder child instead of getting its own sibling issue — the exact
+        # failure this fixture exists to catch.
+        description_must_not_match:
+          - "pytest tests/orchestrator/test_delegation_orchestration\\.py"
+
+      qa:
+        # Child starts unworked; QA picks it up once Coder's branch exists.
+        status: todo
+        title_must_match: "(?i)(qa|test|review|run|qa|verify)"
+        parent_id_set: true
+        description_must_match_all:
+          # QA must know whose work to test — names the Coder lane explicitly.
+          - "(?i)coder"
+          # QA tests a branch (Coder's), not a hypothetical.
+          - "(?i)branch"
+          # The exact suite to run carried through from the parent verbatim.
+          - "pytest tests/orchestrator/test_delegation_orchestration.py"
+          # QA's deliverable is reported evidence, not a silent pass.
+          - "(?i)(post|report) results"
+          # The merge gate: any regression blocks the merge.
+          - "(?i)(block merge|regression)"
+          # Same explicit acceptance bar requirement as the Coder child.
+          - "Acceptance criteria"
+        description_must_contain: "Acceptance criteria"
+
+  dependencies:
+    # QA cannot test a branch that does not exist yet — this ordering must
+    # survive delegation, or QA starts against nothing.
+    qa_depends_on: coder
+
+# Runner-verifiable negative assertions: timestamp ordering and similar
+# can be checked from the public API today.
+negative_assertions:
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+# Behavioral spec for the trace. The runner treats `behavior_required`
+# as the *what* and `accepted_tool_patterns` as the *any of these hows*
+# satisfies it. Until the session-trace API is wired up, the runner
+# warns-skip on these.
+trace_assertions:
+  behavior_required:
+    - create_child_issue_for_coder
+    - create_child_issue_for_qa
+    - comment_parent_with_child_refs
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent coder"
+    - "pc-delegate\\.sh create-child .* --agent qa"
+    - "paperclip\\.create_child_issue.*coder"
+    - "paperclip\\.create_child_issue.*qa"
+    - "POST .*companies/.*/issues.*coder"
+    - "POST .*companies/.*/issues.*qa"
+  forbidden_in_trace:
+    - "ownership conflict"
+    - "No such file or directory.*/opt/data/skills/playbooks"
+    - "failed to load.*playbooks"
+
+# Assertions that need access to QA's session start time and/or
+# Orchestrator's tool-call transcript. Deferred until the trace API exists.
+trace_assertions_todo:
+  qa_must_not_start_before_coder_work_exists: true
+  must_not_claim_success_if_child_creation_failed: true

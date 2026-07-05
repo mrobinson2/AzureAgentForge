@@ -1,0 +1,242 @@
+fixture_id: 03-orchestrator-coordinate-infrastructure-security
+description: >
+  Two-specialist coordination of an infrastructure change that requires
+  an explicit, independent security review. Models a common real-world ops
+  flow: a developer asks for a new Azure resource (here, an internal-only
+  Container App for a model router) and the change touches IAM, secret
+  access, and network exposure — so it must be implemented by Infrastructure
+  AND independently reviewed by Security before merge.
+
+  This fixture tests that Orchestrator decomposes the request into TWO
+  parallel, first-class child issues — one for Infrastructure (write the
+  Terraform) and one for Security (review the proposed change) — each
+  tracked under its own assignee and parent_id.
+
+  The primary failure mode this guards against is "folding the review into
+  the build": the Orchestrator hands the whole job to Infrastructure and
+  tells it to "also do a security pass," leaving no separately-tracked
+  Security issue. That is costly because the reviewer's verdict is no longer
+  an independent, auditable gate — the same agent that wrote the IAM policy
+  is the one signing off on it, so least-privilege regressions (e.g.
+  granting Key Vault Secrets Officer instead of Secrets User) sail through
+  unchallenged. It also lets Security's work be silently dropped if the
+  Infrastructure child is closed early.
+
+  Secondary failure modes asserted against: role bleed (Security being told
+  to write Terraform, or Infrastructure being told to post a security
+  verdict), making Security a mere subtask of Infrastructure instead of a
+  sibling, and truncated delegation that strips the substantive constraints
+  (managed identity, ACR pull, internal-only ingress, Key Vault refs,
+  probes) out of the child's instructions.
+
+  Several assertions below describe spec intent that the current runner
+  cannot fully verify (e.g. coordination.mode: parallel, the trace_*
+  sections). They document expected behavior for human reviewers and
+  for a future runner extension.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Add a new internal-only Container App for the model router"
+  body: |
+    We need a new internal-only Azure Container App for the FastAPI model
+    router (ca-router-dev). Today the router logic is bundled into the
+    Hermes gateway, which means we can't redeploy or scale routing without
+    bouncing Hermes. Splitting it into its own Container App isolates the
+    routing concerns and lets us scale the two services independently.
+
+    Because this change provisions a new managed identity, grants it
+    role assignments, and wires up Key Vault secret access, it is
+    security-sensitive and must be both implemented and independently
+    reviewed before it can merge. Please split this into two tracked
+    pieces — one to build it, one to review it — and coordinate them.
+
+    1. Infra: Infrastructure — write a new Terraform module under
+       `infrastructure/modules/container-apps/router.tf`, modeled on the
+       existing `hermes.tf` module so we stay consistent with how Hermes
+       is provisioned. It should include:
+         - a user-assigned managed identity for the app,
+         - an ACR pull role assignment so it can pull the router image
+           from the existing registry,
+         - internal-only ingress on port 8080 (external_enabled = false),
+         - Key Vault secret references for the upstream model API keys
+           (no secrets in env vars or plaintext),
+         - liveness and readiness probes on the health endpoint.
+       Do NOT expose this externally — it is reachable only from inside
+       the VNet by Hermes. Add acceptance criteria to the issue.
+
+    2. Security review: Security — independently review the proposed
+       Terraform changes (do not implement them) specifically for IAM
+       scope. The managed identity must NOT be granted Key Vault Secrets
+       Officer; if it needs to read secrets it should hold least-privilege
+       Key Vault Secrets User and nothing broader. Confirm the network
+       exposure is correct (`external_enabled` must be false) and that the
+       change introduces no new public surface. Post a clear security
+       verdict (approve / changes-requested) before merge, with acceptance
+       criteria for what a passing review looks like.
+
+expected:
+  parent:
+    # Parent stays open while the two children are worked — coordinating
+    # is not the same as finishing.
+    status: in_progress
+    # Hard stop: the parent must not be closed before the children exist
+    # and complete. Marking it done early is the fire-and-drop failure.
+    status_must_not_be: done
+    # Orchestrator must post at least a coordination summary on the parent.
+    comment_count_min: 1
+    # That summary has to name BOTH lanes, proving it actually fanned the
+    # work out to two roles rather than silently handing it to one.
+    summary_comment_must_reference: [infrastructure, security]
+    # And it must link the concrete child issues it opened, so the parent
+    # is an auditable index of the delegated work.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # Exactly two children — no more (don't over-decompose), no fewer
+    # (don't collapse the two lanes into one).
+    count: 2
+    # The core anti-fold assertion: there is one and only one child per
+    # role. Folding the Security review into the Infrastructure issue
+    # would leave zero children for `security` and fail here.
+    exactly_one_per_agent: [infrastructure, security]
+    no_duplicate_titles: true
+    by_agent:
+      infrastructure:
+        status: todo
+        # Title should read as a build task — Terraform / module / container app.
+        title_must_match: "(?i)(terraform|router|infra|module|container|app|infrastructure)"
+        # The child must point back at the PARENT issue, not at the Security
+        # sibling. This is what proves Security wasn't nested under Infra.
+        parent_id_set: true
+        # Substantive constraints from the parent task that Orchestrator must
+        # preserve in Infrastructure's instructions. Regex-based for synonym
+        # tolerance; literal Azure resource paths and role names stay
+        # exact.
+        description_must_match_all:
+          # Exact file path to create — delegation must not lose the target.
+          - "infrastructure/modules/container-apps/router\\.tf"
+          # The pattern to model it on — keeps provisioning consistent.
+          - "hermes\\.tf"
+          # The security-relevant building blocks must survive into the
+          # child: identity, image-pull, network mode, secret wiring, health.
+          - "(?i)managed identity"
+          - "(?i)acr ?pull"
+          - "(?i)internal[- ]?only"
+          - "(?i)port ?8080|:8080"
+          - "(?i)key ?vault.*secret"
+          - "(?i)liveness"
+          - "(?i)readiness"
+          # The no-public-exposure instruction must be carried through.
+          - "(?i)(do\\s+not|don'?t|never)\\s+expose|internal[- ]only"
+          # Every delegated child must carry explicit acceptance criteria.
+          - "Acceptance criteria"
+        # Infrastructure should be writing Terraform, not doing the security review.
+        # His description must NOT contain security-review language, and
+        # must NOT recommend external exposure.
+        description_must_not_match:
+          - "(?i)external_enabled\\s*=?\\s*true"
+          - "(?i)public(ly)?\\s+(expose|access|reachable)"
+          - "(?i)security verdict"
+          - "(?i)post a security review"
+          - "(?i)review.*for security"
+        description_must_contain: "Acceptance criteria"
+
+      security:
+        status: todo
+        # Title should read as a review/audit task, not a build task.
+        title_must_match: "(?i)(security|review|audit|security|iam|ingress)"
+        # Same as Infra: Security is a sibling under the parent, not a
+        # subtask of the Infrastructure child.
+        parent_id_set: true
+        description_must_match_all:
+          # The review's focus areas must be preserved in the delegation:
+          # IAM scope is the headline concern.
+          - "(?i)IAM scope"
+          - "(?i)managed identity"
+          # The least-privilege contract: the over-broad role to reject and
+          # the narrow role to require must both be named explicitly.
+          - "Key Vault Secrets Officer"
+          - "Key Vault Secrets User"
+          # The exact network condition Security must confirm.
+          - "(?i)external_enabled\\s*=?\\s*false"
+          - "(?i)public surface"
+          # Security must produce an explicit verdict, and it gates merge —
+          # this is the independent gate the whole fixture exists to protect.
+          - "(?i)security verdict"
+          - "(?i)before merge"
+          # Reviewer also gets explicit acceptance criteria.
+          - "Acceptance criteria"
+        # Security should be REVIEWING, not implementing. Its description
+        # must NOT include Terraform-construction directives.
+        description_must_not_match:
+          - "(?i)write.*terraform"
+          - "(?i)create.*(module|container app)"
+          - "(?i)include managed identity"   # "include MI in the module"
+                                              # = construction. Security
+                                              # would say "review the MI".
+          - "(?i)build.*module"
+          # A reviewer is never told to deploy/teardown the change it is
+          # reviewing — applying or destroying infra is squarely the
+          # Infrastructure lane, off-limits for an independent review issue.
+          - "(?i)terraform\\s+(apply|destroy)"
+        description_must_contain: "Acceptance criteria"
+
+  dependencies:
+    # Ordering, not nesting: Security reviews the change AFTER Infrastructure
+    # proposes it, so the review depends on the build. This is an edge
+    # between two sibling children — it does NOT make Security a subtask of
+    # Infrastructure (see coordination.must_not_make_security_subtask_of_*).
+    security_depends_on: infrastructure
+
+# Documented intent — the runner doesn't have an explicit "parallel"
+# check because it's already implied by count + exactly_one_per_agent +
+# parent_id_set referencing the parent (not a sibling). Kept here for
+# human-reviewer clarity.
+coordination:
+  mode: parallel
+  must_not_make_security_subtask_of_infrastructure: true
+  must_not_collapse_security_into_infrastructure_issue: true
+
+negative_assertions:
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # The trace must show two distinct child-creation actions (one per role)
+  # plus the parent summary comment — proof the fan-out actually happened
+  # at the tool level, not just in prose.
+  behavior_required:
+    - create_child_issue_for_infrastructure
+    - create_child_issue_for_security
+    - comment_parent_with_child_refs
+  # Any of these tool-call shapes satisfies "created a child for role X".
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent infrastructure"
+    - "pc-delegate\\.sh create-child .* --agent security"
+    - "paperclip\\.create_child_issue.*infrastructure"
+    - "paperclip\\.create_child_issue.*security"
+    - "POST .*companies/.*/issues.*infrastructure"
+    - "POST .*companies/.*/issues.*security"
+  # None of these should ever appear: "ownership conflict" signals the two
+  # children fought over the same issue (a fold/nesting bug), and the
+  # playbook-load errors are known environment failures that would mean the
+  # Orchestrator ran without its delegation skills loaded.
+  forbidden_in_trace:
+    - "ownership conflict"
+    - "No such file or directory.*/opt/data/skills/playbooks"
+    - "failed to load.*playbooks"
+
+trace_assertions_todo:
+  must_not_claim_success_if_child_creation_failed: true
+  # Merge-gate behavior (Security blocks merge until verdict posted) is
+  # downstream of fixture #03's scope. Belongs in a future Security-side
+  # fixture that actually exercises the PR-review flow.

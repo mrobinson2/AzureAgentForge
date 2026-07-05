@@ -1,0 +1,385 @@
+<mxfile host="app.diagrams.net" agent="AzureAgentForge architecture style proof" version="24.7.7" type="device">
+  <diagram id="aaf-deploy-pipeline" name="AAF Deploy Pipeline">
+    <mxGraphModel dx="2200" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ============================================================ -->
+        <!-- TITLE BLOCK                                                   -->
+        <!-- ============================================================ -->
+        <mxCell id="title-bar" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0B3D66;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="40" y="32" width="1574" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-text" value="AzureAgentForge — Deploy Pipeline" style="text;html=1;align=left;verticalAlign=middle;fontColor=#FFFFFF;fontSize=22;fontStyle=1;spacingLeft=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="52" y="32" width="900" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-sub" value="build → seed → plan → destroy-aware gate → apply → smoke · two faces, one core · OIDC, no stored secrets · v1.3" style="text;html=1;align=right;verticalAlign=middle;fontColor=#BBD7EE;fontSize=12;spacingRight=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="620" y="32" width="982" height="62" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- TWO FACES (operator entry points)                            -->
+        <!-- ============================================================ -->
+        <mxCell id="grp-faces" value="Two operator faces — both drive the SAME plan/apply core (installer.core.plan_has_destroy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F7FA;strokeColor=#AEB9C4;dashed=0;verticalAlign=top;fontColor=#5B7A95;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=4;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="100" y="116" width="600" height="156" as="geometry" />
+        </mxCell>
+
+        <!-- Forge Console face -->
+        <mxCell id="face-forge" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="120" y="148" width="262" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="face-forge-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.powershell;" vertex="1" parent="1">
+          <mxGeometry x="132" y="160" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="face-forge-t" value="Forge Console  ·  ./forge" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="168" y="158" width="206" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="face-forge-d" value="Local GUI · 127.0.0.1:8321 · per-session token&#10;streams init → validate → plan → apply (SSE)&#10;typed env-name confirm on apply / destroy" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="132" y="194" width="240" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- GitHub Actions face -->
+        <mxCell id="face-gha" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="406" y="148" width="276" height="108" as="geometry" />
+        </mxCell>
+        <mxCell id="face-gha-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.devops;" vertex="1" parent="1">
+          <mxGeometry x="418" y="160" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="face-gha-t" value="GitHub Actions  ·  deploy.yml" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="454" y="158" width="220" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="face-gha-d" value="Reference workflow (you wire up on a fork)&#10;workflow_dispatch · env / profile / region&#10;jobs: build · seed · plan · gate · apply · smoke" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="418" y="194" width="256" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- OIDC / NO STORED SECRETS callout                              -->
+        <!-- ============================================================ -->
+        <mxCell id="oidc-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDF6EE;strokeColor=#5FA56B;dashed=0;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="724" y="116" width="330" height="156" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.managed_identities;" vertex="1" parent="1">
+          <mxGeometry x="738" y="128" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-t" value="Auth — OIDC federated, no stored secrets" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="774" y="126" width="270" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-lock" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.lock;" vertex="1" parent="1">
+          <mxGeometry x="1026" y="126" width="18" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="oidc-d" value="GitHub Actions exchanges a workflow OIDC token for&#10;Azure creds (azure/login · ARM_USE_OIDC=true).&#10;Repo holds non-secret VARIABLES only:&#10;AZURE_CLIENT_ID / TENANT_ID / SUBSCRIPTION_ID,&#10;TFSTATE_* backend, optional CONTAINER_REGISTRY_NAME /&#10;KEY_VAULT_NAME / SMOKE_URL. Provider keys live in&#10;GitHub secrets and are piped only into the seed job." style="text;html=1;align=left;verticalAlign=top;fontColor=#3C7A47;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="738" y="160" width="306" height="106" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- PIPELINE LANE (numbered stages)                              -->
+        <!-- ============================================================ -->
+        <mxCell id="lane" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F8FD;strokeColor=#0B6BB0;dashed=1;dashPattern=6 4;strokeWidth=2;verticalAlign=top;arcSize=2;opacity=60;" vertex="1" parent="1">
+          <mxGeometry x="100" y="300" width="1454" height="486" as="geometry" />
+        </mxCell>
+        <mxCell id="lane-lbl" value="Pipeline core  ·  the SAVED plan is applied verbatim — what was reviewed is what ships" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0B6BB0;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="118" y="308" width="900" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- ==== Stage 1a: BUILD (az acr build) ==== -->
+        <mxCell id="st-build" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="128" y="360" width="252" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="st-build-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_registries;" vertex="1" parent="1">
+          <mxGeometry x="140" y="396" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st-build-t" value="build  ·  az acr build" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="178" y="394" width="196" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="st-build-d" value="scripts/build-and-push.sh&#10;Server-side ACR build (no Docker daemon).&#10;Self-contained: model-router · memory-&#10;governor · watchdog · teams-bridge.&#10;Upstream (paperclip/honcho/hermes)&#10;--skip-unbuildable until vendored.&#10;Tag = short git SHA → -var=*_image_tag." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="140" y="426" width="232" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- ==== Stage 1b: SEED (Key Vault) ==== -->
+        <mxCell id="st-seed" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5FA56B;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="128" y="528" width="252" height="148" as="geometry" />
+        </mxCell>
+        <mxCell id="st-seed-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.key_vaults;" vertex="1" parent="1">
+          <mxGeometry x="140" y="564" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st-seed-t" value="seed  ·  Key Vault" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="178" y="562" width="196" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="st-seed-d" value="scripts/seed-keyvault.sh (idempotent)&#10;Generates internal secrets (JWT, admin&#10;pw, postgres-admin-password); external&#10;provider keys / tokens come from GitHub&#10;secrets. Unset ones get __unset__ so&#10;every ACA secretRef resolves. First&#10;deploy: one-time vault bootstrap." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="140" y="594" width="232" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- brace label: build + seed feed plan -->
+        <mxCell id="feed-lbl" value="build + seed run in parallel,&#10;both feed plan" style="text;html=1;align=center;verticalAlign=middle;fontColor=#5B7A95;fontSize=9;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="386" y="514" width="116" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- ==== Stage 2: PLAN ==== -->
+        <mxCell id="st-plan" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="510" y="430" width="234" height="156" as="geometry" />
+        </mxCell>
+        <mxCell id="st-plan-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.template_specs;" vertex="1" parent="1">
+          <mxGeometry x="522" y="466" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st-plan-t" value="plan" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="560" y="464" width="170" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="st-plan-d" value="terraform init (OIDC backend) + plan&#10;-var-file=profiles/&lt;profile&gt;.tfvars&#10;-out=tfplan with built image tags baked&#10;in. Plan reads remote state + Azure.&#10;The saved tfplan is the only artifact&#10;apply will consume (retained 5 days)." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="522" y="496" width="212" height="84" as="geometry" />
+        </mxCell>
+
+        <!-- ==== Stage 3: DESTROY-AWARE GATE (decision node) ==== -->
+        <mxCell id="st-gate" value="" style="rhombus;whiteSpace=wrap;html=1;fillColor=#FBF7F0;strokeColor=#C9851F;strokeWidth=2.5;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="800" y="372" width="284" height="232" as="geometry" />
+        </mxCell>
+        <mxCell id="st-gate-t" value="DESTROY-AWARE&#10;APPROVAL GATE" style="text;html=1;align=center;verticalAlign=middle;fontColor=#8A5A0F;fontSize=14;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="858" y="416" width="168" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="st-gate-d" value="detect_destroy.py →&#10;core.plan_has_destroy&#10;(shared by BOTH faces)&#10;Any actions ∋ &quot;delete&quot;&#10;(delete · delete+create ·&#10;create+delete) ⇒ destructive.&#10;Unparseable plan → fail safe." style="text;html=1;align=center;verticalAlign=middle;fontColor=#8A6D1F;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="836" y="462" width="212" height="110" as="geometry" />
+        </mxCell>
+
+        <!-- Decision: NON-DESTRUCTIVE -> auto-apply -->
+        <mxCell id="dec-auto" value="non-destructive&#10;(add / in-place update)" style="text;html=1;align=center;verticalAlign=middle;fontColor=#3C7A47;fontSize=10;fontStyle=1;fillColor=#EDF6EE;strokeColor=#5FA56B;rounded=1;arcSize=30;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="852" y="618" width="180" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="dec-auto-t" value="AUTO-APPLY — unattended" style="text;html=1;align=center;verticalAlign=middle;fontColor=#3C7A47;fontSize=9;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="852" y="658" width="180" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- Decision: DESTRUCTIVE -> human approval -->
+        <mxCell id="dec-human" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C0392B;strokeWidth=2;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1112" y="372" width="320" height="124" as="geometry" />
+        </mxCell>
+        <mxCell id="dec-human-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#C0392B;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.user;" vertex="1" parent="1">
+          <mxGeometry x="1124" y="384" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="dec-human-t" value="DESTRUCTIVE → human approval required" style="text;html=1;align=left;verticalAlign=middle;fontColor=#A02B1E;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1160" y="382" width="262" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="dec-human-d" value="GitHub Actions: gate job runs only when&#10;has_destroy — required reviewer on the&#10;'deploy-destroy' Environment.&#10;Forge Console: a second, distinct prompt&#10;listing affected resources — type&#10;'approve-destroy'. Reject ⇒ apply skipped." style="text;html=1;align=left;verticalAlign=top;fontColor=#7B3A30;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1124" y="414" width="300" height="78" as="geometry" />
+        </mxCell>
+
+        <!-- ==== Stage 4: APPLY ==== -->
+        <mxCell id="st-apply" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1166" y="528" width="266" height="124" as="geometry" />
+        </mxCell>
+        <mxCell id="st-apply-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="1178" y="540" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st-apply-t" value="apply" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1216" y="538" width="200" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="st-apply-d" value="terraform apply tfplan — the SAVED plan,&#10;verbatim, never re-planned. What was&#10;reviewed at the gate is exactly what&#10;ships (image tags included). Provisions&#10;the Container Apps / data plane on Azure." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1178" y="570" width="244" height="76" as="geometry" />
+        </mxCell>
+
+        <!-- ==== Stage 5: SMOKE ==== -->
+        <mxCell id="st-smoke" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5FA56B;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1166" y="668" width="266" height="106" as="geometry" />
+        </mxCell>
+        <mxCell id="st-smoke-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.log_analytics_workspaces;" vertex="1" parent="1">
+          <mxGeometry x="1178" y="680" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="st-smoke-t" value="smoke  ·  post-deploy check" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1216" y="678" width="206" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="st-smoke-d" value="scripts/smoke-test.sh → installer.smoke&#10;az containerapp show + optional SMOKE_URL&#10;probe. Not provisioningState=Succeeded or&#10;a non-2xx/3xx probe ⇒ non-zero exit, run fails." style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1178" y="708" width="244" height="62" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- TARGET: AZURE (where apply lands)                             -->
+        <!-- ============================================================ -->
+        <mxCell id="tgt-azure" value="Azure subscription / resource group  ·  apply provisions, smoke verifies" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0078D4;dashed=1;dashPattern=8 4;strokeWidth=2;verticalAlign=top;fontColor=#0078D4;fontSize=11;fontStyle=1;align=left;spacingLeft=36;spacingTop=8;arcSize=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="100" y="806" width="1454" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt-azure-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure;" vertex="1" parent="1">
+          <mxGeometry x="114" y="814" width="24" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tgt-aca" value="Container Apps Environment&#10;PaperClip · Hermes (+router) · Honcho&#10;(memory-governor / cloudflared when gated on)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E9F3FB;strokeColor=#0078D4;fontColor=#1B2733;fontSize=10;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="160" y="846" width="330" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt-data" value="PostgreSQL Flexible Server · Key Vault&#10;Container Registry · Log Analytics&#10;(VNet-injected · private endpoints)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDF6EE;strokeColor=#5FA56B;fontColor=#1B2733;fontSize=10;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="520" y="846" width="320" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt-state" value="Terraform remote state&#10;azurerm backend (TFSTATE_* vars) —&#10;Forge Console defaults to local state" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F7FA;strokeColor=#AEB9C4;fontColor=#42505E;fontSize=10;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="870" y="846" width="300" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="tgt-note" value="One-time setup: scripts/scaffold-cicd.sh&#10;(OIDC app + role + federated cred, TF&#10;state backend, repo vars, deploy-destroy env)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B7A95;fontSize=9;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1196" y="846" width="340" height="62" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- FACE → PIPELINE entry edges (control, dotted)                 -->
+        <!-- ============================================================ -->
+        <mxCell id="ef-forge" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=0.25;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="face-forge" target="st-build">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="185" y="290" />
+              <mxPoint x="254" y="340" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ef-gha" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=0.2;exitY=1;entryX=0.6;entryY=0;" edge="1" parent="1" source="face-gha" target="st-build">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="461" y="294" />
+              <mxPoint x="291" y="345" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ef-lbl" value="both faces enter here" style="text;html=1;align=center;verticalAlign=middle;fontColor=#7A8895;fontSize=9;fontStyle=2;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="200" y="318" width="120" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- NUMBERED PIPELINE EDGES (solid, navy)                         -->
+        <!-- ============================================================ -->
+
+        <!-- 1: build -> plan -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.3;" edge="1" parent="1" source="st-build" target="st-plan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="448" y="435" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1-l" value="1  image tags" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=10;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="406" y="416" width="86" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 1b: seed -> plan (secrets must exist) -->
+        <mxCell id="e1b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.75;" edge="1" parent="1" source="st-seed" target="st-plan">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="448" y="602" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e1b-l" value="1  secrets ready" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=10;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="402" y="592" width="94" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 2: plan -> gate -->
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="st-plan" target="st-gate">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2-l" value="2  terraform show -json" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=10;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="746" y="478" width="56" height="32" as="geometry" />
+        </mxCell>
+
+        <!-- 3a: gate (bottom) -> auto-apply -> apply  [GREEN happy path] -->
+        <mxCell id="e3a" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#3C7A47;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="st-gate" target="dec-auto">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3a2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#3C7A47;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" edge="1" parent="1" source="dec-auto-t" target="st-apply">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="942" y="700" />
+              <mxPoint x="1130" y="700" />
+              <mxPoint x="1130" y="590" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3a-l" value="3  no" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#3C7A47;strokeColor=none;rounded=1;arcSize=40;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="924" y="606" width="36" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 3b: gate (right) -> human approval  [RED gated path] -->
+        <mxCell id="e3b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#C0392B;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="st-gate" target="dec-human">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3b-l" value="3  yes — destructive" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#C0392B;strokeColor=none;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1086" y="396" width="118" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 3c: human approval -> apply (on approve) -->
+        <mxCell id="e3c" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#C0392B;strokeWidth=2;dashed=1;dashPattern=6 4;exitX=0.85;exitY=1;entryX=0.85;entryY=0;" edge="1" parent="1" source="dec-human" target="st-apply">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3c-l" value="on approval" style="text;html=1;align=center;verticalAlign=middle;fontColor=#C0392B;fontSize=9;fontStyle=2;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1340" y="500" width="80" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- 4: apply -> smoke -->
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="st-apply" target="st-smoke">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4-l" value="4  health probes" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=10;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1245" y="652" width="108" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- apply -> Azure target (provisions), dotted control -->
+        <mxCell id="e-prov" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=0.15;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="st-apply" target="tgt-aca">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1206" y="792" />
+              <mxPoint x="325" y="792" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e-prov-l" value="provisions resources" style="text;html=1;align=center;verticalAlign=middle;fontColor=#7A8895;fontSize=9;fontStyle=2;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="620" y="784" width="120" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- LEGEND                                                        -->
+        <!-- ============================================================ -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AEB9C4;dashed=0;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="100" y="940" width="1454" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="Legend" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="114" y="940" width="60" height="44" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-flow-line" value="" style="endArrow=block;endFill=1;dashed=0;strokeColor=#0B3D66;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="180" y="962" as="sourcePoint" />
+            <mxPoint x="224" y="962" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-flow-num" value="n" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=9;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="193" y="953" width="18" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-flow-t" value="numbered pipeline stage flow" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="230" y="952" width="190" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-auto-line" value="" style="endArrow=block;endFill=1;dashed=0;strokeColor=#3C7A47;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="430" y="962" as="sourcePoint" />
+            <mxPoint x="474" y="962" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-auto-t" value="non-destructive → auto-apply (unattended)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="480" y="952" width="260" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-dest-line" value="" style="endArrow=block;endFill=1;dashed=0;strokeColor=#C0392B;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="746" y="962" as="sourcePoint" />
+            <mxPoint x="790" y="962" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-dest-t" value="destructive → human approval required" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="796" y="952" width="250" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-ctrl-line" value="" style="endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="1050" y="962" as="sourcePoint" />
+            <mxPoint x="1094" y="962" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-ctrl-t" value="control / provisioning  ·  ◆ destroy-aware gate (shared by both faces)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1100" y="952" width="440" height="20" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

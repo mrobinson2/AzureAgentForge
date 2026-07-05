@@ -1,0 +1,58 @@
+# Security structural gates (remediation B3 + B5).
+#
+# Pure-shell, no cloud creds, no external actions — keeps the public repo's
+# validate-only CI green-by-default while making two security invariants
+# un-droppable:
+#   1. AAF never builds the Hermes Node surface (website/, scripts/whatsapp-bridge/)
+#      — so the Node criticals (baileys/undici/ws/protobufjs) can't enter the image.
+#   2. The Python build-time security override (constraints) stays wired.
+#
+# Recurring known-CVE scanning is handled by Dependabot (.github/dependabot.yml,
+# incl. the docker/base-image ecosystem). Adopters who want an in-CI SCA/image
+# scan should add OSV-Scanner (source) and Trivy (the image their build job
+# produces), pinned to a version they vet — see docs/migration-remediation-plan.md.
+name: security-checks
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  no-hermes-node-surface:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: agent-runtime image must not build the Hermes Node surface
+        run: |
+          DF=services/agent-runtime/Dockerfile
+          if grep -nEi 'npm |npm install|yarn |pnpm |scripts/whatsapp-bridge|(^|[^a-z])website([^a-z]|/)' "$DF"; then
+            echo "::error file=$DF::The agent-runtime image must stay Python-only."
+            echo "A Node build step (npm/website/whatsapp-bridge) was added — that would pull"
+            echo "the vulnerable Node surface (baileys/undici/ws/protobufjs) into the image."
+            echo "If WhatsApp/website is genuinely needed, bump baileys to the patched major"
+            echo "and remove this guard deliberately (see docs/migration-remediation-plan.md §3.1)."
+            exit 1
+          fi
+          echo "OK: agent-runtime is Python-only — Node criticals are not shipped."
+
+  python-security-override-present:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: the build-time security constraints must stay wired
+        run: |
+          C=services/agent-runtime/constraints.txt
+          DF=services/agent-runtime/Dockerfile
+          test -f "$C" || { echo "::error::$C is missing — the Python CVE override was dropped."; exit 1; }
+          grep -q -- '--upgrade -r /tmp/aaf-constraints.txt' "$DF" || {
+            echo "::error file=$DF::Dockerfile must force-upgrade via 'pip install --upgrade -r /tmp/aaf-constraints.txt' (constraints can't override Hermes' exact pins)."; exit 1; }
+          # Spot-check the high-priority HTTP-stack pins are present at >= fix versions.
+          for pin in "aiohttp==3.14.1" "starlette==1.3.1" "tornado==6.5.7" "python-multipart==0.0.31" "cryptography==48.0.1"; do
+            grep -q "^${pin}$" "$C" || { echo "::error file=$C::missing/changed required pin: $pin"; exit 1; }
+          done
+          echo "OK: Python security constraints present and wired into the build."

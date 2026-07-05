@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Skills Manager — AzureAgentForge</title>
+<style>
+  :root {
+    --bg: #0d1117; --bg2: #161b22; --bg3: #21262d; --border: #30363d;
+    --fg: #e6edf3; --fg2: #8b949e; --accent: #58a6ff; --accent2: #1f6feb;
+    --green: #3fb950; --red: #f85149; --yellow: #d29922; --purple: #bc8cff;
+    --radius: 6px; --mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+         background: var(--bg); color: var(--fg); line-height: 1.5; }
+
+  /* Layout */
+  .container { max-width: 1280px; margin: 0 auto; padding: 24px; }
+  header { display: flex; align-items: center; justify-content: space-between;
+           padding: 16px 0; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  header h1 { font-size: 20px; font-weight: 600; }
+  header h1 span { color: var(--fg2); font-weight: 400; }
+
+  /* Controls bar */
+  .controls { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 16px; align-items: center; }
+  .search-box { flex: 1; min-width: 200px; padding: 6px 12px; background: var(--bg2);
+                 border: 1px solid var(--border); border-radius: var(--radius);
+                 color: var(--fg); font-size: 14px; }
+  .search-box:focus { outline: none; border-color: var(--accent); }
+  select { padding: 6px 10px; background: var(--bg2); border: 1px solid var(--border);
+           border-radius: var(--radius); color: var(--fg); font-size: 13px; cursor: pointer; }
+
+  /* Buttons */
+  .btn { padding: 6px 14px; border: 1px solid var(--border); border-radius: var(--radius);
+         background: var(--bg2); color: var(--fg); font-size: 13px; cursor: pointer;
+         text-decoration: none; display: inline-flex; align-items: center; gap: 6px; }
+  .btn:hover { background: var(--bg3); }
+  .btn-primary { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-danger { border-color: var(--red); color: var(--red); }
+  .btn-danger:hover { background: rgba(248,81,73,.15); }
+  .btn-sm { padding: 3px 10px; font-size: 12px; }
+
+  /* Stats bar */
+  .stats { display: flex; gap: 20px; margin-bottom: 16px; font-size: 13px; color: var(--fg2); }
+  .stats strong { color: var(--fg); }
+
+  /* Table */
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; padding: 8px 12px; background: var(--bg2); border-bottom: 1px solid var(--border);
+       font-weight: 600; color: var(--fg2); font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+       position: sticky; top: 0; z-index: 1; }
+  td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tr:hover td { background: var(--bg2); }
+  .skill-name { color: var(--accent); cursor: pointer; font-weight: 500; }
+  .skill-name:hover { text-decoration: underline; }
+
+  /* Badges */
+  .badge { display: inline-block; padding: 2px 8px; border-radius: 12px;
+           font-size: 11px; font-weight: 500; line-height: 1.4; }
+  .badge-builtin { background: rgba(56,139,253,.15); color: var(--accent); }
+  .badge-optional { background: rgba(188,140,255,.15); color: var(--purple); }
+  .badge-custom { background: rgba(63,185,80,.15); color: var(--green); }
+  .badge-agent { background: var(--bg3); color: var(--fg2); margin: 1px 2px; font-size: 10px; }
+  .badge-deployed { color: var(--green); }
+  .badge-missing { color: var(--red); }
+  .badge-drift { color: var(--yellow); font-size: 11px; }
+  .badge-tier { background: var(--bg3); color: var(--fg2); }
+
+  /* Detail panel (slide-in) */
+  .panel-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100; }
+  .panel-overlay.open { display: block; }
+  .panel { position: fixed; top: 0; right: 0; bottom: 0; width: min(720px, 90vw);
+           background: var(--bg); border-left: 1px solid var(--border);
+           z-index: 101; overflow-y: auto; padding: 24px;
+           transform: translateX(100%); transition: transform .2s ease; }
+  .panel-overlay.open .panel { transform: translateX(0); }
+  .panel-header { display: flex; justify-content: space-between; align-items: start;
+                  margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--border); }
+  .panel-header h2 { font-size: 18px; }
+  .panel-meta { display: grid; grid-template-columns: auto 1fr; gap: 4px 16px;
+                font-size: 13px; margin-bottom: 16px; }
+  .panel-meta dt { color: var(--fg2); }
+  .panel-meta dd { color: var(--fg); }
+  .panel-actions { display: flex; gap: 8px; margin-bottom: 16px; }
+
+  /* Editor */
+  .editor-area { width: 100%; min-height: 400px; padding: 12px; font-family: var(--mono);
+                 font-size: 13px; line-height: 1.6; background: var(--bg2); color: var(--fg);
+                 border: 1px solid var(--border); border-radius: var(--radius); resize: vertical;
+                 tab-size: 2; }
+  .editor-area:focus { outline: none; border-color: var(--accent); }
+  .editor-bar { display: flex; gap: 8px; margin-top: 8px; }
+
+  /* Files list */
+  .files-list { list-style: none; font-size: 13px; margin-top: 8px; }
+  .files-list li { padding: 4px 0; }
+  .files-list a { color: var(--accent); text-decoration: none; font-family: var(--mono); font-size: 12px; }
+  .files-list a:hover { text-decoration: underline; }
+
+  /* Create dialog */
+  .dialog-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6);
+                    z-index: 200; align-items: center; justify-content: center; }
+  .dialog-overlay.open { display: flex; }
+  .dialog { background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+            padding: 24px; width: min(500px, 90vw); }
+  .dialog h3 { margin-bottom: 16px; }
+  .form-group { margin-bottom: 12px; }
+  .form-group label { display: block; font-size: 12px; color: var(--fg2); margin-bottom: 4px; }
+  .form-group input, .form-group textarea { width: 100%; padding: 6px 10px; background: var(--bg2);
+    border: 1px solid var(--border); border-radius: var(--radius); color: var(--fg); font-size: 13px; }
+  .form-group textarea { font-family: var(--mono); min-height: 120px; resize: vertical; }
+
+  /* Toast */
+  .toast { position: fixed; bottom: 24px; right: 24px; padding: 10px 20px;
+           border-radius: var(--radius); font-size: 13px; z-index: 300;
+           opacity: 0; transition: opacity .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .toast-ok { background: var(--green); color: #000; }
+  .toast-err { background: var(--red); color: #fff; }
+
+  /* Loading */
+  .loading { text-align: center; padding: 60px; color: var(--fg2); }
+
+  /* Responsive */
+  @media (max-width: 768px) {
+    .controls { flex-direction: column; }
+    .search-box { min-width: unset; width: 100%; }
+    th:nth-child(5), td:nth-child(5),
+    th:nth-child(6), td:nth-child(6),
+    th:nth-child(7), td:nth-child(7) { display: none; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>Skills Manager <span>/ AzureAgentForge</span></h1>
+    <div style="display:flex;gap:8px">
+      <button class="btn btn-primary" onclick="openCreateDialog()">+ New Skill</button>
+      <a class="btn" href="/" title="Back to Paperclip">Back</a>
+    </div>
+  </header>
+
+  <div class="controls">
+    <input class="search-box" id="searchBox" type="text" placeholder="Search skills..." oninput="applyFilters()">
+    <select id="filterCategory" onchange="applyFilters()"><option value="">All categories</option></select>
+    <select id="filterSource" onchange="applyFilters()">
+      <option value="">All sources</option>
+      <option value="built-in">Built-in</option>
+      <option value="optional">Optional</option>
+      <option value="custom">Custom</option>
+    </select>
+    <select id="filterAgent" onchange="applyFilters()"><option value="">All agents</option></select>
+    <select id="filterDeployed" onchange="applyFilters()">
+      <option value="">All states</option>
+      <option value="deployed">Deployed</option>
+      <option value="missing">Missing</option>
+      <option value="drift">Drift</option>
+    </select>
+  </div>
+
+  <div class="stats" id="statsBar"></div>
+
+  <div id="tableWrap">
+    <div class="loading" id="loadingMsg">Loading skills inventory...</div>
+    <table style="display:none" id="skillsTable">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Category</th>
+          <th>Source</th>
+          <th>Tier</th>
+          <th>Description</th>
+          <th>Agents</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody id="skillsBody"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Detail panel -->
+<div class="panel-overlay" id="detailOverlay" onclick="if(event.target===this)closePanel()">
+  <div class="panel" id="detailPanel"></div>
+</div>
+
+<!-- Create dialog -->
+<div class="dialog-overlay" id="createOverlay" onclick="if(event.target===this)closeCreateDialog()">
+  <div class="dialog">
+    <h3>Create Custom Skill</h3>
+    <div class="form-group">
+      <label>Skill Name (lowercase, hyphens)</label>
+      <input id="newName" placeholder="my-custom-skill" pattern="[a-z0-9][a-z0-9-]*">
+    </div>
+    <div class="form-group">
+      <label>Category</label>
+      <input id="newCategory" placeholder="custom" value="custom">
+    </div>
+    <div class="form-group">
+      <label>SKILL.md Content</label>
+      <textarea id="newContent">---
+name: my-custom-skill
+description: A custom skill
+version: 1.0.0
+---
+
+# My Custom Skill
+
+Description here.</textarea>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end">
+      <button class="btn" onclick="closeCreateDialog()">Cancel</button>
+      <button class="btn btn-primary" onclick="createSkill()">Create</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script>
+const API = "/api/skills";
+let allSkills = [];
+let agentMap = {};
+let roster = {};
+
+async function init() {
+  try {
+    const [skillsRes, agentsRes, rosterRes] = await Promise.all([
+      fetch(API).then(r => r.json()),
+      fetch("/api/skills-agents").then(r => r.json()),
+      fetch("/api/skills-roster").then(r => r.json()),
+    ]);
+    allSkills = skillsRes.skills || [];
+    agentMap = agentsRes;
+    roster = rosterRes;
+
+    // Populate filter dropdowns
+    const cats = [...new Set(allSkills.map(s => s.category))].sort();
+    const catSel = document.getElementById("filterCategory");
+    // Clear existing options (keep first)
+    while (catSel.options.length > 1) catSel.remove(1);
+    cats.forEach(c => { const o = document.createElement("option"); o.value = c; o.textContent = c; catSel.appendChild(o); });
+
+    const agents = Object.keys(roster).sort();
+    const agentSel = document.getElementById("filterAgent");
+    while (agentSel.options.length > 1) agentSel.remove(1);
+    agents.forEach(a => { const o = document.createElement("option"); o.value = a; o.textContent = `${a} — ${roster[a]?.displayName || a}`; agentSel.appendChild(o); });
+
+    renderTable(allSkills);
+    document.getElementById("loadingMsg").style.display = "none";
+    document.getElementById("skillsTable").style.display = "";
+  } catch (err) {
+    document.getElementById("loadingMsg").textContent = "Failed to load skills: " + err.message;
+  }
+}
+
+function applyFilters() {
+  let filtered = allSkills;
+  const q = document.getElementById("searchBox").value.toLowerCase();
+  const cat = document.getElementById("filterCategory").value;
+  const src = document.getElementById("filterSource").value;
+  const agent = document.getElementById("filterAgent").value;
+  const dep = document.getElementById("filterDeployed").value;
+
+  if (q) filtered = filtered.filter(s => s.skillName.includes(q) || s.description.toLowerCase().includes(q) || s.category.includes(q));
+  if (cat) filtered = filtered.filter(s => s.category === cat);
+  if (src) filtered = filtered.filter(s => s.source === src);
+  if (agent) filtered = filtered.filter(s => s.agents.includes(agent));
+  if (dep === "deployed") filtered = filtered.filter(s => s.deployed && !s.drift);
+  if (dep === "missing") filtered = filtered.filter(s => !s.deployed);
+  if (dep === "drift") filtered = filtered.filter(s => s.drift);
+
+  renderTable(filtered);
+}
+
+function renderTable(skills) {
+  const tbody = document.getElementById("skillsBody");
+  const deployed = skills.filter(s => s.deployed).length;
+  const drifted = skills.filter(s => s.drift).length;
+  document.getElementById("statsBar").innerHTML =
+    `<span><strong>${skills.length}</strong> skills</span>` +
+    `<span><strong>${deployed}</strong> deployed</span>` +
+    (drifted ? `<span style="color:var(--yellow)"><strong>${drifted}</strong> drift</span>` : "");
+
+  tbody.innerHTML = skills.map(s => {
+    const srcBadge = `<span class="badge badge-${esc(s.source)}">${esc(s.source)}</span>`;
+    const tierBadge = s.tier ? `<span class="badge badge-tier">T${esc(s.tier)}</span>` : '<span style="color:var(--fg2)">-</span>';
+    const agents = s.agents.map(a => `<span class="badge badge-agent">${esc(a)}</span>`).join(" ");
+    let status = s.deployed
+      ? '<span class="badge-deployed">deployed</span>'
+      : '<span class="badge-missing">missing</span>';
+    if (s.drift === "unlisted") status += ' <span class="badge-drift">(unlisted)</span>';
+    else if (s.drift === "missing_runtime") status = '<span class="badge-missing">missing</span> <span class="badge-drift">(drift)</span>';
+
+    const id = encodeURIComponent(s.sourceRelativePath);
+    return `<tr>
+      <td><span class="skill-name" onclick="openSkill('${id}')">${esc(s.skillName)}</span></td>
+      <td>${esc(s.category)}</td>
+      <td>${srcBadge}</td>
+      <td>${tierBadge}</td>
+      <td style="max-width:300px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(s.description)}</td>
+      <td>${agents || '<span style="color:var(--fg2)">none</span>'}</td>
+      <td>${status}</td>
+    </tr>`;
+  }).join("");
+}
+
+async function openSkill(id) {
+  const res = await fetch(`${API}/${id}`);
+  if (!res.ok) { toast("Failed to load skill", true); return; }
+  const skill = await res.json();
+
+  const panel = document.getElementById("detailPanel");
+  const srcBadge = `<span class="badge badge-${esc(skill.source)}">${esc(skill.source)}</span>`;
+  const editableNote = skill.editable ? "" : " (read-only)";
+
+  // Build agent checkboxes
+  const agentSlugs = Object.keys(roster).sort();
+  const agentChecks = agentSlugs.map(a => {
+    const checked = skill.agents.includes(a) ? "checked" : "";
+    const label = roster[a]?.displayName || a;
+    return `<label style="display:inline-flex;align-items:center;gap:4px;margin:2px 8px 2px 0;font-size:12px;cursor:pointer">
+      <input type="checkbox" value="${esc(a)}" ${checked} style="cursor:pointer"> ${esc(label)}
+    </label>`;
+  }).join("");
+
+  panel.innerHTML = `
+    <div class="panel-header">
+      <div>
+        <h2>${esc(skill.skillName)}</h2>
+        <div style="margin-top:4px">${srcBadge} ${skill.tier ? `<span class="badge badge-tier">Tier ${skill.tier}</span>` : ""}</div>
+      </div>
+      <button class="btn btn-sm" onclick="closePanel()">Close</button>
+    </div>
+    <dl class="panel-meta">
+      <dt>Category</dt><dd>${esc(skill.category)}</dd>
+      <dt>Path</dt><dd style="font-family:var(--mono);font-size:12px">${esc(skill.sourceRelativePath)}</dd>
+      <dt>Editable</dt><dd>${skill.editable ? "Yes" : "No (built-in)"}</dd>
+      ${skill.version ? `<dt>Version</dt><dd>${esc(skill.version)}</dd>` : ""}
+    </dl>
+    <div style="margin-bottom:16px;padding:12px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius)">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <strong style="font-size:12px;color:var(--fg2)">Agent Assignments</strong>
+        <button class="btn btn-sm btn-primary" id="saveAgentsBtn" style="display:none" onclick="saveAgents('${esc(skill.skillName)}')">Save Agents</button>
+      </div>
+      <div id="agentCheckboxes" onchange="document.getElementById('saveAgentsBtn').style.display=''">
+        ${agentChecks}
+      </div>
+    </div>
+    <div class="panel-actions">
+      ${skill.editable ? `<button class="btn btn-sm" onclick="toggleEdit()">Edit SKILL.md</button>
+      <button class="btn btn-sm btn-danger" onclick="deleteSkill('${encodeURIComponent(skill.sourceRelativePath)}')">Delete</button>` : ""}
+      ${!skill.editable ? `<button class="btn btn-sm" onclick="cloneSkill('${encodeURIComponent(skill.sourceRelativePath)}')">Clone as Custom</button>` : ""}
+    </div>
+    ${skill.files.length ? `<div style="margin-bottom:12px"><strong style="font-size:12px;color:var(--fg2)">Linked Files</strong>
+      <ul class="files-list">${skill.files.map(f => `<li><a href="${API}/${encodeURIComponent(skill.sourceRelativePath)}/files/${encodeURIComponent(f)}" target="_blank">${esc(f)}</a></li>`).join("")}</ul>
+    </div>` : ""}
+    <div>
+      <strong style="font-size:12px;color:var(--fg2)">SKILL.md${editableNote}</strong>
+      <textarea class="editor-area" id="skillEditor" ${skill.editable ? "" : "readonly"} spellcheck="false">${esc(skill.content)}</textarea>
+      <div class="editor-bar" id="editorBar" style="display:none">
+        <button class="btn btn-primary btn-sm" onclick="saveSkill('${encodeURIComponent(skill.sourceRelativePath)}')">Save</button>
+        <button class="btn btn-sm" onclick="toggleEdit()">Cancel</button>
+      </div>
+    </div>
+  `;
+
+  document.getElementById("detailOverlay").classList.add("open");
+}
+
+function toggleEdit() {
+  const bar = document.getElementById("editorBar");
+  const ed = document.getElementById("skillEditor");
+  if (bar.style.display === "none") {
+    bar.style.display = "flex";
+    ed.focus();
+  } else {
+    bar.style.display = "none";
+  }
+}
+
+async function saveSkill(id) {
+  const content = document.getElementById("skillEditor").value;
+  const res = await fetch(`${API}/${id}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ content }),
+  });
+  if (res.ok) {
+    toast("Skill saved");
+    document.getElementById("editorBar").style.display = "none";
+  } else {
+    const err = await res.json();
+    toast(err.error || "Save failed", true);
+  }
+}
+
+async function saveAgents(skillName) {
+  const checkboxes = document.querySelectorAll("#agentCheckboxes input[type=checkbox]");
+  const agents = Array.from(checkboxes).filter(c => c.checked).map(c => c.value);
+  const res = await fetch("/api/skills-agents", {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ skillName, agents }),
+  });
+  if (res.ok) {
+    toast(`Agents updated for ${skillName}`);
+    document.getElementById("saveAgentsBtn").style.display = "none";
+    init(); // reload to reflect changes in the table
+  } else {
+    const err = await res.json();
+    toast(err.error || "Failed to update agents", true);
+  }
+}
+
+async function deleteSkill(id) {
+  if (!confirm("Delete this skill? This cannot be undone.")) return;
+  const res = await fetch(`${API}/${id}`, { method: "DELETE" });
+  if (res.ok) {
+    toast("Skill deleted");
+    closePanel();
+    init(); // reload
+  } else {
+    const err = await res.json();
+    toast(err.error || "Delete failed", true);
+  }
+}
+
+async function cloneSkill(id) {
+  const res = await fetch(`${API}/${id}`);
+  if (!res.ok) return;
+  const skill = await res.json();
+  document.getElementById("newName").value = skill.skillName + "-custom";
+  document.getElementById("newCategory").value = "custom";
+  // Rewrite frontmatter name
+  const content = skill.content.replace(/^(name:\s*).*$/m, `$1${skill.skillName}-custom`);
+  document.getElementById("newContent").value = content;
+  closePanel();
+  openCreateDialog();
+}
+
+function openCreateDialog() { document.getElementById("createOverlay").classList.add("open"); }
+function closeCreateDialog() { document.getElementById("createOverlay").classList.remove("open"); }
+
+async function createSkill() {
+  const name = document.getElementById("newName").value.trim();
+  const category = document.getElementById("newCategory").value.trim();
+  const content = document.getElementById("newContent").value;
+
+  if (!name || !category || !content) { toast("All fields required", true); return; }
+
+  const res = await fetch(API, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name, category, content }),
+  });
+
+  if (res.ok || res.status === 201) {
+    toast("Skill created");
+    closeCreateDialog();
+    init(); // reload
+  } else {
+    const err = await res.json();
+    toast(err.error || "Create failed", true);
+  }
+}
+
+function closePanel() { document.getElementById("detailOverlay").classList.remove("open"); }
+
+function esc(s) {
+  if (!s) return "";
+  return String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;").replace(/'/g,"&#39;");
+}
+
+function toast(msg, isErr) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.className = "toast show " + (isErr ? "toast-err" : "toast-ok");
+  setTimeout(() => el.className = "toast", 3000);
+}
+
+// Keyboard shortcut: Escape closes panel/dialog
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") { closePanel(); closeCreateDialog(); }
+});
+
+init();
+</script>
+</body>
+</html>

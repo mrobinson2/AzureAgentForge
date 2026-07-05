@@ -1,0 +1,8 @@
+name: QA
+role: qa
+description: >-
+  Designs and runs tests, reproduces issues, and verifies fixes before work is
+  marked done.
+model_tier: economy
+toolsets: [terminal, file]
+reports_to: Coder

@@ -1,0 +1,31 @@
+# secrets & state
+.env
+.env.*
+!.env.example
+*.tfstate
+*.tfstate.*
+tfplan
+*.tfvars
+!*.tfvars.example
+!infrastructure/profiles/*.tfvars
+.terraform/
+*.pem
+*.key
+secrets/
+# installer-generated backend override (local state for turnkey deploys)
+*_override.tf
+override.tf
+# installer runtime artifacts
+.forge-venv/
+installer/.runs/
+# python
+__pycache__/
+*.pyc
+.agents-venv/
+.router-venv/
+*-venv/
+# demo render tooling (Playwright is installed on demand by demos/make-demos.sh)
+node_modules/
+# os/editor
+.DS_Store
+infrastructure/modules/cloudflare-tunnel/.terraform.lock.hcl

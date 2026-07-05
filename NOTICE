@@ -1,0 +1,47 @@
+AzureAgentForge
+Copyright (c) 2026 AzureAgentForge contributors
+
+This product is licensed under the MIT License (see LICENSE).
+
+It builds on, vendors, and/or patches the following third-party open-source
+projects. Each remains under its own license and copyright; the patch and
+override files in this repository are derivative works of those projects.
+
+--------------------------------------------------------------------------------
+PaperClip  (agent orchestrator: UI, REST API, plugin SDK)
+  Source:    https://github.com/paperclipai/paperclip
+  License:   MIT License
+  Copyright: (c) PaperClip authors
+
+  Pulled at Docker build time. The files under apps/paperclip/ (the patch-*.mjs
+  scripts, auth-proxy.mjs, docker-entrypoint.sh, and wrappers) patch or wrap
+  PaperClip's plugin SDK and adapter; portions adapt PaperClip source verbatim
+  to restore or extend upstream behavior.
+
+--------------------------------------------------------------------------------
+Hermes  (agent runtime, spawned per task by the hermes-paperclip-adapter)
+  Source:    https://github.com/NousResearch/hermes-agent
+  License:   MIT License
+  Copyright: (c) 2025 Nous Research
+  Vendored:  apps/hermes/src (git submodule)
+
+  Custom skill overlays under apps/hermes/overrides/skills/ extend Hermes'
+  built-in skill set; they are AzureAgentForge-authored and MIT-licensed.
+
+--------------------------------------------------------------------------------
+Honcho  (conversation memory store + deriver)
+  Source:    https://github.com/plastic-labs/honcho
+  License:   GNU Affero General Public License v3.0 (AGPL-3.0)
+  Copyright: (c) Plastic Labs
+  Vendored:  apps/honcho/src (git submodule)
+
+  Honcho is AGPL-3.0. Its source is referenced as an unmodified submodule and is
+  NOT relicensed by this repository. Only apps/honcho/docker-entrypoint.sh (an
+  AzureAgentForge-authored container entrypoint wrapper, MIT) lives outside the
+  submodule. Operators who deploy Honcho must comply with the AGPL-3.0 terms,
+  including its network-use source-availability requirement.
+
+--------------------------------------------------------------------------------
+
+Full license texts: see each project's LICENSE file (the submodules carry their
+own at apps/hermes/src/LICENSE and apps/honcho/src/LICENSE).

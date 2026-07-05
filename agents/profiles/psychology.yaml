@@ -1,0 +1,7 @@
+name: Psychology
+role: psychology
+description: >-
+  Advises on human factors, communication, and user-experience considerations.
+model_tier: economy
+toolsets: [file]
+reports_to: Business

@@ -1,0 +1,8 @@
+name: Strategy
+role: strategy
+description: >-
+  Turns broad goals into a sequenced plan of work and assigns it to the right
+  specialists.
+model_tier: standard
+toolsets: [terminal, file]
+reports_to: Orchestrator

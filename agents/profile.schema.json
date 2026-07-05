@@ -1,0 +1,18 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AzureAgentForge agent profile",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "role", "description", "model_tier", "toolsets"],
+  "properties": {
+    "name": { "type": "string", "minLength": 1 },
+    "role": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 10 },
+    "model_tier": { "type": "string", "enum": ["frontier", "standard", "economy"] },
+    "toolsets": {
+      "type": "array", "minItems": 1, "uniqueItems": true,
+      "items": { "type": "string", "enum": ["terminal", "file", "browser"] }
+    },
+    "reports_to": { "type": ["string", "null"] }
+  }
+}

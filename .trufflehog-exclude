@@ -1,0 +1,8 @@
+# Paths excluded from trufflehog filesystem scanning (one regex per line).
+# Upstream submodule trees are governed by their own upstreams, not AAF.
+^apps/hermes/src/
+^apps/honcho/src/
+# Binary assets — no secrets, large.
+\.png$
+\.gif$
+\.jpg$

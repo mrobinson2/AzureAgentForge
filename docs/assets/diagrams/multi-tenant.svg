@@ -1,0 +1,303 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1654" height="1169" viewBox="0 0 1654 1169" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="azBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3399E5"/>
+      <stop offset="1" stop-color="#0066B4"/>
+    </linearGradient>
+    <linearGradient id="azGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5CB36B"/>
+      <stop offset="1" stop-color="#2E7D3D"/>
+    </linearGradient>
+    <linearGradient id="azGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0B65C"/>
+      <stop offset="1" stop-color="#C18B27"/>
+    </linearGradient>
+    <linearGradient id="azGrey" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#AEB9C4"/>
+      <stop offset="1" stop-color="#8593A1"/>
+    </linearGradient>
+    <linearGradient id="azPurple" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#A892D6"/>
+      <stop offset="1" stop-color="#6A4FA3"/>
+    </linearGradient>
+    <marker id="arrNavy" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0B3D66"/></marker>
+    <marker id="arrNavyMS" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrNavyME" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrGreenS" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 Z" fill="#3C7A47"/></marker>
+    <marker id="arrGreenE" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#3C7A47"/></marker>
+    <marker id="arrGold" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#C9851F"/></marker>
+    <marker id="arrPurple" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#8E7CC3"/></marker>
+  </defs>
+
+  <rect width="1654" height="1169" fill="#FFFFFF"/>
+
+  <!-- ===== TITLE BLOCK ===== -->
+  <rect x="40" y="32" width="1574" height="62" fill="#0B3D66"/>
+  <text x="60" y="71" fill="#FFFFFF" font-size="22" font-weight="700">AzureAgentForge — Multi-Tenant (design target)</text>
+  <text x="1594" y="60" fill="#BBD7EE" font-size="12" text-anchor="end">Schema-per-tenant + row-level security · per-tenant routing · reference architecture</text>
+  <text x="1594" y="78" fill="#BBD7EE" font-size="12" text-anchor="end">~20–30% implemented · never deployed</text>
+
+  <!-- ===== DESIGN-TARGET BANNER ===== -->
+  <rect x="40" y="104" width="1574" height="34" rx="6" fill="#FBF3E0" stroke="#C9A45B" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="54" y="125" fill="#8A6D1F" font-size="11" font-weight="700">🚧  DESIGN TARGET — partially implemented (~20–30%), never deployed.  The single-tenant stack is what actually ships and what CI validates.  Dashed / muted = design intent, not built.  Source: experimental/multi-tenant/ARCHITECTURE.md</text>
+
+  <!-- ===== PER-TENANT INGRESS BAND ===== -->
+  <rect x="100" y="152" width="700" height="118" rx="8" fill="#F5F7FA" stroke="#AEB9C4"/>
+  <text x="116" y="171" fill="#5B7A95" font-size="11" font-weight="700">Per-tenant ingress · one wildcard front door, tenant resolved from subdomain</text>
+
+  <rect x="118" y="178" width="150" height="40" rx="6" fill="#FFFFFF" stroke="#0078D4"/>
+  <text x="193" y="195" fill="#23272E" font-size="10" text-anchor="middle">Tenant A users</text>
+  <text x="193" y="209" fill="#5B6B7B" font-size="9" text-anchor="middle">acme.app.example.com</text>
+
+  <rect x="118" y="222" width="150" height="40" rx="6" fill="#FFFFFF" stroke="#6264A7"/>
+  <text x="193" y="239" fill="#23272E" font-size="10" text-anchor="middle">Tenant B users</text>
+  <text x="193" y="253" fill="#5B6B7B" font-size="9" text-anchor="middle">globex.app.example.com</text>
+
+  <!-- wildcard tunnel (design target, dashed) -->
+  <rect x="300" y="170" width="480" height="84" rx="8" fill="#FFFFFF" stroke="#9AA7B4" stroke-width="1" stroke-dasharray="4 3"/>
+  <rect x="312" y="182" width="26" height="26" rx="3" fill="url(#azGrey)"/>
+  <path d="M325,184 a11,11 0 1 0 0.1,0 M314,195 h22 M325,184 q-7,11 0,22 q7,-11 0,-22" fill="none" stroke="#FFFFFF" stroke-width="1.3"/>
+  <text x="346" y="197" fill="#42505E" font-size="12" font-weight="700">Cloudflare wildcard tunnel  (design target)</text>
+  <text x="312" y="223" fill="#6B7886" font-size="10">*.app.example.com → http://ca-orchestrator · single CNAME</text>
+  <text x="312" y="237" fill="#6B7886" font-size="10">Paperclip resolves tenant slug from the subdomain</text>
+  <text x="312" y="251" fill="#6B7886" font-size="10">(tenant-resolver middleware — not built)</text>
+
+  <!-- ===== CONTROL PLANE ===== -->
+  <rect x="820" y="152" width="734" height="118" rx="8" fill="#F2EEF8" stroke="#8E7CC3" stroke-width="1.5" stroke-dasharray="6 4"/>
+  <text x="836" y="171" fill="#6A4FA3" font-size="11" font-weight="700">Control plane · tenant registry &amp; provisioning  (scaffold only — experimental/multi-tenant/control-plane)</text>
+
+  <!-- provisioning API -->
+  <rect x="838" y="186" width="318" height="74" rx="8" fill="#FFFFFF" stroke="#8E7CC3" stroke-width="1" stroke-dasharray="4 3"/>
+  <rect x="850" y="196" width="26" height="26" rx="3" fill="url(#azPurple)"/>
+  <path d="M855,209 h16 M858,203 l6,6 l-6,6" fill="none" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="884" y="210" fill="#4A3A75" font-size="12" font-weight="700">Provisioning API  (FastAPI · scaffold)</text>
+  <text x="850" y="234" fill="#6B7886" font-size="10">POST /tenants · GET /tenants/{slug}</text>
+  <text x="850" y="248" fill="#6B7886" font-size="10">onboards tenant: DB row + owner + web channel</text>
+  <text x="850" y="262" fill="#6B7886" font-size="10">+ Azure AI Search index (mem-{slug})</text>
+
+  <!-- tenant registry DB (aaf_core) -->
+  <rect x="1176" y="186" width="362" height="74" rx="8" fill="#FFFFFF" stroke="#8E7CC3" stroke-width="1" stroke-dasharray="4 3"/>
+  <rect x="1188" y="196" width="26" height="26" rx="3" fill="url(#azPurple)"/>
+  <ellipse cx="1201" cy="204" rx="8" ry="3" fill="#FFFFFF"/>
+  <path d="M1193,204 v11 a8,3 0 0 0 16,0 v-11" fill="none" stroke="#FFFFFF" stroke-width="1.5"/>
+  <text x="1222" y="210" fill="#4A3A75" font-size="12" font-weight="700">aaf_core — tenant registry</text>
+  <text x="1188" y="234" fill="#6B7886" font-size="10">tenants · users · channels · tenant_api_keys</text>
+  <text x="1188" y="248" fill="#6B7886" font-size="10">· tenant_features (per-tenant flags + plan/</text>
+  <text x="1188" y="262" fill="#6B7886" font-size="10">namespace/vector_index_name/budget limits)</text>
+
+  <!-- control-plane edges (purple dashed) -->
+  <!-- C1 API -> registry -->
+  <path d="M1156,223 H1176" fill="none" stroke="#8E7CC3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrPurple)"/>
+  <rect x="1100" y="166" width="124" height="16" rx="8" fill="#F2EEF8" stroke="#8E7CC3"/><text x="1162" y="178" fill="#6A4FA3" font-size="9" font-weight="700" text-anchor="middle">C1 create / read tenant</text>
+
+  <!-- ===== AZURE REGION BOUNDARY ===== -->
+  <rect x="100" y="296" width="1454" height="780" rx="10" fill="none" stroke="#0078D4" stroke-width="2" stroke-dasharray="8 4"/>
+  <g transform="translate(114,306)">
+    <rect x="0" y="0" width="26" height="26" rx="4" fill="url(#azBlue)"/>
+    <path d="M6,18 L13,6 L20,18 Z" fill="#FFFFFF"/>
+  </g>
+  <text x="148" y="324" fill="#0078D4" font-size="12" font-weight="700">Azure region · single subscription / resource group · shared data plane (one stack serves all tenants)</text>
+
+  <!-- ===== VNET BOUNDARY ===== -->
+  <rect x="128" y="350" width="1398" height="708" rx="10" fill="#F2F8FD" fill-opacity="0.6" stroke="#0B6BB0" stroke-width="2" stroke-dasharray="6 4"/>
+  <g transform="translate(142,360)">
+    <rect x="0" y="2" width="26" height="22" rx="3" fill="url(#azBlue)"/>
+    <path d="M5,8 h16 M5,13 h16 M5,18 h10" stroke="#FFFFFF" stroke-width="1.6"/>
+  </g>
+  <text x="176" y="378" fill="#0B6BB0" font-size="12" font-weight="700">Private Virtual Network · shared ACA environment, shared PostgreSQL — isolation is logical (RLS), not physical</text>
+
+  <!-- ===== CONTAINER APPS ENVIRONMENT ===== -->
+  <rect x="152" y="406" width="1042" height="490" rx="10" fill="#E9F3FB" stroke="#0078D4" stroke-width="1.5"/>
+  <g transform="translate(166,416)">
+    <rect x="0" y="0" width="24" height="24" rx="3" fill="url(#azBlue)"/>
+    <path d="M5,12 h14 M12,5 v14" stroke="#FFFFFF" stroke-width="1.8"/>
+  </g>
+  <text x="198" y="433" fill="#0078D4" font-size="11" font-weight="700">Container Apps Environment · shared, multi-tenant aware · tenant context carried per request (X-Tenant-ID / app.tenant_id)</text>
+
+  <!-- PaperClip orchestrator -->
+  <rect x="184" y="456" width="244" height="150" rx="7" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="196" y="468" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M205,492 v-14 h8 a4,4 0 0 1 0,8 h-8" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  <text x="234" y="488" fill="#1B2733" font-size="13" font-weight="700">PaperClip</text>
+  <text x="196" y="520" fill="#5B6B7B" font-size="10">Orchestrator + Web UI · :3100</text>
+  <text x="196" y="534" fill="#5B6B7B" font-size="10">company = tenant (slug ↔ company.slug)</text>
+  <text x="196" y="548" fill="#5B6B7B" font-size="10">resolves tenant from subdomain;</text>
+  <text x="196" y="562" fill="#5B6B7B" font-size="10">JWT carries company_id / tenant_id;</text>
+  <text x="196" y="576" fill="#5B6B7B" font-size="10">per-tenant file-share subdir</text>
+
+  <!-- Hermes -->
+  <rect x="468" y="456" width="328" height="212" rx="7" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="480" y="468" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M489,492 l6,-14 l6,14 M491,487 h8" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  <text x="518" y="488" fill="#1B2733" font-size="13" font-weight="700">Hermes — Agent runtime</text>
+  <text x="480" y="518" fill="#5B6B7B" font-size="10">Container App · :8080</text>
+  <text x="480" y="532" fill="#5B6B7B" font-size="10">Option A (default): shared Hermes,</text>
+  <text x="480" y="546" fill="#5B6B7B" font-size="10">tenant-scoped HONCHO_APP_ID per tenant</text>
+  <text x="480" y="560" fill="#5B6B7B" font-size="10">(hermes-dev-{slug}); passes X-Tenant-ID</text>
+
+  <!-- Model Router sidecar (per-tenant budgets, dashed) -->
+  <rect x="484" y="570" width="296" height="86" rx="8" fill="#EFF6FC" stroke="#0078D4" stroke-width="1" stroke-dasharray="3 3"/>
+  <rect x="494" y="580" width="26" height="26" rx="3" fill="url(#azBlue)"/>
+  <path d="M500,593 h14 M507,587 l7,6 l-7,6" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="526" y="594" fill="#1B2733" font-size="12" font-weight="700">Model Router (sidecar · :8080)</text>
+  <text x="494" y="624" fill="#5B6B7B" font-size="10">per-tenant budgets: nested tenant→tier→spend</text>
+  <text x="494" y="638" fill="#5B6B7B" font-size="10">keyed on X-Tenant-ID · DB-backed (budget_spend)</text>
+  <text x="494" y="652" fill="#5B6B7B" font-size="10">design target (today: flat per-tier _spend dict)</text>
+
+  <!-- Honcho -->
+  <rect x="836" y="456" width="334" height="212" rx="7" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="848" y="468" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <ellipse cx="863" cy="477" rx="9" ry="3.5" fill="#FFFFFF"/>
+  <path d="M854,477 v12 a9,3.5 0 0 0 18,0 v-12" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="886" y="488" fill="#1B2733" font-size="13" font-weight="700">Honcho — agent memory</text>
+  <text x="848" y="518" fill="#5B6B7B" font-size="10">Container App · :8000 · pgvector recall</text>
+  <text x="848" y="532" fill="#5B6B7B" font-size="10">tenant-scoped app_id per tenant +</text>
+  <text x="848" y="546" fill="#5B6B7B" font-size="10">tenant_id column on every table;</text>
+  <text x="848" y="560" fill="#5B6B7B" font-size="10">session isolation via app_id + RLS</text>
+  <rect x="848" y="570" width="310" height="46" rx="6" fill="#EFF6FC" stroke="#0078D4" stroke-dasharray="3 3"/>
+  <text x="856" y="589" fill="#42505E" font-size="9">Connection middleware (design target): SET app.tenant_id</text>
+  <text x="856" y="602" fill="#42505E" font-size="9">on every checkout — Python (SQLAlchemy) &amp; TS (Drizzle)</text>
+  <rect x="848" y="624" width="310" height="34" rx="6" fill="#F7F8FA" stroke="#9AA7B4" stroke-dasharray="4 3"/>
+  <text x="856" y="638" fill="#6B7886" font-size="9">Option B (&gt;20 tenants): dedicated ca-hermes-{slug} per</text>
+  <text x="856" y="650" fill="#6B7886" font-size="9">tenant (Terraform modules/tenant — designed, never applied)</text>
+
+  <!-- routing note inside CAE -->
+  <rect x="184" y="640" width="244" height="240" rx="8" fill="#FCFCFD" stroke="#C7D2DD"/>
+  <text x="194" y="662" fill="#5B6B7B" font-size="10">Per-tenant routing is logical: one set of</text>
+  <text x="194" y="676" fill="#5B6B7B" font-size="10">containers serves every tenant. The tenant</text>
+  <text x="194" y="690" fill="#5B6B7B" font-size="10">identity (slug) flows:</text>
+  <text x="194" y="708" fill="#5B6B7B" font-size="10">  subdomain →</text>
+  <text x="194" y="722" fill="#5B6B7B" font-size="10">  JWT (company_id/tenant_id) →</text>
+  <text x="194" y="736" fill="#5B6B7B" font-size="10">  X-Tenant-ID header →</text>
+  <text x="194" y="750" fill="#5B6B7B" font-size="10">  SET app.tenant_id on the DB connection.</text>
+  <text x="194" y="768" fill="#5B6B7B" font-size="10">No per-tenant containers in the default</text>
+  <text x="194" y="782" fill="#5B6B7B" font-size="10">(Option A) path.</text>
+  <text x="194" y="804" fill="#8E7CC3" font-size="9" font-style="italic">Migration: 4 phases (DB+RLS → router/</text>
+  <text x="194" y="817" fill="#8E7CC3" font-size="9" font-style="italic">agents → routing/orchestrator → 2nd</text>
+  <text x="194" y="830" fill="#8E7CC3" font-size="9" font-style="italic">tenant + prod). Each phase has a</text>
+  <text x="194" y="843" fill="#8E7CC3" font-size="9" font-style="italic">rollback path — ARCHITECTURE.md §12.</text>
+
+  <!-- ===== SHARED DATA LAYER COLUMN ===== -->
+  <rect x="1216" y="406" width="290" height="630" rx="6" fill="#EDF6EE" stroke="#5FA56B"/>
+  <text x="1232" y="425" fill="#3C7A47" font-size="11" font-weight="700">Shared data layer · tenant isolation lives here (RLS)</text>
+
+  <!-- PostgreSQL -->
+  <rect x="1238" y="446" width="246" height="92" rx="7" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="1250" y="458" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <ellipse cx="1265" cy="467" rx="9" ry="3.5" fill="#FFFFFF"/>
+  <path d="M1256,467 v12 a9,3.5 0 0 0 18,0 v-12" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="1288" y="474" fill="#1B2733" font-size="12" font-weight="700">PostgreSQL Flexible Server</text>
+  <text x="1456" y="470" font-size="14">🔒</text>
+  <text x="1250" y="510" fill="#5B6B7B" font-size="10">single B1ms instance · DBs: honcho + paperclip</text>
+  <text x="1250" y="524" fill="#5B6B7B" font-size="10">public schema · NO database-per-tenant</text>
+
+  <!-- RLS isolation block (nested, dashed green) -->
+  <rect x="1238" y="552" width="246" height="208" rx="6" fill="#F6FBF6" stroke="#3C7A47" stroke-width="1.5" stroke-dasharray="4 3"/>
+  <text x="1252" y="578" font-size="15">🔒</text>
+  <text x="1280" y="578" fill="#2E6638" font-size="12" font-weight="700">Schema-per-tenant via RLS</text>
+  <text x="1280" y="592" fill="#2E6638" font-size="10" font-weight="700">(design target)</text>
+  <text x="1250" y="610" fill="#3C7A47" font-size="9">• tenant_id UUID column on every table</text>
+  <text x="1250" y="622" fill="#3C7A47" font-size="9">  (workspaces, peers, sessions, messages,</text>
+  <text x="1250" y="634" fill="#3C7A47" font-size="9">  message_embeddings, documents,</text>
+  <text x="1250" y="646" fill="#3C7A47" font-size="9">  collections, queue; paperclip ↔ company_id)</text>
+  <text x="1250" y="658" fill="#3C7A47" font-size="9">• ROW LEVEL SECURITY enabled per table</text>
+  <text x="1250" y="670" fill="#3C7A47" font-size="9">• policy: tenant_id = current_setting</text>
+  <text x="1250" y="682" fill="#3C7A47" font-size="9">  ('app.tenant_id')::uuid  (USING + WITH CHECK)</text>
+  <text x="1250" y="694" fill="#3C7A47" font-size="9">• app roles honcho_app / paperclip_app</text>
+  <text x="1250" y="706" fill="#3C7A47" font-size="9">  subject to RLS — default DENY</text>
+  <text x="1250" y="718" fill="#3C7A47" font-size="9">• postgres admin bypasses RLS (not used by apps)</text>
+
+  <!-- Key Vault -->
+  <rect x="1238" y="776" width="246" height="92" rx="7" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="1250" y="788" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <path d="M1265,795 a4,4 0 0 1 4,4 v3 h-8 v-3 a4,4 0 0 1 4,-4 Z M1258,802 h14 v9 h-14 Z" fill="#FFFFFF"/>
+  <text x="1288" y="808" fill="#1B2733" font-size="12" font-weight="700">Key Vault (shared)</text>
+  <text x="1456" y="800" font-size="14">🔒</text>
+  <text x="1250" y="840" fill="#5B6B7B" font-size="10">tenant-prefixed secrets platform-{slug}-*</text>
+  <text x="1250" y="854" fill="#5B6B7B" font-size="10">+ platform-shared-* · RBAC condition scopes</text>
+  <text x="1250" y="866" fill="#5B6B7B" font-size="10">each tenant identity to its own prefix</text>
+
+  <!-- audit / AI search note -->
+  <text x="1238" y="894" fill="#3C7A47" font-size="9" font-style="italic">Audit log (design target): audit_log table +</text>
+  <text x="1238" y="907" fill="#3C7A47" font-size="9" font-style="italic">per-table triggers capture every tenant-scoped</text>
+  <text x="1238" y="920" fill="#3C7A47" font-size="9" font-style="italic">INSERT / UPDATE / DELETE. Per-tenant Azure AI</text>
+  <text x="1238" y="933" fill="#3C7A47" font-size="9" font-style="italic">Search index mem-{slug} created at onboarding.</text>
+
+  <!-- ===== LLM BACKEND ===== -->
+  <rect x="1010" y="262" width="280" height="74" rx="8" fill="#FFFFFF" stroke="#C9A45B" stroke-width="1.5"/>
+  <rect x="1022" y="274" width="30" height="30" rx="4" fill="url(#azGold)"/>
+  <circle cx="1037" cy="289" r="8" fill="#FFFFFF" opacity="0.9"/><circle cx="1037" cy="289" r="3.5" fill="url(#azGold)"/>
+  <text x="1060" y="290" fill="#1B2733" font-size="12" font-weight="700">Azure AI Foundry  (shared backend)</text>
+  <text x="1022" y="318" fill="#8A6D1F" font-size="10">primary inference · stateless per request</text>
+  <text x="1022" y="332" fill="#8A6D1F" font-size="10">no cross-tenant state in the router or model</text>
+
+  <!-- ===== CONTROL-PLANE PROVISION EDGE (purple dashed, C2) ===== -->
+  <path d="M1357,260 V420 H1402 V552" fill="none" stroke="#8E7CC3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrPurple)"/>
+  <rect x="1300" y="382" width="246" height="16" rx="8" fill="#FFFFFF" stroke="#8E7CC3"/><text x="1423" y="394" fill="#6A4FA3" font-size="9" font-style="italic" text-anchor="middle">C2 provision: tenant_id + RLS policies + KV secrets</text>
+
+  <!-- ===== NUMBERED DATA-FLOW EDGES ===== -->
+  <!-- 1 tenant A -> tunnel -->
+  <path d="M268,198 H300" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="288" cy="198" r="10" fill="#0B3D66"/><text x="288" y="202" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">1</text>
+  <!-- 1 tenant B -> tunnel -->
+  <path d="M268,242 H300 V229" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="288" cy="242" r="10" fill="#0B3D66"/><text x="288" y="246" fill="#FFFFFF" font-size="11" font-weight="700" text-anchor="middle">1</text>
+
+  <!-- 2 tunnel -> PaperClip -->
+  <path d="M348,254 V430 H306 V456" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="232" y="421" width="184" height="16" rx="8" fill="#FFFFFF" stroke="#0B3D66"/><text x="324" y="433" fill="#0B3D66" font-size="9" font-weight="700" text-anchor="middle">2 resolve tenant from subdomain</text>
+
+  <!-- 3 PaperClip -> Hermes -->
+  <path d="M428,501 H468" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="378" y="486" width="126" height="16" rx="8" fill="#FFFFFF" stroke="#0B3D66"/><text x="441" y="498" fill="#0B3D66" font-size="9" font-weight="700" text-anchor="middle">3 dispatch (tenant ctx)</text>
+
+  <!-- 4 Hermes -> Router -->
+  <path d="M591,560 V570" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="556" y="553" width="170" height="16" rx="8" fill="#FFFFFF" stroke="#0B3D66"/><text x="641" y="565" fill="#0B3D66" font-size="9" font-weight="700" text-anchor="middle">4 X-Tenant-ID → budget check</text>
+
+  <!-- 5 Hermes <-> Honcho -->
+  <path d="M796,509 H836" fill="none" stroke="#2E6CA3" stroke-width="2" marker-start="url(#arrNavyMS)" marker-end="url(#arrNavyME)"/>
+  <rect x="718" y="495" width="186" height="16" rx="8" fill="#FFFFFF" stroke="#2E6CA3"/><text x="811" y="507" fill="#2E6CA3" font-size="9" font-weight="700" text-anchor="middle">5 memory r/w (app_id={slug})</text>
+
+  <!-- 6 Honcho <-> Postgres (SET app.tenant_id, RLS) -->
+  <path d="M1170,636 H1200 V483 H1238" fill="none" stroke="#3C7A47" stroke-width="2" marker-start="url(#arrGreenS)" marker-end="url(#arrGreenE)"/>
+  <rect x="1142" y="640" width="124" height="28" rx="8" fill="#FFFFFF" stroke="#3C7A47"/>
+  <text x="1204" y="652" fill="#3C7A47" font-size="9" font-weight="700" text-anchor="middle">6 SET app.tenant_id</text>
+  <text x="1204" y="663" fill="#3C7A47" font-size="9" font-weight="700" text-anchor="middle">RLS-filtered queries</text>
+
+  <!-- 7 Router -> Foundry -->
+  <path d="M780,613 H810 V299 H1010" fill="none" stroke="#C9851F" stroke-width="2" marker-end="url(#arrGold)"/>
+  <rect x="816" y="291" width="186" height="16" rx="8" fill="#FFFFFF" stroke="#C9851F"/><text x="909" y="303" fill="#C9851F" font-size="9" font-weight="700" text-anchor="middle">7 inference (per-tenant budget)</text>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="100" y="1092" width="1130" height="56" rx="4" fill="#FFFFFF" stroke="#AEB9C4"/>
+  <text x="114" y="1106" fill="#1B2733" font-size="11" font-weight="700">Legend</text>
+
+  <!-- row 1 -->
+  <line x1="180" y1="1108" x2="224" y2="1108" stroke="#0078D4" stroke-width="2" stroke-dasharray="8 4"/>
+  <text x="230" y="1112" fill="#42505E" font-size="10">trust boundary (region / VNet / env)</text>
+
+  <line x1="456" y1="1108" x2="500" y2="1108" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="477" cy="1108" r="9" fill="#0B3D66"/><text x="477" y="1112" fill="#FFFFFF" font-size="9" font-weight="700" text-anchor="middle">n</text>
+  <text x="506" y="1112" fill="#42505E" font-size="10">numbered tenant request data-flow</text>
+
+  <line x1="724" y1="1108" x2="768" y2="1108" stroke="#8E7CC3" stroke-width="1.5" stroke-dasharray="6 4" marker-end="url(#arrPurple)"/>
+  <text x="774" y="1112" fill="#42505E" font-size="10">control plane · tenant provisioning (Cn)</text>
+
+  <!-- row 2 -->
+  <text x="180" y="1138" font-size="14">🔒</text>
+  <text x="204" y="1138" fill="#42505E" font-size="10">lock = tenant-isolated by RLS / scoped secrets</text>
+
+  <rect x="506" y="1124" width="24" height="16" rx="3" fill="#FBF3E0" stroke="#C9A45B" stroke-dasharray="4 3"/>
+  <text x="538" y="1138" fill="#6B7886" font-size="10" font-style="italic">dashed + muted = design target / scaffold (not built or not deployed)</text>
+
+  <!-- contrast note vs single-tenant -->
+  <rect x="1246" y="1040" width="308" height="108" rx="6" fill="#FCFCFD" stroke="#C7D2DD"/>
+  <text x="1256" y="1058" fill="#5B6B7B" font-size="10" font-weight="700">How the single-tenant stack becomes per-tenant:</text>
+  <text x="1256" y="1072" fill="#5B6B7B" font-size="9">same shared containers + one Postgres serve every tenant.</text>
+  <text x="1256" y="1085" fill="#5B6B7B" font-size="9">Isolation is added in three planes — routing (subdomain →</text>
+  <text x="1256" y="1098" fill="#5B6B7B" font-size="9">JWT → X-Tenant-ID), data (tenant_id + RLS default-deny),</text>
+  <text x="1256" y="1111" fill="#5B6B7B" font-size="9">secrets (platform-{slug}-* KV prefix) — not duplicated infra.</text>
+  <text x="1256" y="1128" fill="#5B6B7B" font-size="9" font-style="italic">See docs/assets/diagrams/system-architecture.* for the</text>
+  <text x="1256" y="1140" fill="#5B6B7B" font-size="9" font-style="italic">shipped single-tenant baseline.</text>
+</svg>

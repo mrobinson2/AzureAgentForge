@@ -1,0 +1,182 @@
+fixture_id: 06-orchestrator-delegate-researcher
+description: >
+  Single-specialist delegation to the Researcher role. The Orchestrator
+  receives an open external-research question — "compare three vector
+  databases for our RAG workload" — that cannot be answered correctly
+  from the model's own parametric memory: it needs current sources,
+  independent benchmarks, pricing, and license posture, then synthesis
+  into a cited recommendation. The correct behavior is to delegate this,
+  unchanged in scope, to the Researcher (the only role wired to do
+  tool-grounded, source-citing investigation) and nobody else.
+
+  The primary failure this guards against is the Orchestrator answering
+  from memory — confidently fabricating a comparison and a "winner" with
+  no sources, no benchmarks, and stale or invented pricing — instead of
+  routing to a role that can ground its claims. That failure is costly
+  because a fabricated recommendation looks authoritative, gets acted on,
+  and the wrong datastore choice is expensive and slow to unwind.
+
+  The secondary failure is mis-routing: handing an external-research
+  question to Curator (internal knowledge curation), to Coder /
+  Infrastructure (build/provision before the decision is even made), or
+  to QA / Security / CostGuardian. Any of those collapses a "decide-what"
+  task into a "do-it" task against the wrong specialist. This fixture
+  also pins that the parent issue is only marked done AFTER a Researcher
+  child exists and is referenced — so a truncated or dropped delegation
+  cannot masquerade as a completed one.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Compare Pinecone, Weaviate, and Qdrant for our RAG workload"
+  body: |
+    We're choosing a vector database for the agent platform's RAG layer
+    and need an independent, sourced evaluation before we commit — not a
+    gut call. Please research and compare three candidates: Pinecone,
+    Weaviate, and Qdrant, and recommend which to adopt.
+
+    Evaluation criteria (in priority order):
+
+    - Total cost of ownership (TCO) at our scale: 50K-500K vectors with
+      ~10 QPS peak. Include both list pricing and realistic running cost.
+    - Operational burden for a one-engineer team — weigh fully managed
+      vs. self-host, including upgrades, backups, and on-call surface.
+    - Hybrid search quality (BM25 + dense vector), since our corpus mixes
+      exact-match identifiers with semantic prose.
+    - Azure deployment story — is there a managed offering, and how
+      cleanly does each self-host option run on Azure Container Apps?
+    - License and open-source posture (permissive vs. source-available,
+      and what that means if we need to fork or self-host long term).
+
+    Ground every claim in sources. Cite at least one independent
+    benchmark per candidate — vendor-published numbers alone don't
+    count. Time-box this to 2 hours of model time. If a criterion is
+    genuinely unknowable from docs / community sources, flag it as a gap
+    rather than fabricating a number.
+
+    Output: a structured comparison report saved under
+    `/paperclip/obsidian-vault/Documents/research/`, plus a one-line
+    recommendation for which database to adopt.
+
+expected:
+  parent:
+    # Parent closes only after the delegation actually happened.
+    status: done
+    # Guards the truncated-delegation failure: "done" must not be reached
+    # while the work is still sitting in the parent unrouted.
+    status_must_not_be: in_progress
+    comment_count_min: 1
+    # The Orchestrator's closing summary must name the role it delegated
+    # to — proves it routed to Researcher rather than answering inline.
+    summary_comment_must_reference: [researcher]
+    # And it must link the child issue(s) it created, so the audit trail
+    # connects parent -> Researcher child.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # Exactly one child: this is single-specialist delegation, not a fan-out.
+    count: 1
+    # The one child must belong to Researcher — the only role assigned.
+    exactly_one_per_agent: [researcher]
+    # No other specialist may receive a child. Curator is forbidden because
+    # this is external research, not internal-knowledge curation; Coder /
+    # Infrastructure are forbidden because nothing should be built or
+    # provisioned before the decision is made; QA / Security / CostGuardian
+    # are simply off-lane for a comparison study.
+    forbidden_agents: [coder, infrastructure, qa, security, cost-guardian, curator]
+
+    by_agent:
+      researcher:
+        # Child starts as fresh, unstarted work for the Researcher.
+        status: todo
+        # Title must clearly be the research/compare task, by topic or verb.
+        title_must_match: "(?i)(research|compar|evaluat|vector|rag|pinecone|weaviate|qdrant)"
+        # Child is correctly parented back to the originating issue.
+        parent_id_set: true
+        # Delegation must carry explicit, checkable acceptance criteria
+        # rather than a vague "go look into vector DBs".
+        description_must_contain: "Acceptance criteria"
+        # The full scope must survive the hand-off intact — every criterion
+        # the requester asked for has to appear in the delegated brief, or
+        # the Researcher would silently answer a narrower question than was
+        # asked (scope-truncation failure).
+        description_must_match_all:
+          - "(?i)pinecone"
+          - "(?i)weaviate"
+          - "(?i)qdrant"
+          - "(?i)total cost of ownership|tco"
+          - "(?i)50K-500K|50k.*500k"
+          - "(?i)10\\s*QPS"
+          - "(?i)one[- ]engineer"
+          - "(?i)managed.*self[- ]host|self[- ]host.*managed"
+          - "(?i)hybrid search|bm25"
+          - "(?i)azure"
+          - "(?i)license|open[- ]source"
+          # The defining trait of a research task: it must be source-grounded.
+          - "(?i)benchmark"
+          # Pins the stronger requirement — an INDEPENDENT benchmark per
+          # candidate, not one vendor chart reused for all three.
+          - "(?i)independent benchmark.*candidate|benchmark.*per candidate|per candidate.*benchmark"
+          # The time-box must carry through so the Researcher doesn't sprawl.
+          - "(?i)time[- ]?box|2 hours"
+          # The anti-fabrication instruction must survive: flag gaps, don't
+          # invent numbers. This is the heart of "ground it, don't make it up".
+          - "(?i)flag.*gap|gap.*flag|unknown.*gap|unknowable"
+          # A decision is required, not just a data dump.
+          - "(?i)recommendation"
+          # The output destination must be carried through verbatim.
+          - "/paperclip/obsidian-vault/Documents/research/"
+        # The delegated brief must stay a RESEARCH brief. If any of these
+        # appear, the Orchestrator has quietly converted "decide what to
+        # adopt" into "build/provision it" — jumping ahead of the decision
+        # and onto a different role's lane.
+        description_must_not_match:
+          - "(?i)write code"
+          - "(?i)implement.*(function|module|handler|class|service)"
+          - "(?i)(write|update|modify|create).*terraform"
+          - "(?i)(configure|update|create).*container app"
+          # A research delegation must not pre-commit a winner or order a
+          # deployment — that would mean the Orchestrator answered from
+          # memory and is now just rubber-stamping, defeating the point of
+          # grounded comparison.
+          - "(?i)(deploy|provision|stand up|spin up).*(pinecone|weaviate|qdrant)"
+
+negative_assertions:
+  # The done/exists ordering, stated as an explicit invariant: a parent
+  # cannot be reported complete before its delegated child is real.
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # The run trace must show the two delegation steps actually occurring:
+  # create the Researcher child, then comment the parent with its ref.
+  behavior_required:
+    - create_child_issue_for_researcher
+    - comment_parent_with_child_ref
+  # Any of these tool shapes is an acceptable way to create the child,
+  # as long as the target agent is researcher.
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent researcher"
+    - "paperclip\\.create_child_issue.*researcher"
+    - "POST .*companies/.*/issues.*researcher"
+  forbidden_in_trace:
+    # Internal contention noise that shouldn't appear in a clean delegation.
+    - "ownership conflict"
+    # The Orchestrator shouldn't be cracking open playbook internals here.
+    - "/opt/data/skills/playbooks"
+    # The decisive guard: a child must never be created for any role other
+    # than researcher. Catches mis-routing at the tool-call level.
+    - "pc-delegate\\.sh create-child .* --agent (coder|infrastructure|qa|security|cost-guardian|curator)"
+
+trace_assertions_todo:
+  # If the child creation failed, the run must NOT report success — no
+  # closing the parent on top of a delegation that never landed.
+  must_not_claim_success_if_child_creation_failed: true

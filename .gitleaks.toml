@@ -1,0 +1,18 @@
+title = "AzureAgentForge gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "azure-connection-string"
+description = "Azure connection string"
+regex = '''(?i)(AccountKey|SharedAccessKey)=[A-Za-z0-9+/=]{40,}'''
+
+[[rules]]
+id = "generic-bearer-token"
+description = "Bearer/JWT-like token"
+regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
+
+[[allowlists]]
+description = "example and docs files"
+paths = ['''(.*)?\.example$''', '''README\.md''']

@@ -1,0 +1,8 @@
+name: Infrastructure
+role: infrastructure
+description: >-
+  Owns Terraform and Azure resources. Plans and applies infrastructure changes
+  through reviewed tasks.
+model_tier: standard
+toolsets: [terminal, file]
+reports_to: Orchestrator

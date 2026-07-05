@@ -1,0 +1,8 @@
+name: Generalist
+role: generalist
+description: >-
+  Handles well-scoped general tasks that do not require a narrower specialist,
+  while escalating specialist work back to the orchestrator.
+model_tier: economy
+toolsets: [terminal, file]
+reports_to: Orchestrator

@@ -1,0 +1,450 @@
+<mxfile host="app.diagrams.net" agent="AzureAgentForge architecture style proof" version="24.7.7" type="device">
+  <diagram id="aaf-multi-tenant" name="AAF Multi-Tenant (design target)">
+    <mxGraphModel dx="2200" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ============================================================ -->
+        <!-- TITLE BLOCK                                                   -->
+        <!-- ============================================================ -->
+        <mxCell id="title-bar" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0B3D66;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="40" y="32" width="1574" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-text" value="AzureAgentForge — Multi-Tenant (design target)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#FFFFFF;fontSize=22;fontStyle=1;spacingLeft=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="52" y="32" width="1000" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-sub" value="Schema-per-tenant + row-level security · per-tenant routing · reference architecture · ~20–30% implemented, never deployed" style="text;html=1;align=right;verticalAlign=middle;fontColor=#BBD7EE;fontSize=12;spacingRight=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="700" y="32" width="902" height="62" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- DESIGN-TARGET BANNER                                          -->
+        <!-- ============================================================ -->
+        <mxCell id="banner" value="🚧  DESIGN TARGET — partially implemented (~20–30%), never deployed.  The single-tenant stack is what actually ships and what CI validates.  Dashed / muted = design intent, not built.  Source: experimental/multi-tenant/ARCHITECTURE.md" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBF3E0;strokeColor=#C9A45B;dashed=1;dashPattern=6 4;strokeWidth=1.5;fontColor=#8A6D1F;fontSize=11;fontStyle=1;align=left;verticalAlign=middle;spacingLeft=14;arcSize=6;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="40" y="104" width="1574" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- TENANT INGRESS BAND (per-tenant routing front door)           -->
+        <!-- ============================================================ -->
+        <mxCell id="grp-ingress" value="Per-tenant ingress  ·  one wildcard front door, tenant resolved from subdomain" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F7FA;strokeColor=#AEB9C4;dashed=0;verticalAlign=top;fontColor=#5B7A95;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=4;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="100" y="152" width="700" height="118" as="geometry" />
+        </mxCell>
+
+        <mxCell id="tenant-a-user" value="Tenant A users&#10;acme.app.example.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;fontColor=#23272E;fontSize=10;arcSize=12;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="118" y="178" width="150" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="tenant-b-user" value="Tenant B users&#10;globex.app.example.com" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#6264A7;fontColor=#23272E;fontSize=10;arcSize=12;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="118" y="222" width="150" height="40" as="geometry" />
+        </mxCell>
+
+        <mxCell id="cf-wild" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;strokeWidth=1;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="300" y="170" width="480" height="84" as="geometry" />
+        </mxCell>
+        <mxCell id="cf-wild-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#9AA7B4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.dns_zones;" vertex="1" parent="1">
+          <mxGeometry x="312" y="182" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="cf-wild-t" value="Cloudflare wildcard tunnel  (design target)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="346" y="180" width="430" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="cf-wild-d" value="*.app.example.com → http://ca-orchestrator · single CNAME&#10;Paperclip resolves tenant slug from the subdomain&#10;(tenant-resolver middleware — not built)" style="text;html=1;align=left;verticalAlign=top;fontColor=#6B7886;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="312" y="208" width="456" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- CONTROL PLANE (right of ingress band)                         -->
+        <!-- ============================================================ -->
+        <mxCell id="grp-control" value="Control plane  ·  tenant registry &amp; provisioning  (scaffold only — experimental/multi-tenant/control-plane)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2EEF8;strokeColor=#8E7CC3;dashed=1;dashPattern=6 4;strokeWidth=1.5;verticalAlign=top;fontColor=#6A4FA3;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=4;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="820" y="152" width="734" height="118" as="geometry" />
+        </mxCell>
+
+        <!-- Provisioning API -->
+        <mxCell id="ctl-api" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8E7CC3;dashed=1;dashPattern=4 3;strokeWidth=1;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="838" y="186" width="318" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="ctl-api-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#8E7CC3;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="850" y="196" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ctl-api-t" value="Provisioning API  (FastAPI · scaffold)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#4A3A75;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="884" y="194" width="262" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="ctl-api-d" value="POST /tenants · GET /tenants/{slug}&#10;onboards tenant: DB row + owner + web channel&#10;+ Azure AI Search index (mem-{slug})" style="text;html=1;align=left;verticalAlign=top;fontColor=#6B7886;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="850" y="220" width="300" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- Tenant registry DB (aaf_core) -->
+        <mxCell id="ctl-reg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8E7CC3;dashed=1;dashPattern=4 3;strokeWidth=1;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1176" y="186" width="362" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="ctl-reg-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#8E7CC3;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure_database_for_postgresql_servers;" vertex="1" parent="1">
+          <mxGeometry x="1188" y="196" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ctl-reg-t" value="aaf_core — tenant registry" style="text;html=1;align=left;verticalAlign=middle;fontColor=#4A3A75;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1222" y="194" width="300" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="ctl-reg-d" value="tenants · users · channels · tenant_api_keys&#10;· tenant_features (per-tenant flags + plan/&#10;namespace/vector_index_name/budget limits)" style="text;html=1;align=left;verticalAlign=top;fontColor=#6B7886;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1188" y="220" width="344" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- AZURE REGION BOUNDARY (data plane)                            -->
+        <!-- ============================================================ -->
+        <mxCell id="region" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0078D4;dashed=1;dashPattern=8 4;strokeWidth=2;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="100" y="296" width="1454" height="780" as="geometry" />
+        </mxCell>
+        <mxCell id="region-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure;" vertex="1" parent="1">
+          <mxGeometry x="114" y="306" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="region-lbl" value="Azure region  ·  single subscription / resource group  ·  shared data plane (one stack serves all tenants)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0078D4;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="304" width="820" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- VNET BOUNDARY                                                 -->
+        <!-- ============================================================ -->
+        <mxCell id="vnet" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F8FD;strokeColor=#0B6BB0;dashed=1;dashPattern=6 4;strokeWidth=2;verticalAlign=top;arcSize=2;opacity=60;" vertex="1" parent="1">
+          <mxGeometry x="128" y="350" width="1398" height="708" as="geometry" />
+        </mxCell>
+        <mxCell id="vnet-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0B6BB0;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.virtual_networks;" vertex="1" parent="1">
+          <mxGeometry x="142" y="360" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="vnet-lbl" value="Private Virtual Network  ·  shared ACA environment, shared PostgreSQL — isolation is logical (RLS), not physical" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0B6BB0;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="174" y="358" width="860" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- CONTAINER APPS ENVIRONMENT (shared)                           -->
+        <!-- ============================================================ -->
+        <mxCell id="cae" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E9F3FB;strokeColor=#0078D4;dashed=0;strokeWidth=1.5;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="152" y="406" width="1042" height="490" as="geometry" />
+        </mxCell>
+        <mxCell id="cae-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="166" y="416" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="cae-lbl" value="Container Apps Environment  ·  shared, multi-tenant aware  ·  tenant context carried per request (X-Tenant-ID / app.tenant_id)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0078D4;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="196" y="415" width="900" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- PaperClip orchestrator (tenant-aware) -->
+        <mxCell id="app-paperclip" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="184" y="456" width="244" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="app-paperclip-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="196" y="468" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="app-paperclip-t" value="PaperClip" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="234" y="466" width="180" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="app-paperclip-d" value="Orchestrator + Web UI · :3100&#10;company = tenant (slug ↔ company.slug)&#10;resolves tenant from subdomain;&#10;JWT carries company_id / tenant_id;&#10;per-tenant file-share subdir" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="196" y="504" width="222" height="96" as="geometry" />
+        </mxCell>
+
+        <!-- Hermes (with router sidecar) -->
+        <mxCell id="app-hermes" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="468" y="456" width="328" height="212" as="geometry" />
+        </mxCell>
+        <mxCell id="app-hermes-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="480" y="468" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="app-hermes-t" value="Hermes — Agent runtime" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="518" y="466" width="266" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="app-hermes-d" value="Container App · :8080&#10;Option A (default): shared Hermes,&#10;tenant-scoped HONCHO_APP_ID per tenant&#10;(hermes-dev-{slug}); passes X-Tenant-ID" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="480" y="502" width="306" height="58" as="geometry" />
+        </mxCell>
+
+        <!-- Model Router sidecar (per-tenant budgets) -->
+        <mxCell id="app-router" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FC;strokeColor=#0078D4;dashed=1;dashPattern=3 3;strokeWidth=1;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="484" y="570" width="296" height="86" as="geometry" />
+        </mxCell>
+        <mxCell id="app-router-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.application_gateways;" vertex="1" parent="1">
+          <mxGeometry x="494" y="580" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="app-router-t" value="Model Router (sidecar · :8080)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="526" y="578" width="248" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="app-router-d" value="per-tenant budgets: nested tenant→tier→spend&#10;keyed on X-Tenant-ID · DB-backed (budget_spend)&#10;design target (today: flat per-tier _spend dict)" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="494" y="608" width="278" height="44" as="geometry" />
+        </mxCell>
+
+        <!-- Honcho (tenant-scoped app_id) -->
+        <mxCell id="app-honcho" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="836" y="456" width="334" height="212" as="geometry" />
+        </mxCell>
+        <mxCell id="app-honcho-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="848" y="468" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="app-honcho-t" value="Honcho — agent memory" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="886" y="466" width="272" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="app-honcho-d" value="Container App · :8000 · pgvector recall&#10;tenant-scoped app_id per tenant +&#10;tenant_id column on every table;&#10;session isolation via app_id + RLS" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="848" y="502" width="310" height="58" as="geometry" />
+        </mxCell>
+        <mxCell id="app-honcho-mw" value="Connection middleware (design target): SET app.tenant_id on every checkout — Python (SQLAlchemy) &amp; TS (Drizzle)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FC;strokeColor=#0078D4;dashed=1;dashPattern=3 3;fontColor=#42505E;fontSize=9;arcSize=12;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="848" y="570" width="310" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="app-hermes-opt" value="Option B (&gt;20 tenants): dedicated ca-hermes-{slug} per tenant (Terraform modules/tenant — designed, never applied)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8FA;strokeColor=#9AA7B4;dashed=1;dashPattern=4 3;fontColor=#6B7886;fontSize=9;arcSize=12;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;align=left;spacingLeft=8;" vertex="1" parent="1">
+          <mxGeometry x="848" y="624" width="310" height="34" as="geometry" />
+        </mxCell>
+
+        <!-- Tenant routing note inside CAE -->
+        <mxCell id="route-note" value="Per-tenant routing is logical: one set of containers&#10;serves every tenant. The tenant identity (slug) flows&#10;subdomain → JWT (company_id/tenant_id) → X-Tenant-ID&#10;header → SET app.tenant_id on the DB connection.&#10;No per-tenant containers in the default (Option A) path." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCFCFD;strokeColor=#C7D2DD;dashed=0;fontColor=#5B6B7B;fontSize=10;align=left;verticalAlign=top;spacingLeft=8;spacingTop=6;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="184" y="640" width="244" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="route-note-extra" value="Migration: 4 phases (DB+RLS → router/agents → routing/&#10;orchestrator → 2nd tenant + prod). Each phase has a&#10;rollback path. See ARCHITECTURE.md §12." style="text;html=1;align=left;verticalAlign=top;fontColor=#8E7CC3;fontSize=9;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="468" y="676" width="328" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- DATA & ISOLATION COLUMN (right, inside VNet)                  -->
+        <!-- ============================================================ -->
+        <mxCell id="data-band" value="Shared data layer  ·  tenant isolation lives here (RLS)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EDF6EE;strokeColor=#5FA56B;dashed=0;verticalAlign=top;fontColor=#3C7A47;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=3;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1216" y="406" width="290" height="630" as="geometry" />
+        </mxCell>
+
+        <!-- PostgreSQL shared instance -->
+        <mxCell id="data-pg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5FA56B;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1238" y="446" width="246" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure_database_for_postgresql_servers;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="458" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-t" value="PostgreSQL Flexible Server" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1288" y="456" width="190" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-d" value="single B1ms instance · DBs: honcho + paperclip&#10;public schema · NO database-per-tenant" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="496" width="224" height="38" as="geometry" />
+        </mxCell>
+        <mxCell id="lock-pg" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.lock;" vertex="1" parent="1">
+          <mxGeometry x="1456" y="454" width="18" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- RLS isolation block (nested marker) -->
+        <mxCell id="rls" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F6FBF6;strokeColor=#3C7A47;dashed=1;dashPattern=4 3;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1238" y="552" width="246" height="208" as="geometry" />
+        </mxCell>
+        <mxCell id="rls-lock" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.lock;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="562" width="22" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="rls-t" value="Schema-per-tenant via RLS  (design target)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#2E6638;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1280" y="560" width="200" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="rls-d" value="• tenant_id UUID column on every table&#10;  (workspaces, peers, sessions, messages,&#10;  message_embeddings, documents,&#10;  collections, queue; paperclip ↔ company_id)&#10;• ROW LEVEL SECURITY enabled per table&#10;• policy: tenant_id = current_setting&#10;  ('app.tenant_id')::uuid  (USING + WITH CHECK)&#10;• app roles honcho_app / paperclip_app&#10;  subject to RLS — default DENY&#10;• postgres admin bypasses RLS (not used by apps)" style="text;html=1;align=left;verticalAlign=top;fontColor=#3C7A47;fontSize=9;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="590" width="226" height="166" as="geometry" />
+        </mxCell>
+
+        <!-- Key Vault tenant-prefixed -->
+        <mxCell id="data-kv" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#5FA56B;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1238" y="776" width="246" height="92" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.key_vaults;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="788" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-t" value="Key Vault (shared)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1288" y="786" width="190" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-d" value="tenant-prefixed secrets platform-{slug}-*&#10;+ platform-shared-* · RBAC condition scopes&#10;each tenant identity to its own prefix" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="826" width="224" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="lock-kv" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.lock;" vertex="1" parent="1">
+          <mxGeometry x="1456" y="784" width="18" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Audit log + AI Search note -->
+        <mxCell id="data-audit" value="Audit log (design target): audit_log table + per-table triggers capture every tenant-scoped INSERT / UPDATE / DELETE. Per-tenant Azure AI Search index mem-{slug} created at onboarding." style="text;html=1;align=left;verticalAlign=top;fontColor=#3C7A47;fontSize=9;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1238" y="884" width="250" height="120" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- EDGES — CONTROL PLANE (provisioning, purple dashed)           -->
+        <!-- ============================================================ -->
+
+        <!-- provisioning API -> registry -->
+        <mxCell id="ec1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#8E7CC3;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="ctl-api" target="ctl-reg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec1-l" value="C1  create / read tenant" style="text;html=1;align=center;verticalAlign=middle;fontColor=#6A4FA3;fontSize=9;fontStyle=1;fillColor=#F2EEF8;strokeColor=#8E7CC3;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1124" y="170" width="120" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- control registry -> RLS data plane (provision: tenant_id, RLS, secrets) -->
+        <mxCell id="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#8E7CC3;strokeWidth=1.5;dashed=1;dashPattern=6 4;exitX=0.5;exitY=1;entryX=0.85;entryY=0;" edge="1" parent="1" source="ctl-reg" target="rls">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1357" y="420" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec2-l" value="C2  provision tenant: tenant_id + RLS policies + KV secrets" style="text;html=1;align=center;verticalAlign=middle;fontColor=#6A4FA3;fontSize=9;fontStyle=2;fillColor=#FFFFFF;strokeColor=none;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="380" width="244" height="16" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- EDGES — DATA PLANE (numbered solid request flow)              -->
+        <!-- ============================================================ -->
+
+        <!-- 1: tenant A users -> wildcard tunnel -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.35;" edge="1" parent="1" source="tenant-a-user" target="cf-wild">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1-l" value="1" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="278" y="188" width="20" height="20" as="geometry" />
+        </mxCell>
+        <!-- 1: tenant B users -> wildcard tunnel (same front door) -->
+        <mxCell id="e1b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.7;" edge="1" parent="1" source="tenant-b-user" target="cf-wild">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1b-l" value="1" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=11;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="278" y="232" width="20" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- 2: wildcard tunnel -> PaperClip (resolve tenant) -->
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=0.1;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="cf-wild" target="app-paperclip">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="348" y="430" />
+              <mxPoint x="306" y="430" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2-l" value="2  resolve tenant from subdomain" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="232" y="424" width="180" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 3: PaperClip -> Hermes (dispatch, carries tenant) -->
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.3;entryX=0;entryY=0.3;" edge="1" parent="1" source="app-paperclip" target="app-hermes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3-l" value="3  dispatch (tenant ctx)" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="378" y="486" width="130" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 4: Hermes -> Router (X-Tenant-ID) -->
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=0.4;exitY=1;entryX=0.4;entryY=0;exitDx=0;exitDy=0;" edge="1" parent="1" source="app-hermes-d" target="app-router">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4-l" value="4  X-Tenant-ID → budget check" style="text;html=1;align=center;verticalAlign=middle;fontColor=#0B3D66;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#0B3D66;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="556" y="556" width="174" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 5: Hermes <-> Honcho (tenant-scoped memory) -->
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;startArrow=block;startFill=1;endArrow=block;endFill=1;strokeColor=#2E6CA3;strokeWidth=2;exitX=1;exitY=0.25;entryX=0;entryY=0.25;" edge="1" parent="1" source="app-hermes" target="app-honcho">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5-l" value="5  memory r/w (app_id={slug})" style="text;html=1;align=center;verticalAlign=middle;fontColor=#2E6CA3;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#2E6CA3;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="718" y="494" width="186" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- 6: Honcho -> Postgres (SET app.tenant_id, RLS-filtered) -->
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;startArrow=block;startFill=1;endArrow=block;endFill=1;strokeColor=#3C7A47;strokeWidth=2;exitX=1;exitY=0.85;entryX=0;entryY=0.4;" edge="1" parent="1" source="app-honcho" target="data-pg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1200" y="637" />
+              <mxPoint x="1200" y="483" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6-l" value="6  SET app.tenant_id · RLS-filtered queries" style="text;html=1;align=center;verticalAlign=middle;fontColor=#3C7A47;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#3C7A47;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1182" y="640" width="120" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- 7: Router -> Foundry (per-tenant budgeted inference) -->
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#C9851F;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="app-router" target="llm-foundry">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="810" y="613" />
+              <mxPoint x="810" y="278" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7-l" value="7  inference (per-tenant budget)" style="text;html=1;align=center;verticalAlign=middle;fontColor=#C9851F;fontSize=9;fontStyle=1;fillColor=#FFFFFF;strokeColor=#C9851F;rounded=1;arcSize=40;spacing=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="810" y="290" width="180" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- LLM BACKEND (shared)                                          -->
+        <!-- ============================================================ -->
+        <mxCell id="llm-foundry" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C9A45B;dashed=0;strokeWidth=1.5;verticalAlign=top;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1010" y="262" width="280" height="74" as="geometry" />
+        </mxCell>
+        <mxCell id="llm-foundry-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#C9A45B;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.cognitive_services;" vertex="1" parent="1">
+          <mxGeometry x="1022" y="274" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="llm-foundry-t" value="Azure AI Foundry  (shared backend)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1060" y="272" width="226" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="llm-foundry-d" value="primary inference · stateless per request&#10;no cross-tenant state in the router or model" style="text;html=1;align=left;verticalAlign=top;fontColor=#8A6D1F;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1022" y="304" width="260" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- LEGEND                                                        -->
+        <!-- ============================================================ -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AEB9C4;dashed=0;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1092" width="1130" height="56" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="Legend" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="114" y="1092" width="60" height="56" as="geometry" />
+        </mxCell>
+
+        <!-- boundary -->
+        <mxCell id="lg-bnd-line" value="" style="endArrow=none;dashed=1;dashPattern=8 4;strokeColor=#0078D4;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="180" y="1108" as="sourcePoint" />
+            <mxPoint x="224" y="1108" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-bnd-t" value="trust boundary (region / VNet / env)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="230" y="1098" width="210" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- numbered data flow -->
+        <mxCell id="lg-flow-line" value="" style="endArrow=block;endFill=1;dashed=0;strokeColor=#0B3D66;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="456" y="1108" as="sourcePoint" />
+            <mxPoint x="500" y="1108" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-flow-num" value="n" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=9;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="468" y="1098" width="18" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-flow-t" value="numbered tenant request data-flow" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="506" y="1098" width="210" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- control-plane / provisioning -->
+        <mxCell id="lg-ctl-line" value="" style="endArrow=block;endFill=1;dashed=1;dashPattern=6 4;strokeColor=#8E7CC3;strokeWidth=1.5;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="724" y="1108" as="sourcePoint" />
+            <mxPoint x="768" y="1108" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-ctl-t" value="control plane · tenant provisioning (Cn)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="774" y="1098" width="240" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- second legend row -->
+        <mxCell id="lg-rls-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.lock;" vertex="1" parent="1">
+          <mxGeometry x="180" y="1124" width="16" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-rls-t" value="lock = tenant-isolated by RLS / scoped secrets" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="204" y="1124" width="280" height="18" as="geometry" />
+        </mxCell>
+
+        <mxCell id="lg-design-swatch" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBF3E0;strokeColor=#C9A45B;dashed=1;dashPattern=4 3;" vertex="1" parent="1">
+          <mxGeometry x="506" y="1124" width="24" height="16" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-design-t" value="dashed + muted = design target / scaffold (not built or not deployed)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#6B7886;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="538" y="1124" width="450" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- contrast note vs single-tenant -->
+        <mxCell id="contrast-note" value="How the single-tenant stack becomes per-tenant:&#10;the same shared containers + one Postgres serve&#10;every tenant. Isolation is added in three planes —&#10;routing (subdomain → JWT → X-Tenant-ID),&#10;data (tenant_id column + RLS default-deny),&#10;secrets (platform-{slug}-* KV prefix) — instead of&#10;duplicating infrastructure per tenant.&#10;See docs/assets/diagrams/system-architecture.* for&#10;the shipped single-tenant baseline." style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FCFCFD;strokeColor=#C7D2DD;dashed=0;fontColor=#5B6B7B;fontSize=10;align=left;verticalAlign=top;spacingLeft=10;spacingTop=8;arcSize=6;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1246" y="1040" width="308" height="108" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

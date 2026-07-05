@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Forge Console launcher — one command from clone to deployment GUI.
+#   ./forge            start the console (creates .forge-venv on first run)
+#   ./forge --help     this text
+set -euo pipefail
+cd "$(dirname "$0")"
+
+if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
+  sed -n '2,4p' "$0"; exit 0
+fi
+
+PY="${PYTHON:-python3}"
+if ! command -v "$PY" >/dev/null; then
+  echo "forge: python3 not found — install Python 3.10+ first" >&2; exit 1
+fi
+if ! "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
+  echo "forge: Python 3.10+ required (found $("$PY" --version 2>&1))" >&2; exit 1
+fi
+
+VENV=.forge-venv
+if [[ ! -d "$VENV" ]]; then
+  echo "forge: first run — creating $VENV and installing the console (~20s)…"
+  "$PY" -m venv "$VENV"
+  "$VENV/bin/pip" -q install -r installer/requirements.txt
+fi
+
+exec "$VENV/bin/python" -m installer

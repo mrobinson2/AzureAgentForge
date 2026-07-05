@@ -1,0 +1,176 @@
+fixture_id: 05-orchestrator-delegate-curator-doc
+description: >
+  Single-specialist delegation to the Curator — a documentation / durable-memory
+  curation task whose whole substance is capturing, organizing, and cross-referencing
+  knowledge that already exists (decision rationale, trade-offs, prior conversations,
+  commit history). No code is written and no infrastructure is touched, so the only
+  correct route is one child issue assigned to the Curator role and nothing else.
+
+  Real-world scenario this models: an engineer asks the platform to turn scattered,
+  tacit context into a single durable reference document in the team's knowledge vault.
+  This is knowledge-curation work — research, synthesis, citation, and structured
+  writing — which is precisely the Curator's lane.
+
+  Failure modes this fixture guards against:
+    1. The Orchestrator handling the request ITSELF (answering inline / fabricating
+       the document) instead of delegating — collapsing the specialist boundary and
+       producing unaudited, unowned content with no child issue to track the work.
+    2. Routing to the WRONG specialist — sending a pure documentation task to the
+       Coder ("write the doc as code"), Infrastructure ("provision a docs site"), QA,
+       or Security. Mis-routing is costly because each wrong child consumes a real
+       agent run, muddies ownership, and can trigger off-lane actions (terraform,
+       deploys) the task never asked for.
+    3. Over-fanning — spawning more than one child or duplicating the Curator across
+       roles when a single well-scoped Curator issue is sufficient.
+    4. Silent fabrication of citations — the body explicitly forbids inventing sources,
+       and the delegated child must preserve that "document the gap, do not invent"
+       constraint so the downstream Curator never hallucinates provenance.
+
+  The contract: classify as DOC/curation, delegate exactly one child to the Curator
+  with the full task context intact, then mark the parent `done` only AFTER that child
+  exists and is referenced in the parent's summary comment.
+
+input:
+  channel: paperclip_issue
+  assignee_agent: orchestrator
+  title: "Document our decision rationale for using Hermes as the agent runtime"
+  body: |
+    Our reasoning for picking Hermes as the agent runtime is currently spread
+    across chat threads, a couple of half-finished notes, and commit messages —
+    nobody can point a new teammate at a single authoritative explanation. Please
+    capture and organize that knowledge into one durable reference.
+
+    Produce a markdown reference document (a single well-structured markdown file)
+    under `/paperclip/obsidian-vault/Documents/architecture/` that captures:
+
+    - Why we chose Hermes over the alternatives we evaluated — specifically
+      LangChain and AutoGen — and what made Hermes the better fit.
+    - The trade-offs we knowingly accepted, including:
+        * nested-container sandboxing (the isolation model and its overhead), and
+        * session-bookkeeping flakiness (intermittent state/session tracking issues
+          we decided to live with for now).
+    - Cross-references to our existing decision records (link out to the relevant
+      ADRs / decision notes already in the vault rather than restating them).
+    - Citations drawn from prior conversations and commit messages where the
+      original reasoning was recorded, so each claim is traceable to its source.
+
+    Important: this is a synthesis-and-writing task — gather what already exists,
+    do not generate new facts. If a source is unavailable or you cannot find the
+    original rationale, document the gap explicitly. Do NOT invent citations,
+    quotes, dates, or commit hashes to fill holes.
+
+    This is purely research, curation, and writing — no code and no infrastructure
+    changes of any kind. Find the relevant context in our docs/, git history, and
+    prior issues, then produce the single structured document described above.
+
+expected:
+  parent:
+    # The parent must FINISH (delegation complete), not stall in_progress and not
+    # be left for the Orchestrator to answer itself.
+    status: done
+    # Guards the partial-delegation failure: parent stuck mid-flight is not success.
+    status_must_not_be: in_progress
+    # Orchestrator must leave a hand-off summary, not silently close the parent.
+    comment_count_min: 1
+    # The summary must name the Curator — proves the work was routed to the
+    # correct specialist, not handled inline or sent elsewhere.
+    summary_comment_must_reference: [curator]
+    # Closing the parent must be justified by a real child reference, not a bare
+    # "done" with no traceable downstream work.
+    summary_comment_must_include_child_refs: true
+
+  children:
+    # Exactly one child — single-specialist delegation, no over-fanning.
+    count: 1
+    # That one child must be the Curator, and the Curator must appear exactly once.
+    exactly_one_per_agent: [curator]
+    # A pure documentation/curation task must NEVER reach a build/ops/security lane.
+    # Any of these appearing as a child is a mis-route and fails the contract.
+    forbidden_agents: [coder, infrastructure, qa, security, cost-guardian]
+
+    by_agent:
+      curator:
+        # Child starts queued for the Curator to pick up; not pre-completed.
+        status: todo
+        # Title must carry recognizable task intent so the child is self-describing.
+        title_must_match: "(?i)(document|hermes|rationale|curator|research)"
+        # Child must be linked back to the parent for ownership/tracking.
+        parent_id_set: true
+        # The full task context must survive delegation — every salient instruction
+        # from the body has to reach the Curator, or the child is a truncated/lossy
+        # hand-off. Each term below pins one piece of that context.
+        description_must_match_all:
+          - "(?i)markdown.*(reference|document|file)"          # the deliverable format
+          - "/paperclip/obsidian-vault/Documents/architecture/" # exact output location preserved
+          - "(?i)Hermes"                                        # subject of the doc
+          - "(?i)LangChain"                                     # alternative #1 to compare against
+          - "(?i)AutoGen"                                       # alternative #2 to compare against
+          - "(?i)trade[- ]?offs?"                               # the trade-offs section is required
+          - "(?i)nested[- ]?container.*(sandbox|isolation)"     # specific accepted trade-off
+          - "(?i)session[- ]?bookkeeping"                       # specific accepted trade-off
+          - "(?i)cross[- ]?reference"                           # must link existing decision records
+          - "(?i)decision records?"                             # the records to cross-reference
+          - "(?i)citations?"                                    # claims must be cited
+          - "(?i)prior conversations?"                          # one citation source
+          - "(?i)commit messages?"                              # other citation source
+          - "(?i)do not invent"                                 # anti-fabrication constraint must carry through
+        # The Curator's brief must stay in the curation lane — these are off-lane
+        # build/deploy actions that would mean the task was mis-framed as engineering.
+        description_must_not_match:
+          - "(?i)write code"
+          - "(?i)implement.*(function|module|handler|class|service)"
+          - "(?i)(write|update|modify|create).*terraform"
+          - "(?i)(deploy|configure|update|create).*container app"
+          - "(?i)deploy"
+          - "(?i)modify infrastructure"
+          # Curation never provisions or tears down storage/resources — purely additive,
+          # read-and-synthesize work, so a destructive verb in the brief is a red flag.
+          - "(?i)(delete|remove|drop|destroy).*(file|resource|index|table|document)"
+
+negative_assertions:
+  # Ordering invariant: the parent may only be closed AFTER the Curator child
+  # exists. Closing first would be a "claimed success with nothing to show" bug.
+  parent_must_not_be_marked_done_before_children_exist: true
+
+timeouts:
+  # Single-child delegation is fast; 240s is the ceiling for the parent to route,
+  # create the Curator child, comment, and close.
+  wait_for_completion_seconds: 240
+  poll_interval_seconds: 5
+  engagement_check_seconds: 60
+  max_retries: 2
+
+cleanup:
+  cancel_after: true
+
+trace_assertions:
+  # The run MUST exhibit both of these observable behaviors, in effect: spawn the
+  # Curator child, then back-link it on the parent before closing.
+  behavior_required:
+    - create_child_issue_for_curator
+    - comment_parent_with_child_ref
+
+  # Any ONE of these tool invocations is an acceptable way to create the Curator
+  # child — the contract pins the WHO (curator) and the WHAT (child issue), not the
+  # specific transport (pc-delegate CLI, MCP call, or raw issues API POST).
+  accepted_tool_patterns:
+    - "pc-delegate\\.sh create-child .* --agent curator"
+    - "paperclip\\.create_child_issue.*curator"
+    - "POST .*companies/.*/issues.*curator"
+
+  # None of these may appear in the trace.
+  forbidden_in_trace:
+    - "ownership conflict"                       # delegation must not collide on issue ownership
+    - "/opt/data/skills/playbooks"               # off-path internal resource must not leak into the run
+    # Creating a child for ANY non-Curator specialist is a mis-route for this DOC task.
+    - "pc-delegate\\.sh create-child .* --agent (coder|infrastructure|qa|security|cost-guardian)"
+    # The parent must never be marked done as a cover for a failed child creation.
+    - "(?i)child issue creation failed.*marked.*done"
+    - "(?i)failed.*create.*child.*marked.*done"
+    # Off-lane execution: a pure curation task must never invoke build/deploy tooling.
+    - "(?i)\\b(terraform|az deployment|kubectl|docker build)\\b"
+
+trace_assertions_todo:
+  # Honesty invariant: if the child issue couldn't be created, the run must surface
+  # that failure rather than reporting the delegation as successful.
+  must_not_claim_success_if_child_creation_failed: true

@@ -1,0 +1,247 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1654" height="1010" viewBox="0 0 1654 1010" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="azBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3399E5"/>
+      <stop offset="1" stop-color="#0066B4"/>
+    </linearGradient>
+    <linearGradient id="azGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5CB36B"/>
+      <stop offset="1" stop-color="#2E7D3D"/>
+    </linearGradient>
+    <linearGradient id="azGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0B65C"/>
+      <stop offset="1" stop-color="#C18B27"/>
+    </linearGradient>
+    <linearGradient id="azRed" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#D6584A"/>
+      <stop offset="1" stop-color="#A02B1E"/>
+    </linearGradient>
+    <linearGradient id="azGrey" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#AEB9C4"/>
+      <stop offset="1" stop-color="#8593A1"/>
+    </linearGradient>
+    <marker id="arrNavy" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0B3D66"/></marker>
+    <marker id="arrGreen" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#3C7A47"/></marker>
+    <marker id="arrRed" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#C0392B"/></marker>
+    <marker id="arrGrey" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="none" stroke="#7A8895" stroke-width="1.4"/></marker>
+  </defs>
+
+  <rect width="1654" height="1010" fill="#FFFFFF"/>
+
+  <!-- ===== TITLE BLOCK ===== -->
+  <rect x="40" y="32" width="1574" height="62" fill="#0B3D66"/>
+  <text x="60" y="71" fill="#FFFFFF" font-size="22" font-weight="700">AzureAgentForge — Deploy Pipeline</text>
+  <text x="1594" y="68" fill="#BBD7EE" font-size="12" text-anchor="end">build → seed → plan → destroy-aware gate → apply → smoke · two faces, one core · OIDC, no stored secrets · v1.3</text>
+
+  <!-- ===== TWO FACES BAND ===== -->
+  <rect x="100" y="116" width="600" height="156" rx="8" fill="#F5F7FA" stroke="#AEB9C4"/>
+  <text x="116" y="135" fill="#5B7A95" font-size="11" font-weight="700">Two operator faces — both drive the SAME plan/apply core (installer.core.plan_has_destroy)</text>
+
+  <!-- Forge Console -->
+  <rect x="120" y="148" width="262" height="108" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="132" y="160" width="28" height="28" rx="4" fill="url(#azBlue)"/>
+  <path d="M139,182 l6,-6 l-6,-6 M148,184 h7" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  <text x="168" y="178" fill="#1B2733" font-size="13" font-weight="700">Forge Console · ./forge</text>
+  <text x="132" y="208" fill="#5B6B7B" font-size="10">Local GUI · 127.0.0.1:8321 · per-session token</text>
+  <text x="132" y="222" fill="#5B6B7B" font-size="10">streams init → validate → plan → apply (SSE)</text>
+  <text x="132" y="236" fill="#5B6B7B" font-size="10">typed env-name confirm on apply / destroy</text>
+
+  <!-- GitHub Actions -->
+  <rect x="406" y="148" width="276" height="108" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="418" y="160" width="28" height="28" rx="4" fill="url(#azBlue)"/>
+  <circle cx="432" cy="170" r="4" fill="#FFFFFF"/><circle cx="425" cy="182" r="4" fill="#FFFFFF"/><circle cx="439" cy="182" r="4" fill="#FFFFFF"/>
+  <path d="M432,174 v3 M429,180 l2,-2 M435,180 l-2,-2" stroke="#FFFFFF" stroke-width="1.4"/>
+  <text x="454" y="178" fill="#1B2733" font-size="13" font-weight="700">GitHub Actions · deploy.yml</text>
+  <text x="418" y="208" fill="#5B6B7B" font-size="10">Reference workflow (you wire up on a fork)</text>
+  <text x="418" y="222" fill="#5B6B7B" font-size="10">workflow_dispatch · env / profile / region</text>
+  <text x="418" y="236" fill="#5B6B7B" font-size="10">jobs: build · seed · plan · gate · apply · smoke</text>
+
+  <!-- ===== OIDC / NO STORED SECRETS ===== -->
+  <rect x="724" y="116" width="330" height="156" rx="6" fill="#EDF6EE" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="738" y="128" width="28" height="28" rx="4" fill="url(#azGreen)"/>
+  <circle cx="752" cy="139" r="6" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <path d="M752,145 v6 M748,151 h8" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="774" y="142" fill="#1B2733" font-size="12" font-weight="700">Auth — OIDC federated, no stored secrets</text>
+  <text x="1029" y="140" font-size="13">🔒</text>
+  <text x="738" y="174" fill="#3C7A47" font-size="10">GitHub Actions exchanges a workflow OIDC token for</text>
+  <text x="738" y="188" fill="#3C7A47" font-size="10">Azure creds (azure/login · ARM_USE_OIDC=true).</text>
+  <text x="738" y="202" fill="#3C7A47" font-size="10">Repo holds non-secret VARIABLES only:</text>
+  <text x="738" y="216" fill="#3C7A47" font-size="10">AZURE_CLIENT_ID / TENANT_ID / SUBSCRIPTION_ID,</text>
+  <text x="738" y="230" fill="#3C7A47" font-size="10">TFSTATE_* backend, optional CONTAINER_REGISTRY_NAME /</text>
+  <text x="738" y="244" fill="#3C7A47" font-size="10">KEY_VAULT_NAME / SMOKE_URL. Provider keys live in</text>
+  <text x="738" y="258" fill="#3C7A47" font-size="10">GitHub secrets and are piped only into the seed job.</text>
+
+  <!-- ===== PIPELINE LANE ===== -->
+  <rect x="100" y="300" width="1454" height="486" rx="10" fill="#F2F8FD" fill-opacity="0.6" stroke="#0B6BB0" stroke-width="2" stroke-dasharray="6 4"/>
+  <text x="118" y="326" fill="#0B6BB0" font-size="12" font-weight="700">Pipeline core · the SAVED plan is applied verbatim — what was reviewed is what ships</text>
+
+  <!-- face -> pipeline dotted entry edges -->
+  <path d="M185,256 V290 H254 V360" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <path d="M461,256 V294 H291 V360" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <rect x="200" y="318" width="120" height="16" rx="8" fill="#FFFFFF" stroke="#AEB9C4"/><text x="260" y="330" fill="#7A8895" font-size="9" font-style="italic" text-anchor="middle">both faces enter here</text>
+
+  <!-- ==== Stage build (ACR) ==== -->
+  <rect x="128" y="360" width="252" height="150" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="140" y="396" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M147,418 v-8 h6 v8 M155,418 v-12 h6 v12 M163,418 v-6 h4 v6" fill="none" stroke="#FFFFFF" stroke-width="1.4"/>
+  <text x="178" y="416" fill="#1B2733" font-size="13" font-weight="700">build · az acr build</text>
+  <text x="140" y="442" fill="#5B6B7B" font-size="10">scripts/build-and-push.sh</text>
+  <text x="140" y="456" fill="#5B6B7B" font-size="10">Server-side ACR build (no Docker daemon).</text>
+  <text x="140" y="470" fill="#5B6B7B" font-size="10">Self-contained: model-router · memory-</text>
+  <text x="140" y="484" fill="#5B6B7B" font-size="10">governor · watchdog · teams-bridge.</text>
+  <text x="140" y="498" fill="#5B6B7B" font-size="10">Upstream (paperclip/honcho/hermes)</text>
+  <text x="140" y="512" fill="#5B6B7B" font-size="10">--skip-unbuildable until vendored.</text>
+
+  <!-- ==== Stage seed (KV) ==== -->
+  <rect x="128" y="528" width="252" height="148" rx="8" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="140" y="564" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <path d="M155,571 a4,4 0 0 1 4,4 v3 h-8 v-3 a4,4 0 0 1 4,-4 Z M148,578 h14 v9 h-14 Z" fill="#FFFFFF"/>
+  <text x="178" y="584" fill="#1B2733" font-size="13" font-weight="700">seed · Key Vault</text>
+  <text x="140" y="610" fill="#5B6B7B" font-size="10">scripts/seed-keyvault.sh (idempotent)</text>
+  <text x="140" y="624" fill="#5B6B7B" font-size="10">Generates internal secrets (JWT, admin</text>
+  <text x="140" y="638" fill="#5B6B7B" font-size="10">pw, postgres-admin-password); external</text>
+  <text x="140" y="652" fill="#5B6B7B" font-size="10">provider keys / tokens from GitHub secrets.</text>
+  <text x="140" y="666" fill="#5B6B7B" font-size="10">Unset → __unset__ placeholder (secretRefs</text>
+  <text x="140" y="680" fill="#5B6B7B" font-size="10">resolve). First deploy: one-time bootstrap.</text>
+
+  <text x="444" y="524" fill="#5B7A95" font-size="9" font-style="italic" text-anchor="middle">build + seed run in</text>
+  <text x="444" y="536" fill="#5B7A95" font-size="9" font-style="italic" text-anchor="middle">parallel, both feed plan</text>
+
+  <!-- ==== Stage plan ==== -->
+  <rect x="510" y="430" width="234" height="156" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="522" y="466" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M528,474 h18 M528,481 h18 M528,488 h12" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="560" y="486" fill="#1B2733" font-size="13" font-weight="700">plan</text>
+  <text x="522" y="512" fill="#5B6B7B" font-size="10">terraform init (OIDC backend) + plan</text>
+  <text x="522" y="526" fill="#5B6B7B" font-size="10">-var-file=profiles/&lt;profile&gt;.tfvars</text>
+  <text x="522" y="540" fill="#5B6B7B" font-size="10">-out=tfplan with built image tags baked</text>
+  <text x="522" y="554" fill="#5B6B7B" font-size="10">in. Plan reads remote state + Azure.</text>
+  <text x="522" y="568" fill="#5B6B7B" font-size="10">The saved tfplan is the only artifact</text>
+  <text x="522" y="582" fill="#5B6B7B" font-size="10">apply will consume (retained 5 days).</text>
+
+  <!-- ==== DESTROY-AWARE GATE (diamond) ==== -->
+  <polygon points="942,372 1084,488 942,604 800,488" fill="#FBF7F0" stroke="#C9851F" stroke-width="2.5"/>
+  <text x="942" y="426" fill="#8A5A0F" font-size="14" font-weight="700" text-anchor="middle">DESTROY-AWARE</text>
+  <text x="942" y="444" fill="#8A5A0F" font-size="14" font-weight="700" text-anchor="middle">APPROVAL GATE</text>
+  <text x="942" y="470" fill="#8A6D1F" font-size="10" text-anchor="middle">detect_destroy.py →</text>
+  <text x="942" y="484" fill="#8A6D1F" font-size="10" text-anchor="middle">core.plan_has_destroy</text>
+  <text x="942" y="498" fill="#8A6D1F" font-size="10" text-anchor="middle">(shared by BOTH faces)</text>
+  <text x="942" y="514" fill="#8A6D1F" font-size="10" text-anchor="middle">Any actions ∋ "delete"</text>
+  <text x="942" y="528" fill="#8A6D1F" font-size="10" text-anchor="middle">⇒ destructive. Unparseable</text>
+  <text x="942" y="542" fill="#8A6D1F" font-size="10" text-anchor="middle">plan → fail safe.</text>
+
+  <!-- non-destructive auto-apply pill -->
+  <rect x="852" y="618" width="180" height="40" rx="12" fill="#EDF6EE" stroke="#5FA56B"/>
+  <text x="942" y="635" fill="#3C7A47" font-size="10" font-weight="700" text-anchor="middle">non-destructive</text>
+  <text x="942" y="649" fill="#3C7A47" font-size="9" text-anchor="middle">(add / in-place update)</text>
+  <text x="942" y="672" fill="#3C7A47" font-size="9" font-style="italic" text-anchor="middle">AUTO-APPLY — unattended</text>
+
+  <!-- destructive -> human approval box -->
+  <rect x="1112" y="372" width="320" height="124" rx="8" fill="#FFFFFF" stroke="#C0392B" stroke-width="2"/>
+  <rect x="1124" y="384" width="28" height="28" rx="4" fill="url(#azRed)"/>
+  <circle cx="1138" cy="393" r="5" fill="#FFFFFF"/><path d="M1129,410 a9,8 0 0 1 18,0 Z" fill="#FFFFFF"/>
+  <text x="1160" y="402" fill="#A02B1E" font-size="12" font-weight="700">DESTRUCTIVE → human approval required</text>
+  <text x="1124" y="430" fill="#7B3A30" font-size="10">GitHub Actions: gate job runs only when</text>
+  <text x="1124" y="444" fill="#7B3A30" font-size="10">has_destroy — required reviewer on the</text>
+  <text x="1124" y="458" fill="#7B3A30" font-size="10">'deploy-destroy' Environment.</text>
+  <text x="1124" y="472" fill="#7B3A30" font-size="10">Forge Console: a second, distinct prompt</text>
+  <text x="1124" y="486" fill="#7B3A30" font-size="10">listing resources — type 'approve-destroy'.</text>
+
+  <!-- ==== Stage apply ==== -->
+  <rect x="1166" y="528" width="266" height="124" rx="8" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <rect x="1178" y="540" width="30" height="30" rx="4" fill="url(#azBlue)"/>
+  <path d="M1184,555 h14 M1191,549 l7,6 l-7,6" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="1216" y="558" fill="#1B2733" font-size="13" font-weight="700">apply</text>
+  <text x="1178" y="584" fill="#5B6B7B" font-size="10">terraform apply tfplan — the SAVED plan,</text>
+  <text x="1178" y="598" fill="#5B6B7B" font-size="10">verbatim, never re-planned. What was</text>
+  <text x="1178" y="612" fill="#5B6B7B" font-size="10">reviewed at the gate is exactly what</text>
+  <text x="1178" y="626" fill="#5B6B7B" font-size="10">ships (image tags included). Provisions</text>
+  <text x="1178" y="640" fill="#5B6B7B" font-size="10">the Container Apps / data plane on Azure.</text>
+
+  <!-- ==== Stage smoke ==== -->
+  <rect x="1166" y="668" width="266" height="106" rx="8" fill="#FFFFFF" stroke="#5FA56B" stroke-width="1.5"/>
+  <rect x="1178" y="680" width="30" height="30" rx="4" fill="url(#azGreen)"/>
+  <path d="M1184,702 l5,-8 l4,5 l5,-10 l4,7" fill="none" stroke="#FFFFFF" stroke-width="1.6"/>
+  <text x="1216" y="698" fill="#1B2733" font-size="13" font-weight="700">smoke · post-deploy check</text>
+  <text x="1178" y="724" fill="#5B6B7B" font-size="10">scripts/smoke-test.sh → installer.smoke</text>
+  <text x="1178" y="738" fill="#5B6B7B" font-size="10">az containerapp show + optional SMOKE_URL</text>
+  <text x="1178" y="752" fill="#5B6B7B" font-size="10">probe. Not provisioningState=Succeeded or</text>
+  <text x="1178" y="766" fill="#5B6B7B" font-size="10">a non-2xx/3xx probe ⇒ non-zero exit, fails.</text>
+
+  <!-- ===== NUMBERED EDGES ===== -->
+  <!-- 1 build -> plan -->
+  <path d="M380,435 H448 V472 H510" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="406" y="416" width="86" height="18" rx="9" fill="#FFFFFF" stroke="#0B3D66"/><text x="449" y="429" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">1 image tags</text>
+
+  <!-- 1 seed -> plan -->
+  <path d="M380,602 H448 V547 H510" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="402" y="592" width="94" height="18" rx="9" fill="#FFFFFF" stroke="#0B3D66"/><text x="449" y="605" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">1 secrets ready</text>
+
+  <!-- 2 plan -> gate -->
+  <path d="M744,488 H800" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="744" y="470" width="58" height="30" rx="8" fill="#FFFFFF" stroke="#0B3D66"/><text x="773" y="483" fill="#0B3D66" font-size="9" font-weight="700" text-anchor="middle">2 show</text><text x="773" y="495" fill="#0B3D66" font-size="9" font-weight="700" text-anchor="middle">-json</text>
+
+  <!-- 3 no: gate -> auto-apply -> apply  (green) -->
+  <path d="M942,604 V618" fill="none" stroke="#3C7A47" stroke-width="2" marker-end="url(#arrGreen)"/>
+  <circle cx="942" cy="615" r="10" fill="#3C7A47"/><text x="942" y="619" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">3</text>
+  <path d="M1032,674 H1130 V590 H1166" fill="none" stroke="#3C7A47" stroke-width="2" marker-end="url(#arrGreen)"/>
+  <rect x="924" y="676" width="60" height="16" rx="8" fill="#FFFFFF" stroke="#3C7A47"/><text x="954" y="688" fill="#3C7A47" font-size="9" font-weight="700" text-anchor="middle">auto-apply</text>
+
+  <!-- 3 yes: gate -> human (red) -->
+  <path d="M1084,488 H1112" fill="none" stroke="#C0392B" stroke-width="2" marker-end="url(#arrRed)"/>
+  <rect x="1086" y="448" width="120" height="18" rx="9" fill="#C0392B"/><text x="1146" y="461" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">3 yes — destructive</text>
+  <path d="M1090,470 V488" fill="none" stroke="#C0392B" stroke-width="1"/>
+
+  <!-- human -> apply (on approve, red dashed) -->
+  <path d="M1384,496 V528" fill="none" stroke="#C0392B" stroke-width="2" stroke-dasharray="6 4" marker-end="url(#arrRed)"/>
+  <text x="1384" y="516" fill="#C0392B" font-size="9" font-style="italic" text-anchor="middle">on approval</text>
+
+  <!-- 4 apply -> smoke -->
+  <path d="M1299,652 V668" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="1245" y="650" width="108" height="18" rx="9" fill="#FFFFFF" stroke="#0B3D66"/><text x="1299" y="663" fill="#0B3D66" font-size="10" font-weight="700" text-anchor="middle">4 health probes</text>
+
+  <!-- apply -> Azure target (dotted provisioning) -->
+  <path d="M1206,652 V792 H325 V846" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <rect x="620" y="784" width="124" height="16" rx="8" fill="#FFFFFF" stroke="#AEB9C4"/><text x="682" y="796" fill="#7A8895" font-size="9" font-style="italic" text-anchor="middle">provisions resources</text>
+
+  <!-- ===== AZURE TARGET ===== -->
+  <rect x="100" y="806" width="1454" height="118" rx="10" fill="none" stroke="#0078D4" stroke-width="2" stroke-dasharray="8 4"/>
+  <g transform="translate(114,814)"><rect x="0" y="0" width="24" height="24" rx="4" fill="url(#azBlue)"/><path d="M6,18 L13,6 L20,18 Z" fill="#FFFFFF"/></g>
+  <text x="148" y="831" fill="#0078D4" font-size="11" font-weight="700">Azure subscription / resource group · apply provisions, smoke verifies</text>
+
+  <rect x="160" y="846" width="330" height="62" rx="8" fill="#E9F3FB" stroke="#0078D4"/>
+  <text x="168" y="866" fill="#1B2733" font-size="10" font-weight="700">Container Apps Environment</text>
+  <text x="168" y="880" fill="#5B6B7B" font-size="10">PaperClip · Hermes (+router) · Honcho</text>
+  <text x="168" y="894" fill="#5B6B7B" font-size="10">(memory-governor / cloudflared when gated on)</text>
+
+  <rect x="520" y="846" width="320" height="62" rx="8" fill="#EDF6EE" stroke="#5FA56B"/>
+  <text x="528" y="866" fill="#1B2733" font-size="10" font-weight="700">PostgreSQL · Key Vault · ACR · Log Analytics</text>
+  <text x="528" y="880" fill="#5B6B7B" font-size="10">VNet-injected · private endpoints</text>
+  <text x="528" y="894" fill="#5B6B7B" font-size="10">(hardened profile)</text>
+
+  <rect x="870" y="846" width="300" height="62" rx="8" fill="#F5F7FA" stroke="#AEB9C4"/>
+  <text x="878" y="866" fill="#42505E" font-size="10" font-weight="700">Terraform remote state</text>
+  <text x="878" y="880" fill="#42505E" font-size="10">azurerm backend (TFSTATE_* vars) —</text>
+  <text x="878" y="894" fill="#42505E" font-size="10">Forge Console defaults to local state</text>
+
+  <text x="1196" y="864" fill="#5B7A95" font-size="9" font-style="italic">One-time setup: scripts/scaffold-cicd.sh</text>
+  <text x="1196" y="878" fill="#5B7A95" font-size="9" font-style="italic">(OIDC app + role + federated cred, TF state</text>
+  <text x="1196" y="892" fill="#5B7A95" font-size="9" font-style="italic">backend, repo vars, deploy-destroy env)</text>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="100" y="940" width="1454" height="44" rx="4" fill="#FFFFFF" stroke="#AEB9C4"/>
+  <text x="114" y="966" fill="#1B2733" font-size="11" font-weight="700">Legend</text>
+
+  <line x1="180" y1="962" x2="224" y2="962" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <circle cx="202" cy="962" r="9" fill="#0B3D66"/><text x="202" y="966" fill="#FFFFFF" font-size="9" font-weight="700" text-anchor="middle">n</text>
+  <text x="230" y="966" fill="#42505E" font-size="10">numbered pipeline stage flow</text>
+
+  <line x1="430" y1="962" x2="474" y2="962" stroke="#3C7A47" stroke-width="2" marker-end="url(#arrGreen)"/>
+  <text x="480" y="966" fill="#42505E" font-size="10">non-destructive → auto-apply (unattended)</text>
+
+  <line x1="746" y1="962" x2="790" y2="962" stroke="#C0392B" stroke-width="2" marker-end="url(#arrRed)"/>
+  <text x="796" y="966" fill="#42505E" font-size="10">destructive → human approval required</text>
+
+  <line x1="1050" y1="962" x2="1094" y2="962" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <text x="1100" y="966" fill="#42505E" font-size="10">control / provisioning  ·  ◆ destroy-aware gate (shared by both faces)</text>
+</svg>
