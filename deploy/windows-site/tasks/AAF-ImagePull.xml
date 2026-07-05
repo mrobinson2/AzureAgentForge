@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Image freshness keeper (Windows PRIMARY site, WSL2 variant).
+     Windows equivalent of com.azureagentforge.image-pull.plist. Fires at Windows
+     startup AND every 10 minutes, invoking the SHARED pull-images.sh in WSL. The
+     bash script no-ops when the lease mirror does not name this site (a cheap
+     file check only). Placeholders substituted by Install-WindowsSite.ps1. -->
+<Task version="1.2" xmlns="http://schemas.microsoft.com/windows/2004/02/mit/task">
+  <RegistrationInfo>
+    <URI>\AzureAgentForge\AAF-ImagePull</URI>
+    <Description>Image freshness — runs deploy/mac-site/pull-images.sh in WSL every 10 minutes (mirrors launchd com.azureagentforge.image-pull, StartInterval 600).</Description>
+  </RegistrationInfo>
+  <Triggers>
+    <BootTrigger>
+      <Enabled>true</Enabled>
+      <Repetition>
+        <Interval>PT10M</Interval>
+        <StopAtDurationEnd>false</StopAtDurationEnd>
+      </Repetition>
+    </BootTrigger>
+  </Triggers>
+  <Principals>
+    <Principal id="Author">
+      <LogonType>InteractiveToken</LogonType>
+      <RunLevel>LeastPrivilege</RunLevel>
+    </Principal>
+  </Principals>
+  <Settings>
+    <MultipleInstancesPolicy>IgnoreNew</MultipleInstancesPolicy>
+    <DisallowStartIfOnBatteries>false</DisallowStartIfOnBatteries>
+    <StopIfGoingOnBatteries>false</StopIfGoingOnBatteries>
+    <AllowHardTerminate>true</AllowHardTerminate>
+    <StartWhenAvailable>true</StartWhenAvailable>
+    <RunOnlyIfNetworkAvailable>true</RunOnlyIfNetworkAvailable>
+    <AllowStartOnDemand>true</AllowStartOnDemand>
+    <Enabled>true</Enabled>
+    <Hidden>false</Hidden>
+    <RunOnlyIfIdle>false</RunOnlyIfIdle>
+    <WakeToRun>false</WakeToRun>
+    <ExecutionTimeLimit>PT30M</ExecutionTimeLimit>
+    <Priority>7</Priority>
+  </Settings>
+  <Actions Context="Author">
+    <Exec>
+      <Command>wsl.exe</Command>
+      <Arguments>-d {{WSL_DISTRO}} -u {{WSL_USER}} -e bash -lc &quot;{{REPO}}/deploy/mac-site/pull-images.sh&quot;</Arguments>
+    </Exec>
+  </Actions>
+</Task>

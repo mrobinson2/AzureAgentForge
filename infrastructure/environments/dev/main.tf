@@ -151,6 +151,9 @@ module "container_apps" {
   teams_enabled               = var.teams_enabled
   teams_orchestrator_agent_id = var.teams_orchestrator_agent_id
 
+  slack_enabled               = var.slack_enabled
+  slack_orchestrator_agent_id = var.slack_orchestrator_agent_id
+
   # Ingress: Cloudflared tunnel (hardened) or ACA managed ingress (cost-optimized)
   cloudflared_enabled = var.cloudflared_enabled
 

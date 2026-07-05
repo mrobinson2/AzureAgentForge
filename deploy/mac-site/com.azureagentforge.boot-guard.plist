@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Split-brain boot guard (self-hosted PRIMARY site).
+     Runs boot-guard.sh at login AND every 300s: if the Key Vault lease
+     definitively names another site while aaf-* containers are running (e.g.
+     Docker's unless-stopped restarted them after a reboot), it stops the stack
+     and notifies. On Key Vault errors it does nothing.
+     Install:  cp com.azureagentforge.boot-guard.plist ~/Library/LaunchAgents/
+               # edit the boot-guard.sh path + StandardOut/Err paths for your $HOME
+               launchctl load ~/Library/LaunchAgents/com.azureagentforge.boot-guard.plist
+     Verify:   launchctl list | grep com.azureagentforge.boot-guard -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.azureagentforge.boot-guard</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <!-- Absolute path to the repo checkout on the host; edit to match. -->
+        <string>~/Code/AzureAgentForge/deploy/mac-site/boot-guard.sh</string>
+    </array>
+
+    <key>RunAtLoad</key>
+    <true/>
+
+    <key>StartInterval</key>
+    <integer>300</integer>
+
+    <!-- Edit these to absolute paths under your $HOME/aaf/logs. -->
+    <key>StandardOutPath</key>
+    <string>/Users/CHANGEME/aaf/logs/boot-guard.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGEME/aaf/logs/boot-guard.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

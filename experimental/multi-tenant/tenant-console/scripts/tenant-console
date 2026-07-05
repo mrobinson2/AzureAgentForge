@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+# Launch the Tenant Console (P2) — operator-local web GUI over the P1 executor.
+# Binds 127.0.0.1 only; prints a tokened URL. Ctrl-C to stop.
+#
+#   scripts/tenant-console
+#
+# First run creates a venv under console/.venv.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"   # the tenant-console/ directory
+CONSOLE="$ROOT/console"
+VENV="$CONSOLE/.venv"
+
+if [ ! -x "$VENV/bin/python" ]; then
+  echo "[tenant-console] creating venv…"
+  python3 -m venv "$VENV"
+  "$VENV/bin/pip" install -q -r "$CONSOLE/requirements.txt"
+fi
+
+cd "$ROOT"
+exec "$VENV/bin/python" -m console.app

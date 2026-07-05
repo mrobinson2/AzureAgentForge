@@ -1,0 +1,166 @@
+#!/usr/bin/env zsh
+# aaf-site — single-writer site switch for the self-hosted-primary platform.
+# See the self-hosted-primary ADR in docs/design/: the always-on host you own is
+# the primary site; Azure is the warm standby. The DATABASE NEVER MOVES — both
+# sites share the same managed PostgreSQL Flexible Server (public endpoint,
+# sslmode=require), so a site switch is a STATELESS COMPUTE SWITCH: no database
+# dumps or restores, no server stop/start. Only the file shares are synced (the
+# live site is authoritative for them). NEVER flips the lease automatically —
+# every transition is a deliberate operator action.
+#
+#   aaf-site status          lease value + mirror + local containers + whether
+#                            the cloud apps are awake
+#   aaf-site local           FAILBACK to the local host (the normal home state):
+#                            sync shares cloud→local (cloud was authoritative
+#                            while live) → lease=local → cloud Sleep runbook →
+#                            compose up (incl. tunnel connector)
+#   aaf-site cloud           FAILOVER away from local (planned, host still alive):
+#                            compose down → sync shares local→cloud → lease=cloud
+#                            → cloud Wake runbook → verify health
+#   aaf-site cloud --force   EVACUATION failover: the host is dying/leaving in a
+#                            hurry — SKIPS the share sync (the cloud serves the
+#                            last hourly warm-standby sync). Red banner.
+#
+# Requires: az (logged in, Secrets Officer on the vault + Automation Operator),
+# docker, azcopy.
+set -euo pipefail
+
+# ── config (override via env) ──────────────────────────────────────────────
+: ${VAULT:=your-kv}
+: ${RG:=your-rg}
+: ${AUTOMATION_ACCOUNT:=aaf-sleep-wake}
+: ${SLEEP_RUNBOOK:=Sleep-ContainerApps}
+: ${WAKE_RUNBOOK:=Wake-ContainerApps}
+: ${PUBLIC_URL:=https://app.example.com}
+: ${STORAGE_ACCOUNT:=your-storage-account}
+SCRIPT_DIR="${0:A:h}"
+SITE_DIR="${SCRIPT_DIR:h}/deploy/mac-site"
+COMPOSE="docker compose -f ${SITE_DIR}/docker-compose.yml"
+# shellcheck disable=SC1091
+[[ -f "${SITE_DIR}/.env" ]] && source "${SITE_DIR}/.env"
+: ${AAF_HOME:=$HOME/aaf}
+MIRROR="${AAF_HOME}/active-site"
+
+red()  { print -P "%F{red}$*%f"; }
+grn()  { print -P "%F{green}$*%f"; }
+ylw()  { print -P "%F{yellow}$*%f"; }
+die()  { red "ERROR: $*"; exit 1; }
+confirm() { ylw "$1 [y/N]"; read -r a; [[ "$a" == (y|Y) ]] || die "aborted by operator"; }
+
+# ── lease (KV is source of truth; mirror is what lease-guard reads) ─────────
+lease_get() { az keyvault secret show --vault-name "$VAULT" --name platform-active-site --query value -o tsv 2>/dev/null || echo ""; }
+lease_set() {  # <cloud|local>
+  az keyvault secret set --vault-name "$VAULT" --name platform-active-site --value "$1" --output none
+  mkdir -p "$AAF_HOME"; print -n "$1" > "$MIRROR"
+  grn "lease → $1 (KV + mirror $MIRROR)"
+}
+
+# ── cloud control (rides the sleep/wake automation runbooks) ────────────────
+cloud_runbook() {  # <runbook-name>
+  ylw "Cloud: starting runbook $1 ..."
+  az automation runbook start --automation-account-name "$AUTOMATION_ACCOUNT" \
+    --resource-group "$RG" --name "$1" --output none
+}
+
+# ── local stack ────────────────────────────────────────────────────────────
+compose_up()   { ylw "Local: bringing up the platform (profile: live) ..."; $COMPOSE --profile live up -d; }
+compose_down() { ylw "Local: stopping the platform ..."; $COMPOSE --profile live --profile jobs down; }
+docker_check() { docker info >/dev/null 2>&1 || die "Docker is not running — start Docker Desktop first."; }
+
+# ── share sync (the DB is shared — ONLY the file shares move) ───────────────
+sync_cloud_to_local() {  # cloud was authoritative while it was live
+  ylw "Share sync cloud → local (cloud was authoritative while live) ..."
+  mkdir -p "${AAF_HOME}/shares/paperclip-data" "${AAF_HOME}/shares/hermes-data"
+  for share in paperclip-data hermes-data; do
+    ylw "  azcopy cloud $share → local"
+    azcopy sync "https://${STORAGE_ACCOUNT}.file.core.windows.net/$share" "${AAF_HOME}/shares/$share" \
+      --recursive --delete-destination=true
+  done
+}
+sync_local_to_cloud() {  # the local host was authoritative while it was live
+  ylw "Share sync local → cloud (the local host was authoritative) ..."
+  for share in paperclip-data hermes-data; do
+    ylw "  azcopy local $share → cloud"
+    azcopy sync "${AAF_HOME}/shares/$share" "https://${STORAGE_ACCOUNT}.file.core.windows.net/$share" \
+      --recursive --delete-destination=true
+  done
+}
+
+health_check() {
+  ylw "Health: GET ${PUBLIC_URL}/healthz (expect a response through the live connector) ..."
+  curl -fsS -m 20 "${PUBLIC_URL}/healthz" -o /dev/null && grn "  public endpoint reachable" || red "  public endpoint NOT reachable yet (tunnel may still be converging)"
+}
+
+# ── commands ───────────────────────────────────────────────────────────────
+cmd_status() {
+  local lease; lease=$(lease_get)
+  print "lease (platform-active-site): ${lease:-<unset>}"
+  print "lease mirror (${MIRROR}): $([[ -f $MIRROR ]] && cat $MIRROR || echo '<none>')"
+  if docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^aaf-paperclip$'; then
+    grn "Local containers: UP"
+  else
+    print "Local containers: down"
+  fi
+  local active
+  if active=$(az containerapp revision list -n paperclip -g "$RG" \
+      --query "[?properties.active] | length(@)" -o tsv 2>/dev/null); then
+    if [[ "${active:-0}" -gt 0 ]]; then
+      print "Cloud apps (paperclip): AWAKE (${active} active revision(s))"
+    else
+      print "Cloud apps (paperclip): asleep"
+    fi
+  else
+    ylw "Cloud apps: unknown (az query failed — offline or not logged in)"
+  fi
+}
+
+cmd_local() {
+  # FAILBACK to the local host — the normal home state.
+  [[ "$(lease_get)" == "local" ]] && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^aaf-paperclip$' \
+    && die "lease already says local and the local stack is up — nothing to do."
+  confirm "FAILBACK to local: sync shares cloud→local, take the lease, put the cloud to sleep. Continue?"
+  docker_check
+  sync_cloud_to_local
+  lease_set local
+  cloud_runbook "$SLEEP_RUNBOOK"
+  compose_up
+  health_check
+  grn "FAILBACK complete. The local host is the live site (home state). Run 'aaf-site cloud' to fail over."
+}
+
+cmd_cloud() {
+  local force=${1:-}
+  if [[ "$force" == "--force" ]]; then
+    red "════════════════════════════════════════════════════════════"
+    red " EVACUATION FAILOVER (--force): SKIPPING the local→cloud share"
+    red " sync. The cloud will serve the LAST hourly warm-standby sync —"
+    red " any share writes since then are LOST. The shared DB is safe"
+    red " (it never moves). Use only when the local host must go down NOW."
+    red "════════════════════════════════════════════════════════════"
+    confirm "Proceed with forced failover to the cloud (no share sync)?"
+    compose_down || ylw "(compose down failed/partial — continuing, the host is being evacuated)"
+    lease_set cloud
+    cloud_runbook "$WAKE_RUNBOOK"
+    ylw "Waiting 60s for the cloud apps + tunnel to converge ..."; sleep 60
+    health_check
+    grn "FORCED FAILOVER complete. The cloud is the live site; share state is as of the last hourly sync."
+    return
+  fi
+  [[ "$(lease_get)" == "cloud" ]] && ! docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^aaf-paperclip$' \
+    && die "lease already cloud and the local host is down — already failed over."
+  confirm "Planned FAILOVER to the cloud: stop the local host, sync shares local→cloud, wake the cloud. Continue?"
+  compose_down
+  sync_local_to_cloud
+  lease_set cloud
+  cloud_runbook "$WAKE_RUNBOOK"
+  ylw "Waiting 60s for the cloud apps + tunnel to converge ..."; sleep 60
+  health_check
+  grn "FAILOVER complete. The cloud is the live site. Run 'aaf-site local' to come home."
+}
+
+case "${1:-}" in
+  status) cmd_status ;;
+  local)  cmd_local ;;
+  cloud)  cmd_cloud "${2:-}" ;;
+  *) print "usage: aaf-site {status|local|cloud [--force]}"; exit 1 ;;
+esac

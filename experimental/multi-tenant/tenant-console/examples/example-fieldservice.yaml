@@ -1,0 +1,35 @@
+# Example tenant contract — the field-service inspection playbook worked example.
+#
+# One tenant = one row of config; the executor derives everything else.
+# `variables` carries only the wizard-collected pack variables — the four
+# structural ones (tenant_slug, tenant_display_name, vertical, workspace) are
+# injected by the contract loader, so they must NOT appear here.
+#
+# Dry-run the plan (no auth, zero write calls):
+#   scripts/provision_tenant.py --contract examples/example-fieldservice.yaml
+#
+# Apply against a running stack:
+#   scripts/provision_tenant.py --contract examples/example-fieldservice.yaml --apply
+#
+# Values below are the pack's declared `example` values
+# (playbooks/example-fieldservice/pack.yaml), so this contract renders end-to-end
+# unedited. "Acme" is a generic placeholder company; swap in your own.
+
+tenant:
+  slug: "example-fieldservice"        # DNS-safe, immutable → workspace tenant-example-fieldservice
+  display_name: "Acme Field Services"
+  vertical: "example-fieldservice"    # selects playbooks/example-fieldservice/
+  budgets:
+    daily_usd: 5.00                  # router per-tenant daily cap
+    per_run_usd: 0.50                # per-run cost envelope
+  variables:
+    service_area: "the Example metro area"
+    pricing_bands: "standard inspection tier; extended inspection tier; follow-up work quoted on-site by a technician"
+    escalation_contact: "the on-call operations lead - ops@example.com"
+    business_hours: "Mon-Fri 8:00 AM-5:00 PM; Sat 9:00 AM-noon"
+    intake_agent_name: "Intake Assistant"
+    coordinator_agent_name: "Dispatch Desk"
+  channels:
+    - kind: external_webhook         # bound in P2/P3 — recorded pending in P1
+      note: "an inbound intake surface; the per-channel routing id becomes per-tenant"
+    - kind: paperclip-issues         # the intake surface the smoke lane uses — bound now

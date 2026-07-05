@@ -183,9 +183,11 @@ RUN grep -q '"--save", "--ignore-scripts"' \
 # and replaces the fragile prompt template with one that enforces real task
 # completion (no generic "success" comments, no marking done without output).
 COPY apps/paperclip/patch-adapter.mjs /tmp/patch-adapter.mjs
-# patch-adapter.mjs imports ./patch-adapter-router-env.mjs (§0.7 cost-envelope),
-# so the sibling must be present in the same dir for the node run to resolve it.
+# patch-adapter.mjs imports ./patch-adapter-router-env.mjs (§0.7 cost-envelope)
+# and ./patch-adapter-sandbox.mjs (sandbox seam), so both siblings must be
+# present in the same dir for the node run to resolve them.
 COPY apps/paperclip/patch-adapter-router-env.mjs /tmp/patch-adapter-router-env.mjs
+COPY apps/paperclip/patch-adapter-sandbox.mjs /tmp/patch-adapter-sandbox.mjs
 RUN node /tmp/patch-adapter.mjs
 
 # tsx is a devDependency but the upstream CMD uses it as a runtime loader

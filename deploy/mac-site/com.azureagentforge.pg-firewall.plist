@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Shared-PG firewall keeper (self-hosted PRIMARY site).
+     Runs pg-firewall-update.sh every 900s: if the home WAN IP changed, upsert
+     the `home-ip` firewall rule on the shared managed PostgreSQL server so the
+     host keeps its public-endpoint access. No-ops when the IP is unchanged.
+     Install:  cp com.azureagentforge.pg-firewall.plist ~/Library/LaunchAgents/
+               launchctl load ~/Library/LaunchAgents/com.azureagentforge.pg-firewall.plist -->
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.azureagentforge.pg-firewall</string>
+
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>-lc</string>
+        <!-- Absolute path to the repo checkout on the host; edit to match. -->
+        <string>~/Code/AzureAgentForge/deploy/mac-site/pg-firewall-update.sh</string>
+    </array>
+
+    <key>StartInterval</key>
+    <integer>900</integer>
+
+    <!-- Edit these to absolute paths under your $HOME/aaf/logs. -->
+    <key>StandardOutPath</key>
+    <string>/Users/CHANGEME/aaf/logs/pg-firewall.out.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/CHANGEME/aaf/logs/pg-firewall.err.log</string>
+
+    <key>ProcessType</key>
+    <string>Background</string>
+</dict>
+</plist>

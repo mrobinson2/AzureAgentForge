@@ -378,6 +378,24 @@ variable "teams_orchestrator_agent_id" {
   default     = ""
 }
 
+variable "slack_enabled" {
+  type        = bool
+  description = "Enable the Slack chat surface (services/slack-bridge Slack Events API endpoint). Internal ingress — expose via the Cloudflare tunnel + set SLACK_SIGNING_SECRET before go-live."
+  default     = false
+}
+
+variable "slack_bridge_image_tag" {
+  type        = string
+  description = "Image tag for the slack-bridge container."
+  default     = "latest"
+}
+
+variable "slack_orchestrator_agent_id" {
+  type        = string
+  description = "Optional agent id to route inbound Slack messages to (the Orchestrator). Empty → PaperClip default routing."
+  default     = ""
+}
+
 variable "paperclip_workspaces_tmpfs" {
   description = "When true, the paperclip entrypoint symlinks /paperclip/instances/<id>/workspaces -> /tmp/paperclip-workspaces so per-agent workspace dirs live on tmpfs (full POSIX) instead of the SMB-mounted Azure File Share (where chmod/chown are mount-time-immutable, causing EACCES for node-user file writes). Workspaces are ephemeral scratch space so loss on container restart is fine; persistent state lives elsewhere (PaperClip DB, git, KV)."
   type        = bool

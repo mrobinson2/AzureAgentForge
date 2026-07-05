@@ -7,7 +7,7 @@
 
 # Infrastructure Cost Profiles
 
-Two `.tfvars` files are provided so you can apply a consistent cost/security
+Three `.tfvars` files are provided so you can apply a consistent cost/security
 posture without editing individual variable files each time.
 
 ## Profiles
@@ -41,9 +41,35 @@ production or compliance-sensitive deployments.
 | `cloudflared_enabled` | `true` | Cloudflare Tunnel container for ingress; no public inbound port |
 | `key_vault_public_network_access_enabled` | `false` | Requires a Key Vault private endpoint; primary network cost lever |
 
-> **Note:** PostgreSQL is VNet-injected in both profiles. The Key Vault private
-> endpoint (`key_vault_public_network_access_enabled = false`) is the main
-> additional network cost in the hardened profile.
+> **Note:** PostgreSQL is VNet-injected in the cost-optimized and hardened
+> profiles. The Key Vault private endpoint
+> (`key_vault_public_network_access_enabled = false`) is the main additional
+> network cost in the hardened profile.
+
+### `self-hosted-primary.tfvars`
+The **cloud side** of a "run the platform on hardware you own, keep a warm cloud
+standby" topology. An always-on machine you own runs the full compose stack
+([`deploy/mac-site/`](../../deploy/mac-site/) or
+[`deploy/windows-site/`](../../deploy/windows-site/)) as the primary; this cloud
+deployment is a dormant standby that a lease + one-tap failover
+([`scripts/aaf-site`](../../scripts/aaf-site)) brings up only when the primary is
+down. Steady-state infra runs **~$35–45/mo** because the compute lives on
+hardware you already own and the two sites share one always-on managed Postgres.
+See [`../../docs/cost.md`](../../docs/cost.md) and the self-hosted-primary ADR in
+[`../../docs/design/`](../../docs/design/).
+
+| Variable | Value | Trade-off |
+|---|---|---|
+| `postgres_sku_name` | `B_Standard_B1ms` | The one shared, always-on server both sites use; smallest burstable tier |
+| `postgres_high_availability_enabled` | `false` | No zone-redundant standby; the self-hosted primary is the availability story |
+| `cloudflared_enabled` | `true` | The standby holds the second connector of the shared tunnel, so failover is a lease flip, not a DNS change |
+| `key_vault_public_network_access_enabled` | `true` | The self-hosted host reaches Key Vault (and the shared Postgres public endpoint) without a VNet |
+| `key_vault_network_default_action` | `Deny` | Public endpoint, but default-deny — allow only your egress IPs via `key_vault_allowed_ip_ranges` |
+
+> **Note:** the standby's dormant / scale-to-zero posture and the owned-hardware
+> primary are architectural (the failover runbook and `deploy/mac-site/`), not
+> Terraform toggles. This profile only sets the cost/network knobs; restrict the
+> public endpoints with `key_vault_allowed_ip_ranges`.
 
 ## Applying a Profile
 
@@ -62,6 +88,13 @@ terraform apply \
 # Hardened profile
 terraform apply \
   -var-file=../../profiles/hardened.tfvars \
+  -var-file=terraform.tfvars
+```
+
+```bash
+# Self-hosted-primary (cloud standby side)
+terraform apply \
+  -var-file=../../profiles/self-hosted-primary.tfvars \
   -var-file=terraform.tfvars
 ```
 

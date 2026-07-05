@@ -61,6 +61,29 @@ The hardened profile (`infrastructure/profiles/hardened.tfvars`) costs roughly $
 
 If you're deploying to production and need the security posture, the cost difference is worth it. If you're evaluating the project or running a dev environment, start with cost-optimized.
 
+## Self-hosted-primary profile
+
+> ⚠️ **Derived estimate, not bill-validated.** Unlike the cost-optimized table above (grounded in Azure Cost Management data), the figures below are a *modeled anatomy* of a self-hosted topology. Actual spend depends on which cloud resources you keep always-on for the standby. The compute figure is $0 because it runs on hardware you already own, not because it is free.
+
+The `self-hosted-primary` profile (`infrastructure/profiles/self-hosted-primary.tfvars`) inverts where the compute lives. Instead of paying Azure Container Apps to run the stack, an always-on machine you already own — a mini PC, a spare desktop, an Apple-silicon mini — runs the full compose stack ([`deploy/mac-site/`](../deploy/mac-site/) or [`deploy/windows-site/`](../deploy/windows-site/)) as the **primary site**, and Azure holds a **dormant warm standby**. Both sites share one managed PostgreSQL server (the database never moves), so a failover is a stateless compute switch. See the self-hosted-primary ADR in [`design/`](design/).
+
+| Line | Config | Modeled monthly |
+|---|---|---|
+| Compute (the stack) | Runs on hardware you own; scale-to-zero standby in Azure | $0 |
+| PostgreSQL Flexible Server | Burstable B1ms, 32 GB, no HA — the one always-on shared server | ~$18 |
+| Container Registry | Basic — images the host pulls | ~$9 |
+| Key Vault + networking | Standard, public endpoint (default-deny) + DNS/egress | <$2 |
+| Log Analytics | 30-day retention, 1 GB/day cap — idle standby | $0–5 |
+| Cloudflare Tunnel | Free tier (one tunnel, two connectors) | $0 |
+| **Infra total (excl. LLM tokens)** | | **~$35–45** |
+
+The saving versus the cost-optimized cloud profile is almost entirely the always-on Container Apps and Azure Files lines: the self-hosted host absorbs both. What remains is the shared Postgres (which you want always-on for RPO-0 failover), the registry, and a near-idle standby. Two caveats keep this honest:
+
+- **The compute isn't actually free** — you own and power the hardware, and you operate it. The $0 line means "no incremental cloud compute bill," not "no cost." Electricity, hardware amortization, and your own time are real.
+- **You still pay for the standby's footprint.** The shared Postgres is always-on by design (it is the failover pivot). If you also keep the standby's Container Apps warm rather than scaled-to-zero, add roughly the cost-optimized Container Apps line back.
+
+This topology suits a single operator who already runs an always-on machine and wants cloud cost to track "the database plus a warm standby" rather than "the whole platform, always." For a hands-off, no-hardware deployment, use `cost-optimized` instead.
+
 ## Measure your real cost
 
 Use **Azure Cost Management** (portal > Cost Management + Billing > Cost analysis) to see actual spend by resource. Tag your resource group (the Terraform modules use a consistent `project` tag) so you can filter to just this deployment. The same data is available from the CLI. Group by service name over a billing period to reproduce a table like the one above:

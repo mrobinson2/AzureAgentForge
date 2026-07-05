@@ -1,0 +1,92 @@
+# Field-service inspection vertical playbook pack — manifest.
+# This is a neutral, invented example vertical (an equipment-inspection field
+# service). It exists to demonstrate the pack mechanism, not a real business.
+# Loaded/validated/rendered by src/tenantconsole/playbook.py.
+
+schema_version: 1
+vertical: example-fieldservice
+display_name: "Field Services"
+
+# Agent roster template, instantiated per tenant by the provisioning executor.
+# Notes:
+# - `model` lives HERE (the executor writes it to the PaperClip agent record),
+#   never in template frontmatter — see the agent-frontmatter schema.
+# - `slug_prefix` is composed with the tenant slug by the executor
+#   (e.g. intake-example-fieldservice).
+# - `reports_to` references another role in this manifest, or null for the
+#   tenant-local root agent.
+agents:
+  - role: intake
+    slug_prefix: intake
+    band: 1
+    template: agents/intake.AGENTS.md.tmpl
+    model: gpt-4o-mini
+    toolsets: [terminal, file]
+    name_template: "{{intake_agent_name}}"
+    reports_to: coordinator
+
+  - role: coordinator
+    slug_prefix: coordinator
+    band: 2
+    template: agents/coordinator.AGENTS.md.tmpl
+    model: gpt-4o-mini
+    toolsets: [terminal, file]
+    name_template: "{{coordinator_agent_name}}"
+    reports_to: null
+
+# Skill specs shipped with the pack (uploaded alongside the agent prompts).
+skills:
+  - skills/intake-assessment.md
+
+# Every {{variable}} used anywhere in this pack (templates, skills, seeds,
+# fixture) MUST be declared here. `required: true` = the wizard must collect
+# it from the operator; `required: false` = the executor derives/fixes it.
+variables:
+  tenant_slug:
+    description: "DNS-safe, immutable tenant identifier (the tenant contract's `slug`)."
+    example: "example-fieldservice"
+    required: true
+  tenant_display_name:
+    description: "Human-readable tenant business name, used in agent prompts and customer-facing copy."
+    example: "Acme Field Services"
+    required: true
+  vertical:
+    description: "Vertical slug. Fixed for this pack; the executor fills it from the manifest."
+    example: "example-fieldservice"
+    required: false
+  workspace:
+    description: "Governor memory partition (workspace_name). Derived by the wizard as tenant-<tenant_slug>."
+    example: "tenant-example-fieldservice"
+    required: false
+  service_area:
+    description: "Geographic service area the tenant covers (cities/region/radius)."
+    example: "the Example metro area"
+    required: true
+  pricing_bands:
+    description: "The tenant's pricing tiers, seeded into workspace memory for the HUMAN follow-up team. Agents never quote these."
+    example: "standard inspection tier; extended inspection tier; follow-up work quoted on-site by a technician"
+    required: true
+  escalation_contact:
+    description: "Named human + contact channel for escalations out of the agent lane."
+    example: "the on-call operations lead - ops@example.com"
+    required: true
+  business_hours:
+    description: "The tenant's staffed business hours, including weekend coverage if any."
+    example: "Mon-Fri 8:00 AM-5:00 PM; Sat 9:00 AM-noon"
+    required: true
+  intake_agent_name:
+    description: "Display name for the Band-1 intake agent (the tenant's brand voice on the intake line)."
+    example: "Intake Assistant"
+    required: true
+  coordinator_agent_name:
+    description: "Display name for the Band-2 tenant coordinator agent."
+    example: "Dispatch Desk"
+    required: true
+
+# Templated pinned/durable_fact seeds written into the tenant workspace at
+# provision time (idempotent on seed_key).
+seed_memories: seed-memories.yaml
+
+# Verification-lane conversation fixture run against the intake agent after
+# provisioning.
+smoke_fixture: smoke-fixture.yaml

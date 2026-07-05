@@ -1,0 +1,66 @@
+# Seed memories for the field-service inspection playbook pack.
+#
+# The provisioning executor parses this file, renders the template variables inside the
+# string fields, and writes each entry into the tenant's workspace partition
+# via the memory governor. Field vocabulary matches the governor's classifier:
+# memory_class, scope_kind, source_type, verification_state.
+#
+# `seed_key` is a unique, stable identifier per entry so re-provisioning is
+# idempotent: the executor upserts on (workspace, seed_key) instead of
+# re-inserting on every run.
+
+- seed_key: fieldservice-pricing-bands
+  memory_class: pinned
+  scope_kind: workspace
+  source_type: operator_entered
+  verification_state: confirmed
+  pin_request: true
+  content: "Pricing tiers for {{tenant_display_name}}: {{pricing_bands}}. These tiers are for the HUMAN follow-up team only. No agent quotes, confirms, or estimates any price to a caller or prospect — every pricing conversation is handled by humans."
+
+- seed_key: fieldservice-service-area
+  memory_class: pinned
+  scope_kind: workspace
+  source_type: operator_entered
+  verification_state: confirmed
+  pin_request: true
+  content: "{{tenant_display_name}} serves {{service_area}}. Prospects outside this area are noted in the intake record for the follow-up team to refer out — agents never turn a prospect away themselves."
+
+- seed_key: fieldservice-business-hours
+  memory_class: pinned
+  scope_kind: workspace
+  source_type: operator_entered
+  verification_state: confirmed
+  pin_request: true
+  content: "Business hours for {{tenant_display_name}}: {{business_hours}}. Written intake follow-ups are promised within 24 hours regardless of when the intake happened."
+
+- seed_key: fieldservice-escalation-rules
+  memory_class: pinned
+  scope_kind: workspace
+  source_type: operator_entered
+  verification_state: confirmed
+  pin_request: true
+  content: "Escalation contact for the {{tenant_slug}} tenant: {{escalation_contact}}. All off-lane requests (pricing, dispatch, billing, complaints, talk-to-a-human), all emergencies, and all platform failures route here. Agents never route to platform agents outside the tenant."
+
+- seed_key: fieldservice-scope-of-service
+  memory_class: durable_fact
+  scope_kind: workspace
+  source_type: operator_entered
+  verification_state: confirmed
+  pin_request: false
+  content: "What {{tenant_display_name}} does: scheduled on-site equipment inspections, condition reports, and follow-up service within {{service_area}}. What it does NOT do: emergency repair dispatch, warranty adjudication, or regulatory sign-off — anything touching those goes to a human."
+
+- seed_key: fieldservice-after-hours-policy
+  memory_class: durable_fact
+  scope_kind: workspace
+  source_type: operator_entered
+  verification_state: confirmed
+  pin_request: false
+  content: "After-hours policy for {{tenant_display_name}}: outside {{business_hours}}, the intake still runs end-to-end (it is asynchronous), but anything described as an active emergency is routed to {{escalation_contact}} immediately rather than triaged by an agent."
+
+- seed_key: fieldservice-followup-promise
+  memory_class: durable_fact
+  scope_kind: workspace
+  source_type: operator_entered
+  verification_state: confirmed
+  pin_request: false
+  content: "The intake promise for {{tenant_slug}}: every completed or partially completed intake gets a WRITTEN human follow-up within 24 hours. Agents make exactly this promise — never a callback time, never a price, never a capability commitment."

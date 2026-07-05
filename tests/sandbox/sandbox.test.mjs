@@ -25,12 +25,11 @@ describe("createSandbox factory", () => {
   });
 
   test("throws (fail closed) on an unknown provider", () => {
-    assert.throws(() => createSandbox("aca-job"), /Unknown SANDBOX_PROVIDER/);
     assert.throws(() => createSandbox("e2b"), /Unknown SANDBOX_PROVIDER/);
   });
 
-  test("the registry exposes only local for now", () => {
-    assert.deepEqual(Object.keys(PROVIDERS), ["local"]);
+  test("the registry exposes local and aca-job", () => {
+    assert.deepEqual(Object.keys(PROVIDERS).sort(), ["aca-job", "local"]);
   });
 });
 

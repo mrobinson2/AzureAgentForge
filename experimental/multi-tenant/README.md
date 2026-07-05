@@ -27,6 +27,7 @@ The single-tenant stack is what CI validates and what actually runs. Nothing in 
 | `ARCHITECTURE.md` | Full reference design: isolation strategy, data-layer changes, agent routing, Terraform module design, onboarding flow, cost model, security controls, and migration plan. Start here. |
 | `control-plane/` | Scaffolding for a tenant provisioning API (FastAPI). Covers create/get/list tenant endpoints and Azure Key Vault + Search client wiring. **Reference only — not wired in.** |
 | `memory-store/` | Scaffolding for a per-tenant memory service (FastAPI + pgvector). Covers vector insert/search/delete endpoints. **Reference only — not wired in.** |
+| `tenant-console/` | Scaffolding for playbook-driven tenant onboarding: a headless provision/decommission executor, an operator GUI (FastAPI + SSE, Forge Console pattern), a vertical playbook pack, and per-tenant budget/memory seams. **Reference only — not wired in.** |
 
 ## Designed vs Built
 
@@ -45,6 +46,7 @@ The single-tenant stack is what CI validates and what actually runs. Nothing in 
 - Control-plane API: `POST /tenants`, `GET /tenants/{id}`, `GET /tenants` (FastAPI, untested)
 - Memory-store service: vector insert/search/delete endpoints (FastAPI, untested)
 - SQL schema for tenant records and memory records
+- Tenant console (playbook-driven onboarding, per-tenant budget, operator UI): headless executor + FastAPI/SSE GUI + example vertical pack (offline-testable, not deployed)
 
 ### Not built / not deployed
 
