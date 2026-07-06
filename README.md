@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.4-blue" alt="Release v1.4"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.5-blue" alt="Release v1.5"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
@@ -80,6 +80,14 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 ---
 
 ## What's new
+
+New in v1.5 (since v1.4):
+
+- **Governed memory, enable-able for real**: the memory-governor self-provisions its full schema on startup (a `0002` overlay completes the planner's `documents` columns and adds `session_memory` + `skill_candidates`, reconciled to the canonical migrations), `memory_governor_enabled` is threaded through the deploy, and a `showcase` profile deploys it with an honest cost + go-live checklist. Flags still seed off; enabling needs an operator embedding key + a live validate.
+- **Retrieval observability**: Plane C reports its ranking path (`vector`/`trigram`/`trigram_fallback`) in the retrieval package, the `memory_injected` event, and a `/healthz` embedding block; a watchdog detector fires on sustained vector→trigram degradation.
+- **`aca-job` sandbox contract reconciled**: to the documented ACA dynamic-sessions **executions** API (`/executions`, query-param `identifier`, `shellCommand` body, `properties`-nested response) plus an IMDS managed-identity token provider. Still unverified against a live pool; default provider stays `local`.
+- **Observability + cost governance**: `gen_ai.usage` token/cost metrics and a `correlation_id` on the router span, per-caller spend attribution with an optional daily cap and rollup, an SLO-burn alert, and a GenAI cost workbook tile.
+- **Human-in-the-loop action approval**: a provider-pluggable seam that gates runtime agent actions (outbound message, destructive tool) behind human approval — inert by default, fails closed for gated actions, with a `webhook` approver. Ships unwired.
 
 New in v1.4 (since v1.3):
 
