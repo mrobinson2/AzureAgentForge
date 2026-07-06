@@ -72,6 +72,12 @@ class RetrievalPackage:
     track_records: list[dict] = field(default_factory=list)
     total_tokens: int = 0
     reason: str = ""
+    # Which Plane C ranking path ran this turn: 'vector' (hybrid pgvector),
+    # 'trigram' (vector flag off — expected), or 'trigram_fallback' (flag on but
+    # the vector path was unavailable). Surfaced in the package and the
+    # memory_injected event so the otherwise-silent vector→trigram degradation
+    # is observable.
+    ranking_mode: str = "trigram"
 
 
 async def _plane_a(req: RetrievalRequest) -> list[dict]:
@@ -146,16 +152,22 @@ def _vec_literal(vec: list[float]) -> str:
     return "[" + ",".join(repr(float(x)) for x in vec) + "]"
 
 
-async def _plane_c_candidates(req: RetrievalRequest) -> list[dict]:
+async def _plane_c_candidates(req: RetrievalRequest) -> tuple[list[dict], str]:
     """Candidate set: same-workspace, retrievable states, scope-eligible. Hybrid
     (pgvector cosine blended with trigram) when MEMORY_VECTOR_RETRIEVAL_ENABLED is
     on AND the query embeds; otherwise trigram-only. Any vector-path failure (no
     embedding, dim mismatch, missing extension) degrades to trigram — the vector
     is a ranker, never a gate. The blended value is returned as `sim`, consumed
-    unchanged by retrieval_score()."""
+    unchanged by retrieval_score().
+
+    Returns (rows, ranking_mode) where ranking_mode is 'vector' | 'trigram'
+    (flag off) | 'trigram_fallback' (flag on but the vector path was
+    unavailable) — observability for the otherwise-silent vector→trigram
+    degradation."""
     p = await db.pool()
     query_vec = None
-    if await db.flag_enabled("MEMORY_VECTOR_RETRIEVAL_ENABLED"):
+    vector_expected = await db.flag_enabled("MEMORY_VECTOR_RETRIEVAL_ENABLED")
+    if vector_expected:
         from .. import llm
 
         query_vec = await llm.embed(req.query)
@@ -170,11 +182,11 @@ async def _plane_c_candidates(req: RetrievalRequest) -> list[dict]:
                 VECTOR_WEIGHT,
                 TRIGRAM_WEIGHT,
             )
-            return [dict(r) for r in rows]
+            return [dict(r) for r in rows], "vector"
         except Exception:  # noqa: BLE001 — vector is a ranker, not a gate
             log.exception("hybrid Plane C retrieval failed; falling back to trigram")
     rows = await p.fetch(_TRIGRAM_SQL, req.workspace_name, req.query)
-    return [dict(r) for r in rows]
+    return [dict(r) for r in rows], ("trigram_fallback" if vector_expected else "trigram")
 
 
 def _in_scope(row: dict, req: RetrievalRequest) -> bool:
@@ -356,7 +368,7 @@ async def plan_retrieval(req: RetrievalRequest) -> RetrievalPackage:
         )
 
     plane_a = await _plane_a(req)
-    candidates = await _plane_c_candidates(req)
+    candidates, ranking_mode = await _plane_c_candidates(req)
 
     # readClasses filter: agents only retrieve classes their profile allows.
     from .. import profiles
@@ -424,6 +436,7 @@ async def plan_retrieval(req: RetrievalRequest) -> RetrievalPackage:
         plane_d=plane_d,
         failure_lessons=failure_lessons,
         track_records=track_records,
+        ranking_mode=ranking_mode,
     )
     pkg.total_tokens = sum(
         estimate_tokens(m["content"])
@@ -452,7 +465,8 @@ async def plan_retrieval(req: RetrievalRequest) -> RetrievalPackage:
             await db.emit_event(
                 "memory_injected",
                 req.agent_slug,
-                {"doc_ids": injected, "count": len(injected), "query": req.query[:120]},
+                {"doc_ids": injected, "count": len(injected), "query": req.query[:120],
+                 "ranking_mode": pkg.ranking_mode},
                 session_id=req.session_id,
                 issue_id=req.active_scope_id if req.active_scope_kind == "task" else None,
             )

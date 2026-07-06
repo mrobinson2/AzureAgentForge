@@ -229,3 +229,52 @@ def test_warn_window_boundary_and_mixed_set():
     out = detectors.detect_expiring_secrets(secrets, now=_NOW, warn_days=14)
     by_sev = {f.evidence["secret"]: f.severity for f in out}
     assert by_sev == {"a": "critical", "b": "high"}
+
+
+# ---------------------------------------------------------------------------
+# trigram-fallback ranking degradation
+# ---------------------------------------------------------------------------
+
+def _inj_event(mode):
+    return {"id": "e1", "event_type": "memory_injected",
+            "payload": {"doc_ids": ["d1"], "count": 1, "ranking_mode": mode}}
+
+
+def test_sustained_fallback_flagged():
+    events = [_inj_event("trigram_fallback")] * 12 + [_inj_event("vector")] * 3
+    out = detectors.detect_trigram_fallback(events)
+    assert len(out) == 1
+    f = out[0]
+    assert f.severity == "medium"
+    assert f.recommended_owner == "Infrastructure"
+    assert f.evidence == {"fallbacks": 12, "total_with_mode": 15}
+    assert "80%" in f.summary
+
+
+def test_low_fallback_rate_not_flagged():
+    events = [_inj_event("vector")] * 10 + [_inj_event("trigram_fallback")] * 2
+    assert detectors.detect_trigram_fallback(events) == []
+
+
+def test_few_fallbacks_below_min_events_not_flagged():
+    events = [_inj_event("trigram_fallback")] * 5
+    assert detectors.detect_trigram_fallback(events, min_events=10) == []
+
+
+def test_pre_upgrade_events_without_mode_ignored():
+    events = [{"id": "e1", "event_type": "memory_injected",
+               "payload": {"doc_ids": ["d1"], "count": 1}}] * 30
+    assert detectors.detect_trigram_fallback(events) == []
+
+
+def test_flag_off_trigram_mode_is_not_a_fallback():
+    # ranking_mode == 'trigram' means the vector flag is OFF — expected, not
+    # degradation.
+    events = [_inj_event("trigram")] * 30
+    assert detectors.detect_trigram_fallback(events) == []
+
+
+def test_trigram_fallback_registered_in_run_detectors():
+    events = [_inj_event("trigram_fallback")] * 12
+    out = detectors.run_detectors([], events)
+    assert any(f.signature == "trigram-fallback-sustained" for f in out)
