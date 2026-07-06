@@ -51,3 +51,9 @@ variable "enable_observability_workbook" {
   type        = bool
   default     = false
 }
+
+variable "router_failure_burn_threshold" {
+  description = "SLO burn alert: fire when the model-router logs more than this many upstream failures/fallbacks (call_failed/primary_failed/fallback_failed) within alert_window_duration. A sustained burn of the availability budget, not a one-off blip."
+  type        = number
+  default     = 10
+}

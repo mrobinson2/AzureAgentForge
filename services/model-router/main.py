@@ -364,6 +364,12 @@ def _build_fallback_chain(tier: str, estimated_input: int, requested_max: int) -
 # ─── Budget Tracking ──────────────────────────────────────────────────────────
 _budget_date: str = ""
 _spend: dict[str, float] = defaultdict(float)
+# Cost governance: per-caller (agent/tenant) daily spend, on top of the per-tier
+# caps. The caller id comes from a request header (see resolve_caller_id); an
+# empty id is not attributed. A per-caller cap of 0 disables the ceiling (spend
+# is still tracked for the daily rollup).
+_spend_by_caller: dict[str, float] = defaultdict(float)
+PER_CALLER_DAILY_USD: float = float(os.environ.get("PER_CALLER_DAILY_USD", "0") or 0)
 
 
 def _reset_if_new_day() -> None:
@@ -372,24 +378,59 @@ def _reset_if_new_day() -> None:
     if today != _budget_date:
         _budget_date = today
         _spend.clear()
+        _spend_by_caller.clear()
 
 
 def record_cost(
     tier: str, cost: float, *, model: str | None = None,
     input_tokens: int = 0, output_tokens: int = 0, run_id: str | None = None,
+    caller: str | None = None, correlation_id: str | None = None,
 ) -> None:
     _reset_if_new_day()
     _spend[tier] += cost
+    if caller:
+        _spend_by_caller[caller] += cost
+    resolved_model = model or MODELS.get(tier, {}).get("litellm_model", tier)
     observe_genai(
-        tier=tier, model=model or MODELS.get(tier, {}).get("litellm_model", tier),
+        tier=tier, model=resolved_model,
         input_tokens=input_tokens, output_tokens=output_tokens,
-        cost_usd=cost, run_id=run_id,
+        cost_usd=cost, run_id=run_id, correlation_id=correlation_id,
+    )
+    # gen_ai.usage metric points alongside the span (same flag, same fail-open).
+    record_genai_metrics(
+        tier=tier, model=resolved_model,
+        input_tokens=input_tokens, output_tokens=output_tokens, cost_usd=cost,
     )
 
 
 def is_over_budget(tier: str) -> bool:
     _reset_if_new_day()
     return _spend.get(tier, 0.0) >= MODELS[tier]["daily_budget"]
+
+
+def is_over_caller_budget(caller: str | None, *, cap: float | None = None) -> bool:
+    """True when a per-caller daily cap is configured (>0) and this caller has
+    reached it. Fails OPEN: no caller id or no cap → never over budget, so cost
+    governance can't accidentally block traffic when unconfigured."""
+    limit = PER_CALLER_DAILY_USD if cap is None else cap
+    if not caller or limit <= 0:
+        return False
+    _reset_if_new_day()
+    return _spend_by_caller.get(caller, 0.0) >= limit
+
+
+def daily_cost_rollup() -> dict[str, object]:
+    """Snapshot of today's spend for the cost-rollup surface: total + per-tier +
+    per-caller. Pure read of the in-memory ledger (a deploy scrapes/rolls this;
+    it is not itself durable)."""
+    _reset_if_new_day()
+    return {
+        "date": _budget_date,
+        "total_usd": round(sum(_spend.values()), 6),
+        "by_tier": {k: round(v, 6) for k, v in _spend.items()},
+        "by_caller": {k: round(v, 6) for k, v in _spend_by_caller.items()},
+        "per_caller_daily_cap_usd": PER_CALLER_DAILY_USD,
+    }
 
 
 # ─── Observability (GenAI semconv) ────────────────────────────────────────────
@@ -406,7 +447,7 @@ def _genai_system(tier: str) -> str:
 
 def genai_semconv_attrs(
     *, tier: str, model: str, input_tokens: int, output_tokens: int,
-    cost_usd: float, run_id: str | None = None,
+    cost_usd: float, run_id: str | None = None, correlation_id: str | None = None,
 ) -> dict[str, object]:
     """Pure mapping → OTel GenAI-semconv span attributes. No I/O."""
     attrs: dict[str, object] = {
@@ -420,7 +461,42 @@ def genai_semconv_attrs(
     }
     if run_id:
         attrs["agent.run_id"] = run_id
+    if correlation_id:
+        # Threads a request across the caller → router → provider hop so spans,
+        # logs, and the caller's own trace can be joined on one id.
+        attrs["agent.correlation_id"] = correlation_id
     return attrs
+
+
+# ─── Correlation id + caller attribution (request-scoped) ─────────────────────
+_CORRELATION_HEADERS = ("x-correlation-id", "x-request-id", "traceparent")
+_CALLER_HEADERS = ("x-agent-id", "x-tenant-id", "x-caller-id")
+
+
+def resolve_correlation_id(headers) -> str | None:
+    """First non-empty correlation header (case-insensitive), else None. Pure —
+    the caller decides whether to mint one when absent."""
+    if not headers:
+        return None
+    get = headers.get
+    for h in _CORRELATION_HEADERS:
+        v = get(h) or get(h.title())
+        if v:
+            return str(v)[:200]
+    return None
+
+
+def resolve_caller_id(headers) -> str | None:
+    """First non-empty caller header (agent/tenant/caller), for per-caller cost
+    attribution. Pure; None when unattributed."""
+    if not headers:
+        return None
+    get = headers.get
+    for h in _CALLER_HEADERS:
+        v = get(h) or get(h.title())
+        if v:
+            return str(v)[:200]
+    return None
 
 
 OBSERVABILITY_ENABLED = os.environ.get("OBSERVABILITY_ENABLED", "").strip().lower() in (
@@ -474,7 +550,7 @@ def _init_tracer():
 
 def observe_genai(
     *, tier: str, model: str, input_tokens: int, output_tokens: int,
-    cost_usd: float, run_id: str | None = None,
+    cost_usd: float, run_id: str | None = None, correlation_id: str | None = None,
 ) -> None:
     """Emit one GenAI-semconv span. Flag-gated and FAIL-OPEN: any telemetry error
     is swallowed so it can never break a model call (the router is on every call)."""
@@ -487,12 +563,93 @@ def observe_genai(
         attrs = genai_semconv_attrs(
             tier=tier, model=model, input_tokens=input_tokens,
             output_tokens=output_tokens, cost_usd=cost_usd, run_id=run_id,
+            correlation_id=correlation_id,
         )
         with tracer.start_as_current_span("gen_ai.chat") as span:
             for k, v in attrs.items():
                 span.set_attribute(k, v)
     except Exception as e:  # fail-open: never surface telemetry errors
         log.debug("observe_genai swallowed: %s", e)
+
+
+# ─── gen_ai.usage metrics (counters alongside the span) ───────────────────────
+# The v1.3 span is one event per call; these are aggregatable counters (token
+# and cost sums by model/tier/system) so a dashboard can chart usage/cost and an
+# alert can fire on a spend burn-rate without querying every span.
+_meter = None
+_meter_provider = None
+_meter_initialised = False
+_metric_instruments: dict[str, object] = {}
+
+
+def genai_metric_points(
+    *, tier: str, model: str, input_tokens: int, output_tokens: int, cost_usd: float,
+) -> list[dict]:
+    """Pure mapping → the metric points to record for one model call. Each is
+    {instrument, value, attributes}; attributes are low-cardinality (model/tier/
+    system) so the series don't explode."""
+    dims = {"gen_ai.request.model": model or tier, "agent.tier": tier,
+            "gen_ai.system": _genai_system(tier)}
+    return [
+        {"instrument": "gen_ai.client.token.usage", "value": max(0, int(input_tokens or 0)),
+         "attributes": {**dims, "gen_ai.token.type": "input"}},
+        {"instrument": "gen_ai.client.token.usage", "value": max(0, int(output_tokens or 0)),
+         "attributes": {**dims, "gen_ai.token.type": "output"}},
+        {"instrument": "gen_ai.client.cost.usd", "value": max(0.0, round(float(cost_usd or 0.0), 6)),
+         "attributes": dims},
+    ]
+
+
+def _init_meter():
+    """Lazily build the Azure Monitor metric exporter + counters once. Mirrors
+    _init_tracer: returns None when no connection string is set or setup fails.
+    Swap the exporter for any OTLP metric exporter for a non-Azure backend."""
+    global _meter, _meter_provider, _meter_initialised
+    if _meter_initialised:
+        return _meter
+    _meter_initialised = True
+    conn = os.environ.get("APPLICATIONINSIGHTS_CONNECTION_STRING")
+    if not conn:
+        return None
+    try:  # pragma: no cover - requires live azure.monitor SDK
+        from azure.monitor.opentelemetry.exporter import AzureMonitorMetricExporter
+        from opentelemetry.sdk.metrics import MeterProvider
+        from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+        reader = PeriodicExportingMetricReader(
+            AzureMonitorMetricExporter(connection_string=conn)
+        )
+        _meter_provider = MeterProvider(metric_readers=[reader])
+        _meter = _meter_provider.get_meter("model-router")
+        _metric_instruments["gen_ai.client.token.usage"] = _meter.create_counter(
+            "gen_ai.client.token.usage", unit="{token}", description="GenAI tokens by type")
+        _metric_instruments["gen_ai.client.cost.usd"] = _meter.create_counter(
+            "gen_ai.client.cost.usd", unit="USD", description="GenAI list-price/billed cost")
+    except Exception as e:  # pragma: no cover
+        log.warning("observability: meter init failed, disabling: %s", e)
+        _meter = None
+    return _meter
+
+
+def record_genai_metrics(
+    *, tier: str, model: str, input_tokens: int, output_tokens: int, cost_usd: float,
+) -> None:
+    """Emit the gen_ai.usage metric points. Flag-gated + FAIL-OPEN, exactly like
+    observe_genai — telemetry must never break a model call."""
+    if not OBSERVABILITY_ENABLED:
+        return
+    try:
+        meter = _init_meter()
+        if meter is None:
+            return
+        for pt in genai_metric_points(
+            tier=tier, model=model, input_tokens=input_tokens,
+            output_tokens=output_tokens, cost_usd=cost_usd,
+        ):
+            inst = _metric_instruments.get(pt["instrument"])
+            if inst is not None:
+                inst.add(pt["value"], pt["attributes"])
+    except Exception as e:  # fail-open
+        log.debug("record_genai_metrics swallowed: %s", e)
 
 
 # Anthropic list-price per-million-token rates (input, output). The Anthropic SDK

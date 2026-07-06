@@ -65,9 +65,12 @@ def _isolate_router_state():
     fallback_snapshot = {k: list(v) for k, v in main._FALLBACK_PREFERENCE.items()}
     personas_snapshot = dict(main.PERSONA_TIERS)
     spend_snapshot = dict(main._spend)
+    caller_spend_snapshot = dict(main._spend_by_caller)
     budget_date_snapshot = main._budget_date
     tracer_snapshot = main._tracer
     tracer_initialised_snapshot = main._tracer_initialised
+    meter_snapshot = main._meter
+    meter_initialised_snapshot = main._meter_initialised
 
     yield
 
@@ -79,9 +82,13 @@ def _isolate_router_state():
     main.PERSONA_TIERS.update(personas_snapshot)
     main._spend.clear()
     main._spend.update(spend_snapshot)
+    main._spend_by_caller.clear()
+    main._spend_by_caller.update(caller_spend_snapshot)
     main._budget_date = budget_date_snapshot
     main._tracer = tracer_snapshot
     main._tracer_initialised = tracer_initialised_snapshot
+    main._meter = meter_snapshot
+    main._meter_initialised = meter_initialised_snapshot
     main._rate_windows.clear()
 
 
