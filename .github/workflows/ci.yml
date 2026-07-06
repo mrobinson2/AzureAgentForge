@@ -92,6 +92,8 @@ jobs:
         run: node --test tests/auth-proxy/*.test.mjs
       - name: sandbox seam unit tests (no deps; node built-in runner)
         run: node --test tests/sandbox/*.test.mjs
+      - name: approval seam unit tests (no deps; node built-in runner)
+        run: node --test tests/approval/*.test.mjs
 
   python:
     runs-on: ubuntu-latest
