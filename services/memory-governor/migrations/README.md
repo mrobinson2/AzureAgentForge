@@ -22,14 +22,22 @@ DATABASE_URL="<postgres-connection-string from Key Vault>" \
 
 ## Status / caveats
 
-- **`0001_governed_memory_overlay.sql`** — the documents overlay columns +
+- **`0001_governed_memory_overlay.sql`** — the minimal documents overlay +
   `feature_flags` + `agent_events`. Enough for memory **export/curation** (the
   Obsidian interface) and the feature-flag spine.
-- **Column TYPES are derived from the governor's query usage, not the canonical
-  canonical source migrations.** Before enabling the governor in production, reconcile
-  against the live Honcho schema — in particular whether `documents.id` is `uuid`
-  or `text` (so the `*_doc_id` reference columns match).
-- **TODO `0002`** — `session_memory` and `skill_candidates` can't be safely
-  derived from code; port them from the canonical source migrations (in the private upstream platform). The
-  scope-watcher and skill-miner loops fail closed and stay idle until those exist,
-  so the rest of the governor works without them.
+- **`0002_governed_memory_full_overlay.sql`** — completes the documents overlay
+  with the columns the **retrieval planner** reads (`half_life_days`,
+  `usage_success_count`, `contradiction_count`, `is_always_on_candidate`,
+  `superseded_at`, …), the `messages` class overlay, and the two governor-owned
+  tables (`session_memory`, `skill_candidates`). Seeds all eight feature flags
+  **OFF**. With 0001+0002 applied, `MEMORY_PLANNER_ENABLED` and the loops can be
+  enabled for real (previously the planner 500'd on missing columns).
+- **Type reconciliation (resolved).** `documents.id` is a 21-char nanoid
+  (**TEXT**) in Honcho's schema, so `*_doc_id` reference columns are text.
+  `deleted_at` / `sync_state` / `last_sync_at` are Honcho-native (its
+  external-embeddings migration), not created by this overlay.
+- **Still operator-gated to run live:** a `text-embedding-3-small`-class
+  embedding deployment + real `openai-api-key` secret (so Plane C ranks with
+  vectors instead of the trigram fallback), and threading
+  `memory_governor_enabled` through the deploy. See the repo issue for the
+  go-live checklist.

@@ -226,6 +226,8 @@ jobs:
             -var="ai_foundry_deployment_id=${{ vars.AI_FOUNDRY_DEPLOYMENT_ID }}" \
             -var='keyvault_admin_object_ids=${{ vars.KEYVAULT_ADMIN_OBJECT_IDS }}' \
             -var="observability_enabled=${{ vars.OBSERVABILITY_ENABLED || 'false' }}" \
+            -var="memory_governor_enabled=${{ vars.MEMORY_GOVERNOR_ENABLED || 'false' }}" \
+            -var="memory_planner_agent_allowlist=${{ vars.MEMORY_PLANNER_AGENT_ALLOWLIST || '' }}" \
             -var="postgres_admin_username=${{ vars.POSTGRES_ADMIN_USERNAME || 'dbadmin' }}" \
             ${{ steps.img.outputs.vars }} \
             -out=tfplan
