@@ -168,6 +168,48 @@ resource "azurerm_monitor_scheduled_query_rules_alert_v2" "watchdog_run_failure"
   tags = var.tags
 }
 
+# ─── Alert: model-router SLO burn (upstream failures/fallbacks) ──────────────
+# An availability-SLO burn-rate signal: sustained upstream failures/fallbacks in
+# the model-router mean callers are being degraded (fallback tier) or failed
+# outright. Fires when the count in the window exceeds router_failure_burn_
+# threshold — a burn of the budget, not a single blip. Complements the workbook
+# tile that charts the same markers.
+resource "azurerm_monitor_scheduled_query_rules_alert_v2" "router_slo_burn" {
+  count                   = local.alerts_enabled ? 1 : 0
+  name                    = "alert-${var.project}-${var.environment}-router-slo-burn"
+  resource_group_name     = var.resource_group_name
+  location                = var.location
+  description             = "The model-router is failing/falling-back on upstream model calls above the SLO burn threshold — callers are being degraded or errored. Check the upstream providers, budgets, and the fallback chain."
+  display_name            = "Model-router: SLO burn — upstream failures (${var.environment})"
+  severity                = 2
+  enabled                 = true
+  evaluation_frequency    = var.alert_evaluation_frequency
+  window_duration         = var.alert_window_duration
+  scopes                  = [azurerm_log_analytics_workspace.main.id]
+  auto_mitigation_enabled = false
+
+  criteria {
+    query                   = <<-KQL
+      ContainerAppConsoleLogs_CL
+      | where Log_s has_any ("call_failed", "primary_failed", "fallback_failed")
+    KQL
+    time_aggregation_method = "Count"
+    threshold               = var.router_failure_burn_threshold
+    operator                = "GreaterThan"
+
+    failing_periods {
+      minimum_failing_periods_to_trigger_alert = 1
+      number_of_evaluation_periods             = 1
+    }
+  }
+
+  action {
+    action_groups = [azurerm_monitor_action_group.alerts[0].id]
+  }
+
+  tags = var.tags
+}
+
 # ─── Observability workbook ──────────────────────────────────────────────────
 # A single pane over watchdog activity, secret expiry, and gateway health.
 # Opt-in (off by default) since it's a convenience surface, not a guardrail.
@@ -243,6 +285,22 @@ locals {
           queryType    = 0
           resourceType = "microsoft.operationalinsights/workspaces"
         }
+      },
+      {
+        type = 3
+        content = {
+          version = "KqlItem/1.0"
+          # gen_ai.usage cost metric (emitted by the model-router when
+          # OBSERVABILITY_ENABLED). Metrics land in App Insights customMetrics;
+          # chart daily spend so the SLO burn + cost governance are visible next
+          # to the failure signals.
+          query        = "customMetrics\n| where name == 'gen_ai.client.cost.usd'\n| extend tier = tostring(customDimensions['agent.tier'])\n| summarize CostUSD = sum(valueSum) by bin(timestamp, 1d), tier\n| render columnchart"
+          size         = 0
+          title        = "GenAI cost (USD) per day by tier"
+          timeContext  = { durationMs = 2592000000 }
+          queryType    = 0
+          resourceType = "microsoft.operationalinsights/workspaces"
+        }
       }
     ]
   })
@@ -271,6 +329,7 @@ output "alert_rule_ids" {
     azurerm_monitor_scheduled_query_rules_alert_v2.watchdog_critical[0].id,
     azurerm_monitor_scheduled_query_rules_alert_v2.secret_expiry[0].id,
     azurerm_monitor_scheduled_query_rules_alert_v2.watchdog_run_failure[0].id,
+    azurerm_monitor_scheduled_query_rules_alert_v2.router_slo_burn[0].id,
   ] : []
 }
 

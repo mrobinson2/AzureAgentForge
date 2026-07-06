@@ -294,12 +294,45 @@ def detect_research_backends(probes: Iterable[dict]) -> list[Finding]:
     return out
 
 
+def detect_trigram_fallback(events: Iterable[dict], *, min_events: int = 10,
+                            threshold: float = 0.5) -> list[Finding]:
+    """Sustained vector→trigram ranking degradation.
+
+    The governor's Plane C stamps `ranking_mode` into every `memory_injected`
+    event: 'vector' (hybrid pgvector ran), 'trigram' (vector flag OFF —
+    expected, not degradation), or 'trigram_fallback' (flag ON but the query
+    didn't embed / the hybrid SQL failed). Only fallbacks count against the
+    rate; events predating the field say nothing and are ignored. Fires one
+    medium finding when fallbacks >= min_events AND fallback share >= threshold
+    — a sustained degradation, not a blip."""
+    modes = [
+        (e.get("payload") or {}).get("ranking_mode")
+        for e in events
+        if e.get("event_type") == "memory_injected"
+    ]
+    modes = [m for m in modes if m]
+    fallbacks = sum(1 for m in modes if m == "trigram_fallback")
+    if fallbacks < min_events or not modes or fallbacks / len(modes) < threshold:
+        return []
+    rate = fallbacks / len(modes)
+    return [_ev(
+        "medium", "trigram-fallback-sustained",
+        "Governed retrieval degraded to trigram ranking",
+        f"{fallbacks}/{len(modes)} governed retrievals fell back to trigram "
+        f"({rate:.0%}) although vector ranking is enabled — the query embedder "
+        "or the embed worker is failing/lagging, so Plane C is ranking without "
+        "vectors. Check the governor's /healthz `embedding` block (pending "
+        "queue depth) and the embedding provider.",
+        {"fallbacks": fallbacks, "total_with_mode": len(modes)}, "Infrastructure")]
+
+
 ALL_DETECTORS = (
     detect_adapter_failures,
     detect_stuck_wakes,
     detect_budget_anomaly,
     detect_fabrication_signals,
     detect_stale_sync,
+    detect_trigram_fallback,
 )
 
 
@@ -319,6 +352,7 @@ def run_detectors(runs: list[dict], events: list[dict],
     findings += detect_stuck_wakes(events)
     findings += detect_budget_anomaly(runs, agent_caps=caps)
     findings += detect_fabrication_signals(events)
+    findings += detect_trigram_fallback(events)
     if monitor_standby_sync:
         findings += detect_stale_sync(last_sync_ts, now=now or datetime.now(timezone.utc))
     return findings

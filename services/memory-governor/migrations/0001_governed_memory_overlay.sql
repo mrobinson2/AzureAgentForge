@@ -10,10 +10,10 @@
 -- clobbers Honcho's columns. Applied by `python -m governor.migrate` (see
 -- migrations/README.md), which the governor runs on startup.
 --
--- ⚠️ TYPE RECONCILIATION: column TYPES below are derived from the governor's
--- query usage, not from the canonical source migrations (in the private upstream platform). Before enabling the
--- governor in production, reconcile `documents.id`'s type (UUID vs text) so the
--- *_doc_id references match, and confirm against the live Honcho schema.
+-- TYPE RECONCILIATION (resolved in 0002): `documents.id` is a 21-char nanoid
+-- (TEXT) in Honcho's schema, so the *_doc_id reference columns are text. 0002
+-- completes this overlay (the columns the retrieval planner reads) and adds the
+-- governor-owned tables, so the governor can be enabled for real.
 
 -- (a) governed-memory columns on Honcho's documents table ---------------------
 ALTER TABLE documents ADD COLUMN IF NOT EXISTS memory_class            text;
@@ -51,8 +51,6 @@ CREATE TABLE IF NOT EXISTS agent_events (
 );
 CREATE INDEX IF NOT EXISTS agent_events_type_time_idx ON agent_events (event_type, created_at);
 
--- TODO(0002): port `session_memory` and `skill_candidates` from the canonical
--- canonical source migrations — their exact columns/types/indexes can't be safely derived
--- from the governor's query usage alone. The scope-watcher and skill-miner loops
--- stay idle until those exist (they fail closed), so the overlay above is enough
--- for memory export/curation + the flag spine; the full feature set needs 0002.
+-- `session_memory` and `skill_candidates`, plus the rest of the documents
+-- overlay the retrieval planner needs, are created in 0002. The overlay above is
+-- enough on its own for memory export/curation + the flag spine.

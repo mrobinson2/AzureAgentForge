@@ -92,6 +92,10 @@ async def healthz() -> dict[str, Any]:
                 "MEMORY_TTL_SWEEPER_ENABLED",
             )
         }
+        # Embedding-sync staleness: pending queue depth + last sync. When
+        # pending grows, vector-ranked Plane C is silently ranking without the
+        # newest docs (or falling back to trigram entirely).
+        out["embedding"] = await db.embedding_stats(p)
     except Exception as exc:  # noqa: BLE001
         out["db"] = f"error: {exc}"
     return out

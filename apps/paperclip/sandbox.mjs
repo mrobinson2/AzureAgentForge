@@ -143,26 +143,77 @@ class LocalSandbox {
 
 // ── The one Azure-specific REST contract for ACA dynamic sessions ───────────
 // Everything provider-specific about the ACA dynamic-sessions HTTP shape — the
-// execute endpoint/path, the request body, and the response field mapping —
+// executions endpoint/path, the request body, and the response field mapping —
 // lives in this single function so it is the ONE thing to reconcile against a
-// live session pool before `aca-job` is enabled. Every branch here is exercised
-// offline through the injected transport in tests/sandbox/aca-job.test.mjs; no
-// network, no Azure SDK, no live pool is touched.
+// live session pool. Every branch here is exercised offline through the injected
+// transport in tests/sandbox/aca-job.test.mjs; no network, no Azure SDK, no live
+// pool is touched.
 //
-// UNVERIFIED: exact ACA dynamic-sessions request/response shape not yet spiked — do not enable aca-job until verified
-function acaSessionExecContract(poolEndpoint, apiVersion, sessionId, command) {
+// Shape reconciled to the documented Shell session-pool executions API
+// (api-version 2025-10-02-preview, learn.microsoft.com/azure/container-apps/
+// sessions-tutorial-shell + sessions-usage):
+//   POST <pool>/executions?api-version=<v>&identifier=<sessionId>
+//   body { codeInputType:"inline", executionType:"synchronous", shellCommand, timeoutInSeconds }
+//   response { properties: { status:"Succeeded"|"Failed", stdout, stderr, exitCode? } }
+// The `identifier` is a query parameter (not a body field); the token audience
+// is https://dynamicsessions.io (see acaManagedIdentityTokenProvider).
+//
+// STILL UNVERIFIED against a live pool — the shape matches the docs but has not
+// been round-tripped against a real session. Confirm the response mapping (the
+// exact stdout/stderr/status field path) with one live spike before enabling
+// aca-job in any environment.
+function acaSessionExecContract(poolEndpoint, apiVersion, sessionId, command, timeoutSeconds) {
+  const q = `api-version=${apiVersion}&identifier=${encodeURIComponent(sessionId)}`;
   return {
-    url: `${poolEndpoint}/code/execute?api-version=${apiVersion}`,
-    body: { identifier: sessionId, codeInputType: "inline", command },
-    mapResult(status, data) {
-      const d = data || {};
-      return {
-        exitCode:
-          typeof d.exitCode === "number" ? d.exitCode : status === 200 ? 0 : 1,
-        stdout: d.stdout ?? "",
-        stderr: d.stderr ?? "",
-      };
+    url: `${poolEndpoint}/executions?${q}`,
+    body: {
+      codeInputType: "inline",
+      executionType: "synchronous",
+      shellCommand: command,
+      timeoutInSeconds: timeoutSeconds,
     },
+    mapResult(status, data) {
+      // The executions response nests results under `properties`; fall back to
+      // a flat body defensively so a shape drift degrades rather than throws.
+      const p = (data && data.properties) || data || {};
+      const exitCode =
+        typeof p.exitCode === "number"
+          ? p.exitCode
+          : typeof p.status === "string"
+            ? p.status.toLowerCase() === "succeeded"
+              ? 0
+              : 1
+            : status === 200
+              ? 0
+              : 1;
+      return { exitCode, stdout: p.stdout ?? "", stderr: p.stderr ?? "" };
+    },
+  };
+}
+
+// Optional managed-identity bearer-token provider for aca-job, matching the
+// documented flow: an Entra token with audience https://dynamicsessions.io,
+// obtained from the Azure Instance Metadata Service (IMDS) when running inside
+// an Azure Container App with the identity assigned. Injected, never a default —
+// AcaJobSandbox stays fail-closed until an operator wires this (or their own).
+// `transport` is injectable so this is unit-testable offline.
+function acaManagedIdentityTokenProvider(config = {}) {
+  const resource = config.resource || "https://dynamicsessions.io";
+  const imdsUrl =
+    config.imdsUrl ||
+    `http://169.254.169.254/metadata/identity/oauth2/token?api-version=2018-02-01&resource=${encodeURIComponent(resource)}`;
+  const transport = config.transport || ((url, init) => fetch(url, init));
+  return async () => {
+    const resp = await transport(imdsUrl, { headers: { Metadata: "true" } });
+    const status = resp && typeof resp.status === "number" ? resp.status : 0;
+    const data = resp && typeof resp.json === "function" ? await resp.json() : {};
+    const token = data && (data.access_token || data.accessToken);
+    if (status !== 200 || !token) {
+      throw new Error(
+        `aca-job managed-identity token fetch failed (status ${status})`,
+      );
+    }
+    return token;
   };
 }
 
@@ -188,7 +239,7 @@ class AcaJobSandbox {
       );
     }
     this.poolEndpoint = config.poolEndpoint;
-    this.apiVersion = config.apiVersion || "2024-10-02-preview";
+    this.apiVersion = config.apiVersion || "2025-10-02-preview";
     // Injected transport: (url, init) => Promise<{status:number, json():Promise<object>}>.
     // Defaults to global fetch in production; tests inject a fake so no network
     // is ever touched.
@@ -219,11 +270,15 @@ class AcaJobSandbox {
   async exec(cmd, args = [], opts = {}) {
     const { timeoutMs, signal } = opts;
     const command = [cmd, ...(Array.isArray(args) ? args : [])].join(" ");
+    // ACA caps a single execution at 220s; default to that when the caller
+    // doesn't specify a timeout, otherwise convert the ms budget to seconds.
+    const timeoutSeconds = timeoutMs ? Math.max(1, Math.ceil(timeoutMs / 1000)) : 220;
     const contract = acaSessionExecContract(
       this.poolEndpoint,
       this.apiVersion,
       this.sessionId,
       command,
+      timeoutSeconds,
     );
     try {
       const token = await this.getToken();
@@ -282,4 +337,10 @@ function createSandbox(provider = process.env.SANDBOX_PROVIDER || "local", confi
   return new Ctor(config);
 }
 
-export { createSandbox, LocalSandbox, AcaJobSandbox, PROVIDERS };
+export {
+  createSandbox,
+  LocalSandbox,
+  AcaJobSandbox,
+  PROVIDERS,
+  acaManagedIdentityTokenProvider,
+};

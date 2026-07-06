@@ -53,6 +53,24 @@ async def flag_enabled(name: str) -> bool:
     return enabled
 
 
+async def embedding_stats(p) -> dict[str, Any] | str:
+    """Embedding-sync staleness for /healthz: how many documents still await the
+    embed worker (``sync_state = 'pending'``) and when anything last synced.
+    Vector-ranked Plane C silently degrades to trigram while docs sit pending;
+    this makes the queue visible. Returns the string "error" instead of raising
+    — healthz must not die on a telemetry query."""
+    try:
+        pending = await p.fetchval(
+            "SELECT count(*) FROM documents "
+            "WHERE sync_state = 'pending' AND deleted_at IS NULL"
+        )
+        last = await p.fetchval("SELECT max(last_sync_at) FROM documents")
+        return {"pending": pending, "last_sync_at": last.isoformat() if last else None}
+    except Exception:  # noqa: BLE001 — telemetry never fails healthz
+        log.exception("embedding_stats failed")
+        return "error"
+
+
 async def emit_event(
     event_type: str,
     actor_peer: str,
