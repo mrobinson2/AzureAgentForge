@@ -20,6 +20,7 @@ from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
 from . import config, db, digest
+from . import memory_digest as mem_digest  # `memory_digest` below is the /digest handler
 from .memory import admission, planner
 
 logging.basicConfig(level=logging.INFO, format="%(name)s %(levelname)s %(message)s")
@@ -510,6 +511,43 @@ async def memory_digest(window_hours: int = 24) -> dict[str, Any]:
         "needs_review": (q["needs_review"] if q else 0) or 0,
     }
     stats["text"] = digest.format_digest(stats)
+
+    # MEMORY_DIGEST_ENABLED: ONLY when the flag is on does the daily digest
+    # gain the review-queue listing (a "review_queue" key + the rendered
+    # section appended to "text", which digest_post delivers). With the flag
+    # off (default, seeded by migration 0010) the response is byte-for-byte
+    # what it was before the listing existed.
+    if await db.flag_enabled("MEMORY_DIGEST_ENABLED"):
+        review = await _memory_digest_stats(mem_digest.DEFAULT_LIMIT)
+        review["text"] = mem_digest.format_memory_digest(review)
+        stats["review_queue"] = review
+        stats["text"] = stats["text"] + "\n\n" + review["text"]
+    return stats
+
+
+async def _memory_digest_stats(limit: int) -> dict[str, Any]:
+    """Shared rollup for /memory-digest and the flag-gated /digest fold-in:
+    pending pin-candidates, needs_review memories, and memories expiring soon
+    (db.memory_digest_rollup). Read-only."""
+    rollup = await db.memory_digest_rollup()
+    return {"limit": limit, **rollup}
+
+
+@app.get("/memory-digest", dependencies=[Depends(require_key)])
+async def memory_digest_endpoint(limit: int = mem_digest.DEFAULT_LIMIT) -> dict[str, Any]:
+    """Daily memory review-queue digest. A per-workspace LISTING (not just
+    counts, unlike /digest above) of what needs operator action: pending
+    pin-candidates, memories the contradiction sweep flagged needs_review, and
+    memories expiring soon — each section capped to `limit` (default 10) with
+    a "+N more" line so a large backlog never produces a wall of text.
+    Read-only; never writes memory state.
+
+    Always available for operator preview regardless of MEMORY_DIGEST_ENABLED;
+    the flag only gates whether the listing is folded into the daily /digest
+    (and therefore into digest_post's webhook delivery)."""
+    limit = mem_digest.clamp_limit(limit)
+    stats = await _memory_digest_stats(limit)
+    stats["text"] = mem_digest.format_memory_digest(stats)
     return stats
 
 

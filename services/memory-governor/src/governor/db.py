@@ -71,6 +71,92 @@ async def embedding_stats(p) -> dict[str, Any] | str:
         return "error"
 
 
+# SQL safety valve on the daily memory review-queue digest's raw fetch — NOT
+# the visible top-N cap. governor.memory_digest.format_memory_digest applies
+# the real, operator-facing cap + "+N more"; this just bounds a pathological
+# queue from ever loading an unbounded payload into the process.
+MEMORY_DIGEST_FETCH_CAP = 500
+
+
+async def memory_digest_rollup(fetch_cap: int = MEMORY_DIGEST_FETCH_CAP) -> dict[str, Any]:
+    """Read-only rollup for the memory review-queue digest: pending
+    pin-candidates, memories the contradiction sweep flagged `needs_review`,
+    and memories expiring soon (next 7 days) — all workspace_name-tagged for
+    governor.memory_digest's per-workspace grouping.
+
+    Never writes; never raises (returns empty lists on a DB hiccup, the same
+    fail-open posture as embedding_stats above)."""
+    out: dict[str, Any] = {"pending_candidates": [], "needs_review": [], "expiring": []}
+    try:
+        p = await pool()
+        pending_rows = await p.fetch(
+            """SELECT id, workspace_name, memory_class, content, created_at
+                 FROM documents
+                WHERE (internal_metadata->>'pin_candidate')::boolean = true
+                  AND verification_state <> 'confirmed'
+                  AND deleted_at IS NULL
+                ORDER BY created_at ASC
+                LIMIT $1""",
+            fetch_cap,
+        )
+        out["pending_candidates"] = [
+            {
+                "id": str(r["id"]),
+                "workspace_name": r["workspace_name"],
+                "memory_class": r["memory_class"],
+                "content": r["content"],
+                "created_at": r["created_at"].isoformat() if r["created_at"] else None,
+            }
+            for r in pending_rows
+        ]
+
+        review_rows = await p.fetch(
+            """SELECT id, workspace_name, memory_class, content, review_note, reviewed_at
+                 FROM documents
+                WHERE verification_state = 'needs_review'
+                  AND deleted_at IS NULL
+                ORDER BY reviewed_at ASC NULLS FIRST, created_at ASC
+                LIMIT $1""",
+            fetch_cap,
+        )
+        out["needs_review"] = [
+            {
+                "id": str(r["id"]),
+                "workspace_name": r["workspace_name"],
+                "memory_class": r["memory_class"],
+                "content": r["content"],
+                "review_note": r["review_note"],
+                "reviewed_at": r["reviewed_at"].isoformat() if r["reviewed_at"] else None,
+            }
+            for r in review_rows
+        ]
+
+        expiring_rows = await p.fetch(
+            """SELECT id, workspace_name, memory_class, content, expires_at
+                 FROM documents
+                WHERE memory_class = 'task_scoped'
+                  AND expires_at IS NOT NULL
+                  AND expires_at <= now() + interval '7 days'
+                  AND deleted_at IS NULL
+                ORDER BY expires_at ASC
+                LIMIT $1""",
+            fetch_cap,
+        )
+        out["expiring"] = [
+            {
+                "id": str(r["id"]),
+                "workspace_name": r["workspace_name"],
+                "memory_class": r["memory_class"],
+                "content": r["content"],
+                "expires_at": r["expires_at"].isoformat() if r["expires_at"] else None,
+            }
+            for r in expiring_rows
+        ]
+    except Exception:  # noqa: BLE001 — read-only reporting path, fail open
+        log.exception("memory_digest_rollup failed")
+    return out
+
+
 async def emit_event(
     event_type: str,
     actor_peer: str,

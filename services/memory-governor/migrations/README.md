@@ -32,6 +32,10 @@ DATABASE_URL="<postgres-connection-string from Key Vault>" \
   tables (`session_memory`, `skill_candidates`). Seeds all eight feature flags
   **OFF**. With 0001+0002 applied, `MEMORY_PLANNER_ENABLED` and the loops can be
   enabled for real (previously the planner 500'd on missing columns).
+- **`0003_memory_digest_flag.sql`** — seeds `MEMORY_DIGEST_ENABLED` **OFF**
+  (mirrors `infrastructure/migrations/0010_memory_digest_flag.sql`): the gate
+  for folding the `/memory-digest` review-queue listing into the daily
+  `/digest` post.
 - **Type reconciliation (resolved).** `documents.id` is a 21-char nanoid
   (**TEXT**) in Honcho's schema, so `*_doc_id` reference columns are text.
   `deleted_at` / `sync_state` / `last_sync_at` are Honcho-native (its
