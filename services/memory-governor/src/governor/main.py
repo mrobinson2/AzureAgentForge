@@ -214,6 +214,64 @@ async def memory_audit(limit: int = 100) -> list[dict[str, Any]]:
     return [dict(r) for r in rows]
 
 
+# Declared before /memory/{doc_id} so the literal "inspector-summary" path
+# segment isn't swallowed as a doc_id.
+@app.get("/memory/inspector-summary", dependencies=[Depends(require_key)])
+async def memory_inspector_summary(workspace_name: str) -> dict[str, Any]:
+    """Read-only aggregation for an operator memory-inspector overview.
+    `workspace_name` is required — this endpoint never defaults to a
+    cross-workspace rollup. No mutation, no new state.
+
+    Aggregates:
+      - by_memory_class / by_verification_state / by_source_type: live
+        counts from `documents` (deleted rows excluded).
+      - embedding: pending-embed queue depth + last sync (db.embedding_stats,
+        the same telemetry /healthz already exposes).
+      - recent_ranking_modes: counts of the `ranking_mode` the planner stamps
+        on each `memory_injected` event (vector vs trigram) over the last 7
+        days, so an operator can see Plane C's retrieval quality at a glance.
+        Global, not workspace-filtered — `memory_injected` payloads don't
+        carry a workspace key (mirrors /memory/audit's global scan).
+    """
+    p = await db.pool()
+
+    async def _counts(column: str) -> dict[str, int]:
+        rows = await p.fetch(
+            f"""SELECT {column} AS key, count(*) AS n
+                  FROM documents
+                 WHERE workspace_name = $1 AND deleted_at IS NULL
+                 GROUP BY {column}
+                 ORDER BY n DESC""",
+            workspace_name,
+        )
+        return {(r["key"] or "unknown"): r["n"] for r in rows}
+
+    by_memory_class = await _counts("memory_class")
+    by_verification_state = await _counts("verification_state")
+    by_source_type = await _counts("source_type")
+
+    embedding = await db.embedding_stats(p)
+
+    ranking_rows = await p.fetch(
+        """SELECT payload->>'ranking_mode' AS ranking_mode, count(*) AS n
+             FROM agent_events
+            WHERE event_type = 'memory_injected'
+              AND ts > now() - interval '7 days'
+            GROUP BY 1
+            ORDER BY n DESC"""
+    )
+    recent_ranking_modes = {(r["ranking_mode"] or "unknown"): r["n"] for r in ranking_rows}
+
+    return {
+        "workspace_name": workspace_name,
+        "by_memory_class": by_memory_class,
+        "by_verification_state": by_verification_state,
+        "by_source_type": by_source_type,
+        "embedding": embedding,
+        "recent_ranking_modes": recent_ranking_modes,
+    }
+
+
 @app.get("/memory/{doc_id}", dependencies=[Depends(require_key)])
 async def memory_show(doc_id: str) -> dict[str, Any]:
     p = await db.pool()

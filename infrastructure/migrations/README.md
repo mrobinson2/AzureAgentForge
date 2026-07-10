@@ -21,6 +21,7 @@ Apply in filename order. Each file is idempotent (`CREATE … IF NOT EXISTS`,
 | `0006_vector_retrieval_flag.sql` | Seeds `MEMORY_VECTOR_RETRIEVAL_ENABLED` (off) — the hybrid pgvector + trigram Plane C blend. |
 | `0007_contradiction_sweep_flag.sql` | Seeds `MEMORY_CONTRADICTION_SWEEP_ENABLED` (off) — the nightly contradiction sweep. |
 | `0008_skill_autogen.sql` | `skill_candidates` table + seeds `SKILL_AUTOGEN_ENABLED` (off). |
+| `0009_contradiction_sweep_perf.sql` | Trigram GIN index on `documents.content` (guarded on `pg_trgm` presence) so the contradiction sweep's candidate self-join is indexable. |
 
 Numbering follows the design's feature ordering, so there is no `0005`.
 

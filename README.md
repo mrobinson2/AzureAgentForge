@@ -81,6 +81,11 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 
 ## What's new
 
+New in v1.7 (since v1.5):
+
+- **Contradiction sweep performance hardening**: the sweep's candidate query is a pg_trgm similarity self-join on `documents` — without a trigram index, even ~1k eligible docs blow through the pool-wide 30s command timeout, so every pass timed out and no pair was ever judged (found in production upstream). Migration [`0009`](infrastructure/migrations/0009_contradiction_sweep_perf.sql) adds a `gin_trgm_ops` index (guarded on `pg_trgm` presence), and the candidate fetch gains a dedicated per-query timeout (`CONTRADICTION_QUERY_TIMEOUT_S`) plus a recency window (`CONTRADICTION_LOOKBACK_DAYS`; `0` = full-corpus pass).
+- **Read-only memory inspector summary**: `GET /memory/inspector-summary` aggregates a workspace's governed memory at a glance — live counts by memory class / verification state / source type, the embedding-sync queue, and a 7-day tally of Plane C ranking modes (vector vs trigram). No mutation, no new state.
+
 New in v1.5 (since v1.4):
 
 - **Governed memory, enable-able for real**: the memory-governor self-provisions its full schema on startup (a `0002` overlay completes the planner's `documents` columns and adds `session_memory` + `skill_candidates`, reconciled to the canonical migrations), `memory_governor_enabled` is threaded through the deploy, and a `showcase` profile deploys it with an honest cost + go-live checklist. Flags still seed off; enabling needs an operator embedding key + a live validate.
