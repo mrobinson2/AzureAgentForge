@@ -271,23 +271,42 @@ from fastapi.testclient import TestClient  # noqa: E402
 from installer import app as forge_app  # noqa: E402
 
 
+_ORIGIN = f"http://{forge_app.HOST}:{forge_app.PORT}"
+
+
 @pytest.fixture()
 def client():
-    return TestClient(forge_app.app)
+    # base_url sets a loopback Host header so TrustedHostMiddleware (aaf-0021)
+    # accepts the request (the default 'testserver' host would be rejected).
+    return TestClient(forge_app.app, base_url=_ORIGIN)
 
 
 def _h():
-    return {"x-forge-token": forge_app.SESSION_TOKEN}
+    # A valid Origin is included so state-changing requests pass the guard
+    # (aaf-0021: missing Origin on a mutating route is now a failed check).
+    return {"x-forge-token": forge_app.SESSION_TOKEN, "origin": _ORIGIN}
 
 
 def test_api_requires_token(client):
     assert client.get("/api/checks").status_code == 401
-    assert client.post("/api/run", json={"step": "plan"}).status_code == 401
+    # Send a valid Origin so this isolates the missing-token check (-> 401).
+    assert client.post("/api/run", json={"step": "plan"},
+                       headers={"origin": _ORIGIN}).status_code == 401
 
 
 def test_api_rejects_cross_origin(client):
     r = client.get("/api/state", headers={**_h(), "origin": "https://evil.example"})
     assert r.status_code == 403
+
+
+def test_state_changing_rejects_missing_origin(client):
+    # aaf-0021: a mutating request with NO Origin header is rejected (403),
+    # even when the session token is present.
+    forge_app._last_config.update({"profile": "cost-optimized", "environment": "dev"})
+    r = client.post("/api/run", json={"step": "plan"},
+                    headers={"x-forge-token": forge_app.SESSION_TOKEN})
+    assert r.status_code == 403
+    forge_app._last_config.clear()
 
 
 def test_bootstrap_requires_url_token(client):

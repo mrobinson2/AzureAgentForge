@@ -23,12 +23,22 @@ class TestBuildScaffoldCommand:
         assert "--apply" in cmd
 
     def test_string_flags_only_included_when_set(self):
+        sub = "11111111-2222-3333-4444-555555555555"
         cmd = core.build_scaffold_command({
-            "repo": "me/proj", "subscription": "sub-123", "location": "westus2",
+            "repo": "me/proj", "subscription": sub, "location": "westus2",
         })
-        assert cmd[cmd.index("--subscription") + 1] == "sub-123"
+        assert cmd[cmd.index("--subscription") + 1] == sub
         assert cmd[cmd.index("--location") + 1] == "westus2"
         assert "--registry" not in cmd  # not provided → absent
+
+    def test_arg_smuggling_param_rejected(self):
+        # aaf-0022: a value that would be misread as another flag is rejected.
+        with pytest.raises(ValueError, match="location"):
+            core.build_scaffold_command({"repo": "me/proj", "location": "--apply"})
+
+    def test_invalid_subscription_rejected(self):
+        with pytest.raises(ValueError, match="subscription"):
+            core.build_scaffold_command({"repo": "me/proj", "subscription": "not-a-guid"})
 
     def test_bool_flags(self):
         cmd = core.build_scaffold_command({
@@ -84,8 +94,14 @@ from fastapi.testclient import TestClient
 from installer import app as appmod  # noqa: E402
 
 
+_ORIGIN = f"http://{appmod.HOST}:{appmod.PORT}"
+
+
 def _client_and_headers():
-    return TestClient(appmod.app), {"x-forge-token": appmod.SESSION_TOKEN}
+    # base_url gives a loopback Host (TrustedHostMiddleware, aaf-0021); the Origin
+    # header lets state-changing POSTs pass the guard's origin-presence check.
+    return (TestClient(appmod.app, base_url=_ORIGIN),
+            {"x-forge-token": appmod.SESSION_TOKEN, "origin": _ORIGIN})
 
 
 class TestScaffoldEndpoint:
@@ -144,5 +160,7 @@ class TestScaffoldEndpoint:
 
     def test_requires_session_token(self):
         client, _ = _client_and_headers()
-        resp = client.post("/api/scaffold", json={"params": {"repo": "me/proj"}})
+        # Valid Origin present so this isolates the missing-token check (-> 401).
+        resp = client.post("/api/scaffold", json={"params": {"repo": "me/proj"}},
+                           headers={"origin": _ORIGIN})
         assert resp.status_code == 401

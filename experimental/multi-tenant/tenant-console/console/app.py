@@ -25,6 +25,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, Optional
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -143,13 +144,25 @@ class DecommissionBody(ContractBody):
 
 def create_app(client_factory: Optional[Callable[[str, str], ApiClient]] = None) -> FastAPI:
     app = FastAPI(title="Tenant Console", docs_url=None, redoc_url=None)
+    # aaf-0019: reject requests whose Host header isn't loopback — defence in
+    # depth against DNS-rebinding that would let a remote page reach this
+    # localhost-bound console.
+    app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
     app.state.session_token = secrets.token_urlsafe(24)
     app.state.runner = Runner()
     factory = client_factory or _default_client_factory
 
+    _ALLOWED_ORIGINS = (f"http://{HOST}:{PORT}", f"http://localhost:{PORT}")
+
     def guard(request: Request) -> None:
         origin = request.headers.get("origin")
-        if origin and origin not in (f"http://{HOST}:{PORT}", f"http://localhost:{PORT}"):
+        # aaf-0019: on state-changing methods a MISSING Origin is a FAILED check,
+        # not a pass. A browser always sends Origin on cross-site POSTs, so an
+        # absent one on a mutating request is treated as untrusted.
+        if request.method not in ("GET", "HEAD", "OPTIONS"):
+            if origin is None or origin not in _ALLOWED_ORIGINS:
+                raise HTTPException(403, "cross-origin or origin-less request rejected")
+        elif origin and origin not in _ALLOWED_ORIGINS:
             raise HTTPException(403, "cross-origin request rejected")
         if request.headers.get("x-console-token") != app.state.session_token:
             raise HTTPException(401, "missing or invalid session token — reopen the printed URL")

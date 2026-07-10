@@ -2,9 +2,10 @@
 # (see experimental/multi-tenant/README.md). Not wired into the runnable stack;
 # provided to illustrate the intended design.
 
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends, Header
 from pydantic import BaseModel
 from typing import Optional, List
+import hmac
 import psycopg2
 import os
 from azure.identity import DefaultAzureCredential
@@ -17,6 +18,26 @@ from azure.search.documents.indexes.models import (
 from azure.core.exceptions import ResourceNotFoundError
 
 app = FastAPI(title="AzureAgentForge Platform API", version="1.0.0")
+
+
+# ─── Operator authentication (aaf-0001 remediation) ──────────────────────────
+# The tenant control plane (create/list/read tenants) is operator-only. It
+# previously had NO authentication — any caller could provision tenants and
+# enumerate every tenant's namespaces / vault paths. Gate all routes behind a
+# configured operator key and FAIL CLOSED when the key is unset: a missing key
+# means "refuse to serve", never "serve unauthenticated".
+def require_operator(authorization: str | None = Header(default=None)) -> None:
+    expected = os.environ.get("CONTROL_PLANE_OPERATOR_KEY", "")
+    if not expected:
+        raise HTTPException(
+            status_code=503,
+            detail="control-plane authentication not configured (CONTROL_PLANE_OPERATOR_KEY unset)",
+        )
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing operator bearer token")
+    if not hmac.compare_digest(authorization[7:].strip(), expected):
+        raise HTTPException(status_code=403, detail="invalid operator key")
+
 
 # Database connection
 def get_db():
@@ -57,7 +78,7 @@ def health_check():
     return {"status": "healthy"}
 
 @app.post("/tenants", response_model=TenantResponse)
-def create_tenant(tenant: TenantCreate, conn = Depends(get_db)):
+def create_tenant(tenant: TenantCreate, conn = Depends(get_db), _op: None = Depends(require_operator)):
     """Create a new tenant with all associated resources."""
 
     # Derived values
@@ -117,7 +138,9 @@ def create_tenant(tenant: TenantCreate, conn = Depends(get_db)):
         raise HTTPException(status_code=400, detail=f"Tenant with slug '{tenant.slug}' already exists")
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        # aaf-0016/aaf-0001: do not leak raw DB/Azure exception text to the caller.
+        print(f"[control-plane] tenant creation failed: {e}")
+        raise HTTPException(status_code=500, detail="tenant creation failed")
 
 def create_search_index(index_name: str):
     """Create Azure AI Search index for a tenant."""
@@ -157,7 +180,7 @@ def create_search_index(index_name: str):
         print(f"Warning: Could not create search index: {e}")
 
 @app.get("/tenants/{slug}", response_model=TenantResponse)
-def get_tenant(slug: str, conn = Depends(get_db)):
+def get_tenant(slug: str, conn = Depends(get_db), _op: None = Depends(require_operator)):
     """Get tenant configuration by slug."""
     cur = conn.cursor()
     cur.execute("""
@@ -182,7 +205,7 @@ def get_tenant(slug: str, conn = Depends(get_db)):
     )
 
 @app.get("/tenants", response_model=List[TenantResponse])
-def list_tenants(conn = Depends(get_db)):
+def list_tenants(conn = Depends(get_db), _op: None = Depends(require_operator)):
     """List all tenants."""
     cur = conn.cursor()
     cur.execute("""
@@ -207,7 +230,7 @@ def list_tenants(conn = Depends(get_db)):
     ]
 
 @app.get("/tenants/{slug}/config")
-def get_tenant_config(slug: str, conn = Depends(get_db)):
+def get_tenant_config(slug: str, conn = Depends(get_db), _op: None = Depends(require_operator)):
     """Get full tenant configuration for service initialization."""
     cur = conn.cursor()
     cur.execute("""

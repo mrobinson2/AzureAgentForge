@@ -27,7 +27,9 @@ function makeJwt(payload, secret, { alg = "HS256" } = {}) {
   return `${h}.${p}.${sig}`;
 }
 const SECRET = "test-secret";
-const claims = { sub: "svc", iss: "test-issuer", aud: "test-audience" };
+// aaf-0017: verifyJwt now REQUIRES an exp claim, so the shared fixture carries a
+// far-future one. Tests that assert expiry/absence override or drop it.
+const claims = { sub: "svc", iss: "test-issuer", aud: "test-audience", exp: 9999999999 };
 
 // ── verifyJwt ────────────────────────────────────────────────────────────────
 test("verifyJwt accepts a valid token and returns claims", () => {
@@ -46,6 +48,10 @@ test("verifyJwt rejects a malformed token", () => {
 });
 test("verifyJwt rejects an expired token", () => {
   assert.throws(() => verifyJwt(makeJwt({ ...claims, exp: 1 }, SECRET), SECRET), /expired/);
+});
+test("verifyJwt rejects a token with no exp claim (aaf-0017: non-expiring credential)", () => {
+  const { exp, ...noExp } = claims;
+  assert.throws(() => verifyJwt(makeJwt(noExp, SECRET), SECRET), /missing required exp/);
 });
 test("verifyJwt rejects a not-yet-valid token (nbf)", () => {
   assert.throws(() => verifyJwt(makeJwt({ ...claims, nbf: 9999999999 }, SECRET), SECRET), /not yet valid/);
@@ -150,10 +156,18 @@ test("stripBom removes a leading BOM and is a no-op otherwise", () => {
 // before any rewrite, and fails CLOSED when the allow-list is unset.
 const ORIGIN_CFG = { publicUrl: "https://forge.example.com", allowedHostnames: "forge.example.com, admin.example.com" };
 
-test("isOriginAllowed: no Origin header is allowed (not a tagged cross-origin request)", () => {
+test("isOriginAllowed: no Origin header is allowed by default (non-mutating callers)", () => {
   assert.equal(isOriginAllowed(undefined, ORIGIN_CFG), true);
   assert.equal(isOriginAllowed("", ORIGIN_CFG), true);
   assert.equal(isOriginAllowed(null, ORIGIN_CFG), true);
+});
+test("isOriginAllowed: aaf-0027 — a missing Origin FAILS the check when allowMissing:false (state-changing routes)", () => {
+  const cfg = { ...ORIGIN_CFG, allowMissing: false };
+  assert.equal(isOriginAllowed(undefined, cfg), false);
+  assert.equal(isOriginAllowed("", cfg), false);
+  assert.equal(isOriginAllowed(null, cfg), false);
+  // A present, allow-listed Origin still passes under allowMissing:false.
+  assert.equal(isOriginAllowed("https://forge.example.com", cfg), true);
 });
 test("isOriginAllowed: an Origin matching the public URL host is allowed", () => {
   assert.equal(isOriginAllowed("https://forge.example.com", ORIGIN_CFG), true);

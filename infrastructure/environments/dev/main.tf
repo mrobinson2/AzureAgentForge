@@ -46,6 +46,10 @@ module "keyvault" {
   public_network_access_enabled = var.key_vault_public_network_access_enabled
   network_default_action        = var.key_vault_network_default_action
   allowed_ip_ranges             = var.key_vault_allowed_ip_ranges
+  # aaf-0013: allowlist the app subnet through the default-Deny firewall. Empty
+  # by default (operator-gated) — set key_vault_allowed_subnet_ids, or rely on
+  # the private endpoint (hardened profile) / an allowed_ip_ranges egress entry.
+  allowed_subnet_ids = var.key_vault_allowed_subnet_ids
 
   # List the principals that should have Key Vault Secrets Officer.
   # Replace with your own Azure AD object IDs before deploying.
@@ -161,6 +165,10 @@ module "container_apps" {
   # default; every behavior is additionally feature-flag-gated in-app.
   memory_governor_enabled        = var.memory_governor_enabled
   memory_planner_agent_allowlist = var.memory_planner_agent_allowlist
+
+  # aaf-0015: no module default — must be set explicitly per environment in
+  # tfvars so dev/prod never silently share a governed-memory workspace.
+  honcho_workspace_name = var.honcho_workspace_name
 
   # OTel tracing from the model-router sidecar → App Insights (B3 observability).
   # Off by default; flip observability_enabled=true in dev.auto.tfvars to activate.

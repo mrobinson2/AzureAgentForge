@@ -59,6 +59,39 @@ resource "azurerm_postgresql_flexible_server_configuration" "extensions" {
   value = "uuid-ossp,pgcrypto,vector,pg_trgm,fuzzystrmatch"
 }
 
+# aaf-0026: server-parameter hardening (trivy AZU-0019/0021/0024/0026). These are
+# static server parameters — applying them triggers a server restart. All are
+# additive audit/security settings with no data impact.
+resource "azurerm_postgresql_flexible_server_configuration" "log_connections" {
+  name      = "log_connections" # AZU-0019: log successful connections for audit
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "connection_throttling" {
+  name      = "connection_throttling" # AZU-0021: throttle repeated failed auth
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "log_checkpoints" {
+  name      = "log_checkpoints" # AZU-0024: log checkpoints for audit/visibility
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "require_secure_transport" {
+  name      = "require_secure_transport" # AZU-0026: require TLS (min TLS1.2 below)
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "on"
+}
+
+resource "azurerm_postgresql_flexible_server_configuration" "ssl_min_protocol_version" {
+  name      = "ssl_min_protocol_version" # AZU-0026: min TLS = TLS1_2
+  server_id = azurerm_postgresql_flexible_server.main.id
+  value     = "TLSv1.2"
+}
+
 # NOTE: Row Level Security setup must be done manually or via a container in the VNet
 # The Azure DevOps pipeline agent cannot resolve private DNS zones
 # Run the RLS setup script from a VM or container within the VNet after deployment

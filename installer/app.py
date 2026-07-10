@@ -21,6 +21,7 @@ import webbrowser
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
@@ -33,13 +34,25 @@ HOST = "127.0.0.1"
 PORT = 8321
 STATIC = Path(__file__).parent / "static"
 
+# aaf-0021: reject requests whose Host header isn't loopback — defence in depth
+# against DNS-rebinding that would let a remote page reach this localhost console.
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=["127.0.0.1", "localhost"])
+
+_ALLOWED_ORIGINS = (f"http://{HOST}:{PORT}", f"http://localhost:{PORT}")
+
 runner = core.Runner()
 _last_config: dict = {}
 
 
 def _guard(request: Request) -> None:
     origin = request.headers.get("origin")
-    if origin and origin not in (f"http://{HOST}:{PORT}", f"http://localhost:{PORT}"):
+    # aaf-0021: on state-changing methods a MISSING Origin is a FAILED check, not
+    # a pass — a browser always sends Origin on cross-site POSTs, so an absent one
+    # on a mutating request is treated as untrusted.
+    if request.method not in ("GET", "HEAD", "OPTIONS"):
+        if origin is None or origin not in _ALLOWED_ORIGINS:
+            raise HTTPException(403, "cross-origin or origin-less request rejected")
+    elif origin and origin not in _ALLOWED_ORIGINS:
         raise HTTPException(403, "cross-origin request rejected")
     if request.headers.get("x-forge-token") != SESSION_TOKEN:
         raise HTTPException(401, "missing or invalid session token — reopen the printed URL")
@@ -227,18 +240,28 @@ def stream(request: Request, token: str = "") -> StreamingResponse:
 def main() -> None:
     import uvicorn
     url = f"http://{HOST}:{PORT}/?token={SESSION_TOKEN}"
+    # aaf-0020: keep the session token OUT of stdout/CI logs. Auto-open the real
+    # (tokened) URL in the local browser; only print the full URL as a fallback
+    # when the browser couldn't be opened, and warn that it embeds a secret.
+    opened = False
+    try:
+        opened = bool(webbrowser.open(url))
+    except Exception:
+        opened = False
+    if opened:
+        shown = f"http://{HOST}:{PORT}/?token=***  (opened in your browser)"
+        note = "  (session token withheld from this log)"
+    else:
+        shown = url
+        note = "  ⚠ this URL embeds your session token — do not share or paste it into logs"
     banner = (
         "\n  ╔══════════════════════════════════════════════════════════╗"
         "\n  ║  Forge Console — AzureAgentForge turnkey deployment       ║"
         "\n  ╚══════════════════════════════════════════════════════════╝"
-        f"\n\n  Open:  {url}\n"
+        f"\n\n  Open:  {shown}\n{note}\n"
     )
     # flush — when stdout is piped (CI, logs) the banner must not sit in a buffer
     print(banner, flush=True)
-    try:
-        webbrowser.open(url)
-    except Exception:
-        pass
     uvicorn.run(app, host=HOST, port=PORT, log_level="warning")
 
 

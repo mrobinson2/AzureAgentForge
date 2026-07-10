@@ -71,13 +71,19 @@ variable "key_vault_public_network_access_enabled" {
 }
 
 variable "key_vault_network_default_action" {
-  description = "Default Key Vault firewall action (Allow for cost-optimized/public access; Deny for hardened/private access)."
+  description = "Default Key Vault firewall action. aaf-0013: defaults to \"Deny\" (secure-by-default) — with public access on, add the Terraform-runner / self-hosted-site egress IP to key_vault_allowed_ip_ranges (and/or the app subnet to key_vault_allowed_subnet_ids) so callers are not locked out. The hardened profile uses a private endpoint and is unaffected."
   type        = string
-  default     = "Allow"
+  default     = "Deny"
 }
 
 variable "key_vault_allowed_ip_ranges" {
-  description = "Optional IP ranges to allow when network default action is Deny"
+  description = "IP ranges (CIDRs) to allow when network default action is Deny. MUST include the Terraform-runner egress IP so apply can read postgres-admin-password. Example placeholder: [\"203.0.113.0/32\"]."
+  type        = list(string)
+  default     = []
+}
+
+variable "key_vault_allowed_subnet_ids" {
+  description = "aaf-0013: VNet subnet IDs (e.g. the app subnet) to allow through the default-Deny Key Vault firewall. Operator-gated; empty relies on the private endpoint or an allowed_ip_ranges entry."
   type        = list(string)
   default     = []
 }
@@ -275,6 +281,11 @@ variable "memory_planner_agent_allowlist" {
   description = "Comma-separated agent slugs the retrieval planner may inject for (canary). Empty = nobody, even with MEMORY_PLANNER_ENABLED on."
   type        = string
   default     = ""
+}
+
+variable "honcho_workspace_name" {
+  description = "aaf-0015: Honcho / governed-memory workspace name. NO default — set it explicitly per environment in tfvars (generic placeholder \"hermes\" in the example) so dev/prod never silently share a workspace. Empty or CHANGEME/TODO placeholders are rejected by the module validation."
+  type        = string
 }
 
 variable "observability_enabled" {

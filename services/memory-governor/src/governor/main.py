@@ -13,6 +13,7 @@ surfaces are added in later phases (see the TODO markers below).
 
 from __future__ import annotations
 
+import hmac
 import logging
 from typing import Any
 
@@ -29,7 +30,17 @@ app = FastAPI(title="memory-governor", version=config.SERVICE_VERSION)
 
 
 async def require_key(x_governor_key: str | None = Header(default=None)) -> None:
-    if config.GOVERNOR_API_KEY and x_governor_key != config.GOVERNOR_API_KEY:
+    # Fail CLOSED: an unconfigured key must mean "down", never "open". The old
+    # `if config.GOVERNOR_API_KEY and ...` silently disabled auth on every route
+    # when the secret mount was absent (aaf-0004). config.database_url() already
+    # raises on absence; auth must be no less strict. Constant-time compare so a
+    # response-timing side channel can't leak the key byte by byte.
+    if not config.GOVERNOR_API_KEY:
+        raise HTTPException(
+            status_code=503,
+            detail="governor authentication not configured (GOVERNOR_API_KEY unset)",
+        )
+    if not hmac.compare_digest(x_governor_key or "", config.GOVERNOR_API_KEY):
         raise HTTPException(status_code=401, detail="missing or invalid X-Governor-Key")
 
 
@@ -77,6 +88,22 @@ async def _shutdown() -> None:
 
 @app.get("/healthz")
 async def healthz() -> dict[str, Any]:
+    # aaf-0011: unauthenticated liveness ONLY. The full feature-flag registry
+    # (a security-posture map) and raw DB exception text used to be returned here
+    # to any unauthenticated caller — moved to /healthz/detail behind require_key.
+    out: dict[str, Any] = {"service": "memory-governor", "version": config.SERVICE_VERSION}
+    try:
+        p = await db.pool()
+        await p.fetchval("SELECT 1")
+        out["db"] = "ok"
+    except Exception:  # noqa: BLE001
+        log.exception("healthz db check failed")
+        out["db"] = "error"  # generic — detail logged server-side, never leaked
+    return out
+
+
+@app.get("/healthz/detail", dependencies=[Depends(require_key)])
+async def healthz_detail() -> dict[str, Any]:
     out: dict[str, Any] = {"service": "memory-governor", "version": config.SERVICE_VERSION}
     try:
         p = await db.pool()
@@ -128,7 +155,16 @@ class AdmitBody(BaseModel):
 
 @app.post("/admit", dependencies=[Depends(require_key)])
 async def admit(body: AdmitBody) -> dict[str, Any]:
-    result = await admission.admit(admission.AdmitRequest(**body.model_dump()))
+    # aaf-0011 (twin vuln-0011): never honor a caller-asserted trust state on
+    # write. A writer could self-declare a memory verification_state='confirmed'
+    # / high-trust source_type and jump the earned-trust model (the planner
+    # preferentially retrieves confirmed facts). Trust is earned via
+    # re-observation or the operator confirm path (/memory/{id}/action confirm),
+    # not asserted at write.
+    fields = body.model_dump()
+    fields["verification_state"] = None  # force admission's default classification
+    fields["source_type"] = None  # treat source as a hint to derive, not a trust seed
+    result = await admission.admit(admission.AdmitRequest(**fields))
     return result.__dict__
 
 
@@ -216,15 +252,28 @@ async def memory_audit(limit: int = 100) -> list[dict[str, Any]]:
 
 @app.get("/memory/{doc_id}", dependencies=[Depends(require_key)])
 async def memory_show(doc_id: str) -> dict[str, Any]:
+    # aaf-0007: explicit column projection instead of `SELECT *`. `SELECT *`
+    # returned the raw `internal_metadata` jsonb (and the non-serializable
+    # `embedding` vector) to the operator surface — an accidental sink for
+    # anything a future column stashes there. Project the governed fields the
+    # operator CLI actually renders; add new columns here deliberately.
     p = await db.pool()
     row = await p.fetchrow(
-        "SELECT * FROM documents WHERE id = $1 AND deleted_at IS NULL", doc_id
+        """SELECT id, content, level, observer, observed, workspace_name,
+                  session_name, sync_state, memory_class, memory_scope_kind,
+                  memory_scope_id, source_type, verification_state,
+                  confidence_score, trust_score, created_by_peer, created_at,
+                  last_confirmed_at, last_accessed_at, expires_at, half_life_days,
+                  reviewed_at, review_note, superseded_at, superseded_by,
+                  promotion_source_doc_id, contradiction_count,
+                  usage_success_count, is_always_on_candidate, planner_hint,
+                  deleted_at
+             FROM documents WHERE id = $1 AND deleted_at IS NULL""",
+        doc_id,
     )
     if not row:
         raise HTTPException(status_code=404, detail="document not found")
-    d = dict(row)
-    d.pop("embedding", None)  # not JSON-serializable, not useful to operators
-    return d
+    return dict(row)
 
 
 class ActionBody(BaseModel):
@@ -252,7 +301,8 @@ async def memory_action(doc_id: str, body: ActionBody) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail=f"unknown action {body.action!r}")
     p = await db.pool()
     row = await p.fetchrow(
-        "SELECT id, memory_class FROM documents WHERE id = $1 AND deleted_at IS NULL",
+        """SELECT id, memory_class, workspace_name
+             FROM documents WHERE id = $1 AND deleted_at IS NULL""",
         doc_id,
     )
     if not row:
@@ -330,10 +380,20 @@ async def memory_action(doc_id: str, body: ActionBody) -> dict[str, Any]:
             doc_id,
         )
 
+    # aaf-0007: attribute the change to the document's own workspace (resolved
+    # from the row, never client-supplied) so the audit event lands in the right
+    # tenant timeline and the mutation is provably workspace-scoped. AAF's
+    # emit_event carries workspace in the payload (no dedicated column).
     await db.emit_event(
         ACTION_EVENT[body.action],
         body.actor,
-        {"doc_id": doc_id, "action": body.action, "note": body.note},
+        {
+            "doc_id": doc_id,
+            "action": body.action,
+            "note": body.note,
+            "memory_class": row["memory_class"],
+            "workspace": row["workspace_name"],
+        },
     )
     return {"doc_id": doc_id, "action": body.action, "status": "ok"}
 

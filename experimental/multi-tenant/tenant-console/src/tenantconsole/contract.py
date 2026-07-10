@@ -29,6 +29,7 @@ import yaml
 
 __all__ = [
     "SLUG_RE",
+    "VERTICAL_RE",
     "ChannelBinding",
     "ContractError",
     "TenantContract",
@@ -38,6 +39,12 @@ __all__ = [
 
 #: DNS-safe, immutable tenant slug: lowercase alnum, internal hyphens, 3-40 chars.
 SLUG_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]$")
+
+#: A vertical names a playbook pack DIRECTORY under ``playbooks/``. It is joined
+#: onto a filesystem path, so it is validated as strictly as the slug (aaf-0012):
+#: lowercase alnum + internal hyphens, 3-40 chars — no dots, slashes, or ``..``
+#: that could traverse out of the playbooks root.
+VERTICAL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{1,38})[a-z0-9]$")
 
 #: The render variables the contract loader derives and injects itself; a
 #: contract's ``variables:`` block must NOT need to supply these.
@@ -156,11 +163,30 @@ def load_contract(path: Any, playbooks_root: Optional[Path] = None) -> TenantCon
     if not isinstance(vertical, str) or not vertical:
         problems.append("tenant.vertical is required")
         vertical = ""
-    elif not (pack_dir / "pack.yaml").is_file():
+    elif not VERTICAL_RE.match(vertical):
+        # aaf-0012: reject anything that isn't a plain pack name BEFORE any
+        # filesystem I/O — a value like "../../etc" must never reach a path join.
         problems.append(
-            f"tenant.vertical {vertical!r}: playbook pack not found "
-            f"(expected {pack_dir / 'pack.yaml'})"
+            f"tenant.vertical {vertical!r} is not a valid pack name "
+            "(^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$: lowercase alnum + hyphens, 3-40 chars)"
         )
+        vertical = ""
+    else:
+        # aaf-0012 defense-in-depth: realpath-contain the pack dir under the
+        # playbooks root, so even a symlinked pack dir can't escape it.
+        pack_dir = root / vertical
+        root_real = root.resolve()
+        pack_real = pack_dir.resolve()
+        if pack_real != root_real and root_real not in pack_real.parents:
+            problems.append(
+                f"tenant.vertical {vertical!r} resolves outside the playbooks root"
+            )
+            vertical = ""
+        elif not (pack_dir / "pack.yaml").is_file():
+            problems.append(
+                f"tenant.vertical {vertical!r}: playbook pack not found "
+                f"(expected {pack_dir / 'pack.yaml'})"
+            )
 
     budgets = tenant.get("budgets")
     daily_usd = per_run_usd = 0.0

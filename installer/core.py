@@ -263,13 +263,34 @@ def build_step_command(step: str, profile: str, tf_dir: Path = TF_DIR,
 
 _REPO_RE = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 
+# aaf-0022: allowlist-validate every scaffold param value BEFORE it becomes a
+# CLI argument. The subprocess uses an argv array (no shell=True), so this is
+# argument-smuggling hardening, not command-injection: the point is to reject a
+# value that starts with '-' (which a script could misread as another flag) or
+# carries whitespace/shell metacharacters. Each pattern is a conservative
+# allowlist for that field's real-world shape.
+_SCAFFOLD_PARAM_RE = {
+    "repo": _REPO_RE,
+    "subscription": re.compile(r"^[0-9a-fA-F-]{36}$"),
+    "app_name": re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$"),
+    "location": re.compile(r"^[a-z0-9]{3,30}$"),
+    "state_rg": re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.()-]{0,89}$"),
+    "state_account": re.compile(r"^[a-z0-9]{3,24}$"),
+    "state_container": re.compile(r"^[a-z0-9][a-z0-9-]{2,62}$"),
+    "registry": re.compile(r"^[A-Za-z0-9][A-Za-z0-9.-]{0,63}$"),
+    "key_vault": re.compile(r"^[A-Za-z0-9-]{3,24}$"),
+    "smoke_url": re.compile(r"^https://[A-Za-z0-9._~:/?#@!$&'()*+,;=%-]+$"),
+    "reviewers": re.compile(r"^[A-Za-z0-9][A-Za-z0-9_,/-]*$"),
+}
+
 
 def build_scaffold_command(params: dict, repo_root: Path = REPO_ROOT) -> list[str]:
     """Map validated UI params to a scripts/scaffold-cicd.sh invocation.
 
     Preview-first: `--apply` is only added when params['apply'] is truthy.
     Provider-key SECRETS are NOT handled here — they pass via the subprocess
-    environment (see /api/scaffold), so nothing secret ever lands on argv."""
+    environment (see /api/scaffold), so nothing secret ever lands on argv.
+    aaf-0022: every string param is allowlist-validated before it is forwarded."""
     repo = (params.get("repo") or "").strip()
     if repo and not _REPO_RE.match(repo):
         raise ValueError(f"invalid repo (want OWNER/REPO): {repo!r}")
@@ -285,8 +306,12 @@ def build_scaffold_command(params: dict, repo_root: Path = REPO_ROOT) -> list[st
     }
     for key, flag in str_flags.items():
         val = (params.get(key) or "").strip()
-        if val:
-            cmd += [flag, val]
+        if not val:
+            continue
+        pattern = _SCAFFOLD_PARAM_RE.get(key)
+        if pattern is not None and not pattern.match(val):
+            raise ValueError(f"invalid {key} value: {val!r}")
+        cmd += [flag, val]
 
     bool_flags = {
         "grant_uaa": "--grant-uaa", "environment_subject": "--environment-subject",

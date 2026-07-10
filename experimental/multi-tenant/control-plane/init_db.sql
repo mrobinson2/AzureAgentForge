@@ -106,3 +106,46 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 
 CREATE TRIGGER update_channels_updated_at BEFORE UPDATE ON channels
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ─── Row-Level Security backstop (aaf-0018) ─────────────────────────────────
+-- Defense-in-depth beneath the application's tenant-scoping. Even if a query is
+-- ever built without a tenant predicate, the database refuses to return another
+-- tenant's rows. The application sets the active tenant per request/transaction:
+--     SET LOCAL app.tenant_id = '<tenant-uuid>';
+-- `current_setting('app.tenant_id', true)` returns NULL when unset, so an
+-- un-scoped connection sees NO tenant rows (fail closed) rather than all of them.
+--
+-- The control-plane operator (which must provision and enumerate ALL tenants)
+-- should connect as a role created with BYPASSRLS, or run under a role listed in
+-- the tenants policy below; RLS here guards the per-tenant data-plane paths.
+
+-- tenants: a tenant may see only its own row (keyed on its own id).
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenants_self_isolation ON tenants
+    USING (id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+-- Child tables: scoped by tenant_id.
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
+CREATE POLICY users_tenant_isolation ON users
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE channels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE channels FORCE ROW LEVEL SECURITY;
+CREATE POLICY channels_tenant_isolation ON channels
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE tenant_api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_api_keys FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_api_keys_tenant_isolation ON tenant_api_keys
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE tenant_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_features FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_features_tenant_isolation ON tenant_features
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);

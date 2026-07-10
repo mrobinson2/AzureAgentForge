@@ -25,10 +25,15 @@ resource "azurerm_key_vault" "main" {
   public_network_access_enabled = var.public_network_access_enabled
   enable_rbac_authorization     = true
 
+  # aaf-0013: default-Deny firewall (AZU-0013). Trusted Microsoft services bypass
+  # (needed for private-endpoint / platform integrations); specific public IPs
+  # and VNet subnets are allowlisted via the variables. Private-endpoint callers
+  # in-VNet are NOT affected by default-Deny, so the hardened profile is unbroken.
   network_acls {
-    bypass         = "AzureServices"
-    default_action = var.network_default_action
-    ip_rules       = var.allowed_ip_ranges
+    bypass                     = "AzureServices"
+    default_action             = var.network_default_action
+    ip_rules                   = var.allowed_ip_ranges
+    virtual_network_subnet_ids = var.allowed_subnet_ids
   }
 
   tags = var.tags

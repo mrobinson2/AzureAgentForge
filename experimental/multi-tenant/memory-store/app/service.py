@@ -70,15 +70,17 @@ async def delete_memory(tenant_id: str, record_id: str) -> bool:
 
 
 async def search_memory(payload: schemas.SearchRequest) -> list[schemas.SearchResult]:
-    filters: list[str] = ["1=1"]
+    # aaf-0002 defense-in-depth: refuse an unscoped search. The route derives
+    # tenant_id from the verified token, but the service must also never build a
+    # cross-tenant (1=1) query if a tenant scope is ever missing.
+    if not payload.tenant_id:
+        raise ValueError("search_memory requires a tenant_id (refusing unscoped query)")
+    filters: list[str] = ["tenant_id = %(tenant_id)s"]
     params: dict[str, Any] = {
         "query_vector": payload.query_vector,
         "limit": payload.limit,
+        "tenant_id": payload.tenant_id,
     }
-
-    if payload.tenant_id:
-        filters.append("tenant_id = %(tenant_id)s")
-        params["tenant_id"] = payload.tenant_id
 
     if payload.record_types:
         filters.append("record_type = ANY(%(record_types)s)")

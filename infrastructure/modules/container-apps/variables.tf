@@ -1,3 +1,21 @@
+# aaf-0014: storage-account firewall allowlists. Default-Deny is applied on the
+# hermes storage account (see storage.tf); these let the operator scope who may
+# reach it. Leave empty to rely on the AzureServices/Logging/Metrics bypass.
+# ⚠️ This ACA environment mounts the SMB file share over the Azure backbone, not
+# the app subnet — after enabling default-Deny, verify the hermes-data /
+# watchdog-state mounts still attach and add the ACA outbound IP(s) here if not.
+variable "storage_allowed_ip_ranges" {
+  description = "Public IP CIDRs allowed through the hermes storage-account firewall (aaf-0014)."
+  type        = list(string)
+  default     = []
+}
+
+variable "storage_allowed_subnet_ids" {
+  description = "VNet subnet IDs allowed through the hermes storage-account firewall (aaf-0014)."
+  type        = list(string)
+  default     = []
+}
+
 variable "resource_group_name" {
   type = string
 }
@@ -319,9 +337,17 @@ variable "honcho_deriver_job_cron" {
 }
 
 variable "honcho_workspace_name" {
-  description = "Honcho workspace name (formerly 'app id'). The shared user representation lives in workspace 'hermes' — keep this aligned across Telegram-Hermes and Paperclip so Orchestrator reads/writes the same memory the Telegram bot built up."
+  description = "Honcho / governed-memory workspace name (formerly 'app id'). Keep this aligned across Telegram-Hermes, Paperclip, and the self-hosted-site compose (GOVERNOR_WORKSPACE) so the Orchestrator reads/writes the same memory the Telegram bot built up."
   type        = string
-  default     = "hermes"
+  # aaf-0015: NO default. A config default here previously let dev and prod
+  # silently resolve to the SAME governed-memory workspace (the recurring scoping
+  # trap). Every environment MUST set this explicitly in its tfvars. The
+  # validation below fails loud on an empty or placeholder value rather than
+  # silently scoping one plausible workspace.
+  validation {
+    condition     = length(trimspace(var.honcho_workspace_name)) > 0 && !contains(["CHANGEME", "TODO", "hermes-dev-CHANGEME"], var.honcho_workspace_name)
+    error_message = "honcho_workspace_name must be set explicitly per environment (e.g. \"hermes\"); empty or placeholder values are rejected (aaf-0015)."
+  }
 }
 
 variable "honcho_user_peer_id" {

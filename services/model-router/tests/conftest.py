@@ -31,6 +31,11 @@ os.environ.setdefault("PHI_API_KEY", "test-phi-key")
 os.environ.setdefault("CLAUDE_BASE_URL", "http://localhost:7777")
 os.environ.setdefault("CLAUDE_API_KEY", "test-claude-key")
 os.environ.setdefault("CLAUDE_MODEL", "claude")
+# aaf-0005: the router now FAILS CLOSED on an unset key, so the suite runs with a
+# real key and the default `client` fixture authenticates. Auth-specific tests use
+# `unauth_client` and/or monkeypatch _ROUTER_API_KEY.
+TEST_ROUTER_KEY = "test-router-key"
+os.environ.setdefault("ROUTER_API_KEY", TEST_ROUTER_KEY)
 
 
 @pytest.fixture
@@ -43,6 +48,18 @@ def router():
 
 @pytest.fixture
 def client():
+    from fastapi.testclient import TestClient
+
+    import main
+
+    # Authenticated by default (aaf-0005 fail-closed): send the canonical key so
+    # functional tests exercise the real path without repeating the header.
+    return TestClient(main.app, headers={"Authorization": f"Bearer {TEST_ROUTER_KEY}"})
+
+
+@pytest.fixture
+def unauth_client():
+    """Client with no Authorization header — for auth-negative tests."""
     from fastapi.testclient import TestClient
 
     import main
