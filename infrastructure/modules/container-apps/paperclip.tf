@@ -87,10 +87,22 @@ resource "azurerm_container_app" "paperclip" {
   }
 
   # Azure AI Foundry project API key — shared across all models in the project.
-  # Used by the Hermes agent adapter when Paperclip spawns agent processes.
+  # aaf-0005: no longer mounted as this container's OPENAI_API_KEY (that now
+  # sends router-api-key, below, so the router's bearer check passes). Left
+  # declared/seeded (scripts/seed-keyvault.sh) for any future direct-Foundry
+  # caller that bypasses the router.
   secret {
     name                = "ai-foundry-api-key"
     key_vault_secret_id = "${var.key_vault_uri}secrets/ai-foundry-api-key"
+    identity            = azurerm_user_assigned_identity.paperclip.id
+  }
+
+  # aaf-0005: bearer the spawned Hermes agent adapter sends the router (via
+  # ca-hermes's ingress — see OPENAI_API_KEY below). Same KV secret as the
+  # router itself and every other in-mesh caller (hermes.tf, memory_governor.tf).
+  secret {
+    name                = "router-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/router-api-key"
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
@@ -287,11 +299,13 @@ resource "azurerm_container_app" "paperclip" {
       # These env vars are inherited by the Hermes CLI when Paperclip spawns it.
       # Route through the model router on ca-agent-runtime, which handles all
       # Azure AI Foundry models (known tiers + passthrough for any deployed model).
-      # The router uses the project API key internally — agents don't need it directly,
-      # but OPENAI_API_KEY must be non-empty for the OpenAI SDK to initialize.
+      # aaf-0005: the router now fail-closed 503s unless the caller's bearer
+      # matches its configured ROUTER_API_KEY, so this must be the same KV
+      # secret the router (hermes.tf) was provisioned with — not the Foundry
+      # project key, which the router never validates against its own auth.
       env {
         name        = "OPENAI_API_KEY"
-        secret_name = "ai-foundry-api-key"
+        secret_name = "router-api-key"
       }
       env {
         name  = "OPENAI_BASE_URL"

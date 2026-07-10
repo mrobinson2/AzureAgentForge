@@ -4,13 +4,28 @@
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 from fastapi import Depends, FastAPI, HTTPException
 
-from . import schemas
+from . import db, schemas
 from .auth import require_tenant
 from .service import delete_memory, search_memory, upsert_memory
 
-app = FastAPI(title="Memory Store", version="0.1.0")
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # db.pool is constructed with open=False (see db.py) because opening it
+    # implicitly at module-import time — before uvicorn's event loop runs —
+    # silently never connects. Open it now that the loop is live.
+    await db.pool.open(wait=True)
+    try:
+        yield
+    finally:
+        await db.pool.close()
+
+
+app = FastAPI(title="Memory Store", version="0.1.0", lifespan=lifespan)
 
 
 @app.get("/healthz", response_model=schemas.HealthResponse)

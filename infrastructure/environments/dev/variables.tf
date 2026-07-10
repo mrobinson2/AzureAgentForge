@@ -88,6 +88,25 @@ variable "key_vault_allowed_subnet_ids" {
   default     = []
 }
 
+# aaf-0014: hermes storage-account firewall allowlists (see
+# modules/container-apps/storage.tf). Same Deny-by-default / empty-allowlist
+# semantics as the Key Vault pair above: empty relies on the AzureServices /
+# Logging / Metrics bypass (which covers the ACA SMB mount over the Azure
+# backbone), NOT an implicit allow — add entries only if a caller reaches the
+# storage account over the network directly (outside that bypass) and gets
+# locked out.
+variable "storage_allowed_ip_ranges" {
+  description = "Public IP CIDRs allowed through the hermes storage-account firewall when it is Deny-by-default. Example placeholder: [\"203.0.113.0/32\"]."
+  type        = list(string)
+  default     = []
+}
+
+variable "storage_allowed_subnet_ids" {
+  description = "aaf-0014: VNet subnet IDs allowed through the hermes storage-account firewall. Operator-gated; empty relies on the AzureServices/Logging/Metrics bypass covering the ACA SMB mount."
+  type        = list(string)
+  default     = []
+}
+
 variable "existing_container_app_environment_id" {
   description = "If set, reuse an existing Container Apps Environment instead of creating a new one. Leave empty to create a new environment."
   type        = string
@@ -115,6 +134,12 @@ variable "teams_enabled" {
 
 variable "teams_orchestrator_agent_id" {
   description = "Optional agent id to route inbound Teams messages to. Empty → PaperClip default routing."
+  type        = string
+  default     = ""
+}
+
+variable "teams_app_id" {
+  description = "aaf-0009: Bot Framework Microsoft App ID (teams-bridge TEAMS_APP_ID). The bridge fails closed (503) when unset. Required before teams_enabled = true actually serves traffic."
   type        = string
   default     = ""
 }

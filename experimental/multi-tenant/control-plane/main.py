@@ -40,6 +40,16 @@ def require_operator(authorization: str | None = Header(default=None)) -> None:
 
 
 # Database connection
+# aaf-0018: PG_CONNSTR MUST authenticate as a role granted BYPASSRLS (see the
+# control_plane_operator block at the bottom of init_db.sql). Every route here
+# is a cross-tenant operator operation — create_tenant INSERTs a brand-new
+# tenant row (no app.tenant_id could exist yet to satisfy the RLS WITH CHECK),
+# and list_tenants enumerates every tenant — so there is no single verified
+# tenant_id to SET LOCAL the way memory-store/app/db.py does for its
+# per-tenant requests. Connecting as a non-BYPASSRLS role breaks every route:
+# inserts raise "new row violates row-level security policy" and reads return
+# zero rows under the tenants/users/channels/tenant_api_keys/tenant_features
+# RLS policies.
 def get_db():
     conn = psycopg2.connect(os.environ["PG_CONNSTR"])
     try:

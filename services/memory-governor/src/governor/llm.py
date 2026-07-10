@@ -53,7 +53,7 @@ async def classify(content: str, context: str | None = None) -> ClassificationRe
                     "temperature": 0.0,
                     "max_tokens": 400,
                 },
-                headers={"Authorization": "Bearer router-internal"},
+                headers={"Authorization": f"Bearer {config.ROUTER_API_KEY}"},
             )
             resp.raise_for_status()
             raw = resp.json()["choices"][0]["message"]["content"]
@@ -73,7 +73,7 @@ async def embed(text: str) -> list[float] | None:
             resp = await client.post(
                 f"{config.ROUTER_BASE_URL}/embeddings",
                 json={"input": text, "model": config.EMBEDDING_MODEL},
-                headers={"Authorization": "Bearer router-internal"},
+                headers={"Authorization": f"Bearer {config.ROUTER_API_KEY}"},
             )
             resp.raise_for_status()
             vec = resp.json()["data"][0]["embedding"]
@@ -124,7 +124,7 @@ async def judge_contradiction(a: str, b: str) -> str:
                     "temperature": 0.0,
                     "max_tokens": 8,
                 },
-                headers={"Authorization": "Bearer router-internal"},
+                headers={"Authorization": f"Bearer {config.ROUTER_API_KEY}"},
             )
             resp.raise_for_status()
             return parse_contradiction_outcome(resp.json()["choices"][0]["message"]["content"])
@@ -203,7 +203,7 @@ async def synthesize_skill(agent: str, contents: list[str]) -> dict | None:
                     "temperature": 0.2,
                     "max_tokens": 600,
                 },
-                headers={"Authorization": "Bearer router-internal"},
+                headers={"Authorization": f"Bearer {config.ROUTER_API_KEY}"},
             )
             resp.raise_for_status()
             raw = resp.json()["choices"][0]["message"]["content"]

@@ -30,7 +30,11 @@ FORCE=0
 DRY_RUN=0
 
 # Internal secrets generated locally if missing.
-GENERATE="postgres-admin-password governor-api-key paperclip-admin-password \
+# router-api-key (aaf-0005): shared bearer every in-mesh model-router caller
+# (hermes.tf, memory_governor.tf, paperclip.tf) and the router itself read —
+# generating one value here keeps them all in sync without operator input.
+GENERATE="postgres-admin-password governor-api-key router-api-key \
+paperclip-admin-password \
 paperclip-agent-jwt-secret paperclip-auth-secret paperclip-automation-jwt-secret \
 paperclip-automation-token auth-password gateway-token"
 

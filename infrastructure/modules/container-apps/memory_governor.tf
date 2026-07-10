@@ -110,6 +110,15 @@ resource "azurerm_container_app" "memory_governor" {
     identity            = azurerm_user_assigned_identity.memory_governor[0].id
   }
 
+  # aaf-0005: bearer this pod's router sidecar (container 2, below) requires
+  # on every /v1/* call. Same KV secret every in-mesh router caller uses
+  # (hermes.tf, paperclip.tf) so they all present what the router expects.
+  secret {
+    name                = "router-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/router-api-key"
+    identity            = azurerm_user_assigned_identity.memory_governor[0].id
+  }
+
   template {
     min_replicas = 1
     max_replicas = 1
@@ -132,6 +141,12 @@ resource "azurerm_container_app" "memory_governor" {
       env {
         name  = "ROUTER_BASE_URL"
         value = "http://localhost:8080/v1"
+      }
+      # aaf-0005: bearer governor/llm.py sends to the router sidecar
+      # (llm.py reads this via governor/config.py — no more hardcoded literal).
+      env {
+        name        = "ROUTER_API_KEY"
+        secret_name = "router-api-key"
       }
       env {
         name  = "CLASSIFIER_MODEL"
@@ -169,6 +184,13 @@ resource "azurerm_container_app" "memory_governor" {
       image  = "${var.container_registry_login_server}/router:${var.router_image_tag}"
       cpu    = 0.25
       memory = "0.5Gi"
+
+      # aaf-0005: the router 503s every request when this is unset. Must
+      # match what container 1 (memory-governor) sends as its bearer.
+      env {
+        name        = "ROUTER_API_KEY"
+        secret_name = "router-api-key"
+      }
 
       env {
         name        = "GPT4O_API_KEY"

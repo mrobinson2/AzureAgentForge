@@ -110,6 +110,13 @@ module "container_apps" {
   postgres_fqdn                  = module.postgres.fqdn
   existing_environment_id        = var.existing_container_app_environment_id
 
+  # aaf-0014: hermes storage-account firewall allowlists (default-Deny). Empty
+  # relies on the AzureServices/Logging/Metrics bypass; same operator-gated
+  # pattern as the Key Vault allowlists above. See variables.tf and
+  # modules/container-apps/storage.tf.
+  storage_allowed_ip_ranges  = var.storage_allowed_ip_ranges
+  storage_allowed_subnet_ids = var.storage_allowed_subnet_ids
+
   # PostgreSQL credentials for Honcho
   postgres_admin_username = var.postgres_admin_username
   postgres_admin_password = module.keyvault.postgres_admin_password
@@ -153,6 +160,7 @@ module "container_apps" {
   discord_enabled  = var.discord_enabled
 
   teams_enabled               = var.teams_enabled
+  teams_app_id                = var.teams_app_id
   teams_orchestrator_agent_id = var.teams_orchestrator_agent_id
 
   slack_enabled               = var.slack_enabled

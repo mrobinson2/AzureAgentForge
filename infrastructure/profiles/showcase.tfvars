@@ -29,6 +29,13 @@ key_vault_public_network_access_enabled = true
 # public access on and no private endpoint, add your Terraform-runner egress IP
 # so apply/secret-pull is not locked out, e.g.:
 #   key_vault_allowed_ip_ranges = ["203.0.113.0/32"]   # example (RFC-5737)
+# aaf-0014: the hermes storage-account firewall also defaults to Deny. The
+# AzureServices/Logging/Metrics bypass (storage.tf) covers the ACA SMB mount
+# (hermes-data / watchdog-state) — that keeps working with an empty allowlist.
+# It does NOT cover your Terraform-runner's own data-plane calls (share
+# create/update); add your runner egress IP below if `terraform apply` gets
+# locked out managing the storage account, e.g.:
+#   storage_allowed_ip_ranges = ["203.0.113.0/32"]   # example (RFC-5737)
 telegram_enabled = false
 discord_enabled  = false
 

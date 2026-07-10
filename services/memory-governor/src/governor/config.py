@@ -26,6 +26,11 @@ def database_url() -> str:
 
 
 ROUTER_BASE_URL = os.environ.get("ROUTER_BASE_URL", "http://localhost:8080/v1")
+# aaf-0005: bearer sent to the router sidecar's /v1/* endpoints, which now
+# fail closed (503) on an unconfigured key and 401/403 on a mismatched one
+# (services/model-router/main.py). Must equal the router's own ROUTER_API_KEY
+# — the same KV secret (router-api-key) every in-mesh caller reads.
+ROUTER_API_KEY = _secret("ROUTER_API_KEY", "router-api-key")
 CLASSIFIER_MODEL = os.environ.get("CLASSIFIER_MODEL", "gpt4o-mini")
 CLASSIFIER_TIMEOUT_S = float(os.environ.get("CLASSIFIER_TIMEOUT_S", "20"))
 

@@ -75,6 +75,12 @@ resource "azurerm_container_app" "teams_bridge" {
         value = "http://ca-paperclip-${var.environment}"
       }
       env {
+        # aaf-0009: the bridge fails closed (503) on /api/messages when this is
+        # unset — required to verify inbound Bot Framework JWTs.
+        name  = "TEAMS_APP_ID"
+        value = var.teams_app_id
+      }
+      env {
         name  = "PAPERCLIP_COMPANY_ID"
         value = var.paperclip_company_id
       }

@@ -404,6 +404,12 @@ variable "teams_orchestrator_agent_id" {
   default     = ""
 }
 
+variable "teams_app_id" {
+  type        = string
+  description = "aaf-0009: the Bot Framework Microsoft App ID (audience for inbound Teams JWTs — services/teams-bridge/main.py TEAMS_APP_ID). The bridge fails closed (503) when this is unset. Not itself a credential (Azure AD verifies the token signature independently), but treated like the other bot identifiers in this module — set per environment, never a real value in this sanitized repo."
+  default     = ""
+}
+
 variable "slack_enabled" {
   type        = bool
   description = "Enable the Slack chat surface (services/slack-bridge Slack Events API endpoint). Internal ingress — expose via the Cloudflare tunnel + set SLACK_SIGNING_SECRET before go-live."

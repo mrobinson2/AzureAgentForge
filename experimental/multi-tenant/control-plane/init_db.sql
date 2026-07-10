@@ -149,3 +149,22 @@ ALTER TABLE tenant_features FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_features_tenant_isolation ON tenant_features
     USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
     WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+-- ─── Control-plane operator role (BYPASSRLS) ────────────────────────────────
+-- control-plane/main.py (PG_CONNSTR) MUST connect as a role with BYPASSRLS.
+-- Every control-plane route is cross-tenant by nature (create_tenant INSERTs a
+-- brand-new tenant row before any app.tenant_id could exist to satisfy the
+-- tenants_self_isolation WITH CHECK; list_tenants enumerates ALL tenants) —
+-- there is no single verified tenant_id to SET LOCAL for an operator request,
+-- so (unlike the per-request `SET LOCAL app.tenant_id` the memory-store uses,
+-- see memory-store/app/db.py) BYPASSRLS is the only coherent fit here, not a
+-- workaround. Without it every control-plane route breaks under RLS: inserts
+-- raise "new row violates row-level security policy" and reads return zero
+-- rows.
+--
+-- Uncomment and set a real, generated password before running (or use your
+-- provisioning tool's role-creation step instead), then point PG_CONNSTR at
+-- this role rather than the table-owning/migration role:
+--   CREATE ROLE control_plane_operator WITH LOGIN PASSWORD '<CHANGE_ME>' BYPASSRLS;
+--   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO control_plane_operator;
+--   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO control_plane_operator;

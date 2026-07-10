@@ -16,3 +16,10 @@ honcho_workspace_name = "hermes"
 # apply/secret-pull is not locked out (example uses an RFC-5737 documentation IP):
 # key_vault_allowed_ip_ranges = ["203.0.113.0/32"]
 # key_vault_allowed_subnet_ids = []   # or allowlist the app subnet id
+
+# aaf-0014: hermes storage-account firewall also defaults to Deny. The
+# AzureServices/Logging/Metrics bypass covers the ACA SMB mount by default
+# (empty allowlist is fine there); add your runner egress IP only if
+# `terraform apply` gets locked out managing the storage account/share:
+# storage_allowed_ip_ranges = ["203.0.113.0/32"]
+# storage_allowed_subnet_ids = []   # or allowlist the app subnet id
