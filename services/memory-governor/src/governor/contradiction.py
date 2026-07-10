@@ -27,11 +27,29 @@ MAX_PAIRS_PER_SWEEP = int(os.environ.get("CONTRADICTION_MAX_PAIRS", "25"))
 SIM_LOW = float(os.environ.get("CONTRADICTION_SIM_LOW", "0.4"))
 SIM_HIGH = float(os.environ.get("CONTRADICTION_SIM_HIGH", "0.92"))
 
+# Sweep-query bounds. The candidate query below is a pg_trgm similarity
+# SELF-JOIN on documents (`a.content % b.content`) — O(n^2) pairs. Without a
+# trigram index on documents.content, a corpus of only ~1k eligible docs
+# (~500k pairs) brute-forces similarity for every pair and blows through the
+# pool-wide command_timeout=30 (db.py), so every pass raises TimeoutError and
+# NO pair is ever judged. Found in production upstream. Fixed three ways:
+# migration 0009 adds a gin_trgm_ops index (makes the % join indexable), this
+# dedicated generous per-query timeout replaces the pool default for THIS
+# fetch only, and a recency window bounds steady-state passes to pairs
+# involving at least one recent doc. Set CONTRADICTION_LOOKBACK_DAYS=0 (or
+# negative) to disable the window for a one-off full-corpus pass — do that
+# once after the index lands if the sweep had been timing out, or the old
+# backlog stays unjudged forever. (Window keys on created_at only — documents
+# carry no updated_at column; content is immutable in place.)
+CONTRADICTION_QUERY_TIMEOUT_S = float(os.environ.get("CONTRADICTION_QUERY_TIMEOUT_S", "300"))
+CONTRADICTION_LOOKBACK_DAYS = float(os.environ.get("CONTRADICTION_LOOKBACK_DAYS", "30"))
+
 # Outcomes that mean "real conflict → flag the loser for review". coexist/none
 # are left untouched.
 FLAGGING_OUTCOMES = {"supersede", "scope_refine", "needs_review"}
 
 # Topically-similar (but not duplicate), same-scope, active durable pairs.
+# $5 is the recency window (days): <= 0 disables it (full-corpus pass).
 _CANDIDATE_PAIRS_SQL = """
 SELECT a.id AS a_id, a.content AS a_content,
        COALESCE(a.trust_score, 0.5) AS a_trust, a.created_at AS a_created,
@@ -51,6 +69,8 @@ WHERE a.workspace_name = $1
   AND a.deleted_at IS NULL AND b.deleted_at IS NULL
   AND a.verification_state NOT IN ('disputed', 'superseded', 'needs_review')
   AND b.verification_state NOT IN ('disputed', 'superseded', 'needs_review')
+  AND ($5::float8 <= 0
+       OR GREATEST(a.created_at, b.created_at) >= now() - ($5::float8 * interval '1 day'))
 ORDER BY similarity(a.content, b.content) DESC
 LIMIT $4
 """
@@ -91,7 +111,10 @@ async def sweep_once(workspace: str | None = None) -> int:
     if not ws:
         return 0
     p = await db.pool()
-    pairs = await p.fetch(_CANDIDATE_PAIRS_SQL, ws, SIM_LOW, SIM_HIGH, MAX_PAIRS_PER_SWEEP)
+    pairs = await p.fetch(
+        _CANDIDATE_PAIRS_SQL, ws, SIM_LOW, SIM_HIGH, MAX_PAIRS_PER_SWEEP,
+        CONTRADICTION_LOOKBACK_DAYS, timeout=CONTRADICTION_QUERY_TIMEOUT_S,
+    )
     flagged = 0
     touched: set[str] = set()
     for row in pairs:
