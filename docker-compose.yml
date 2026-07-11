@@ -114,44 +114,45 @@ services:
       # userinfo (libpq/SQLAlchemy reject raw special chars there); defaults to
       # the plain password, which is safe for the local dev default.
       DB_CONNECTION_URI: postgresql+psycopg://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD_URLENC:-${POSTGRES_PASSWORD:-localdev}}@postgres:5432/${POSTGRES_DB:-aaf}
-      # Honcho constructs an LLM client per specialist AT IMPORT (deriver/summary
-      # default to google, dream to anthropic) and raises "Missing client" if the
-      # key is absent. Placeholder keys let it BOOT with no creds; the deriver's
-      # actual memory processing needs real keys (override to drive it).
+      # Honcho resolves an LLM client per specialist from its MODEL_CONFIG
+      # (transport + model); the built-in 3.0.x defaults are openai/gpt-5.4-mini
+      # for every specialist. Placeholder keys let the API BOOT with no real
+      # creds (clients are built lazily at call time, not at import); the
+      # deriver's actual memory processing needs real keys (override to drive it).
       LLM_ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-localdev-honcho-placeholder}
       LLM_OPENAI_API_KEY: ${OPENAI_API_KEY:-localdev-honcho-placeholder}
       LLM_GEMINI_API_KEY: ${GEMINI_API_KEY:-localdev-honcho-placeholder}
-      # Reasoning-level config. Honcho's summary/deriver specialists and its five
-      # dialectic reasoning levels each build an LLM client from a PROVIDER+MODEL
-      # pair at startup; if ANY of the five levels (minimal/low/medium/high/max)
-      # is missing its provider+model the service crash-loops on boot. Point them
-      # all at the OpenAI-compatible provider with a small default model so the
-      # stack comes up; override per level to tune cost/latency.
-      SUMMARY_PROVIDER: ${SUMMARY_PROVIDER:-openai}
-      SUMMARY_MODEL: ${SUMMARY_MODEL:-gpt-4o-mini}
-      DERIVER_PROVIDER: ${DERIVER_PROVIDER:-openai}
-      DERIVER_MODEL: ${DERIVER_MODEL:-gpt-4o-mini}
-      # Nested pydantic-settings path (env_prefix DIALECTIC_ + "__" delimiter);
-      # the flat DIALECTIC_MINIMAL_PROVIDER form is silently ignored.
-      DIALECTIC_LEVELS__minimal__PROVIDER: openai
-      DIALECTIC_LEVELS__minimal__MODEL: gpt-4o-mini
-      DIALECTIC_LEVELS__minimal__THINKING_BUDGET_TOKENS: "0"
+      # ── Per-specialist model config (Honcho >= 3.0.7 schema) ─────────────────
+      # 3.0.7 REPLACED the flat SUMMARY_PROVIDER / DERIVER_PROVIDER /
+      # DIALECTIC_LEVELS__<lvl>__PROVIDER form with a nested MODEL_CONFIG
+      # (fields: transport + model). The old flat keys are now SILENTLY IGNORED
+      # (pydantic-settings extra="ignore"), so an un-migrated config falls back to
+      # the built-in default (openai/gpt-5.4-mini) instead of your intended model.
+      # `transport` is one of openai|anthropic|gemini; to reach an OpenAI-compatible
+      # proxy set <SECTION>_MODEL_CONFIG__OVERRIDES__BASE_URL. See
+      # services/honcho/README.md for the full migration note.
+      SUMMARY_MODEL_CONFIG__TRANSPORT: ${SUMMARY_TRANSPORT:-openai}
+      SUMMARY_MODEL_CONFIG__MODEL: ${SUMMARY_MODEL:-gpt-4o-mini}
+      DERIVER_MODEL_CONFIG__TRANSPORT: ${DERIVER_TRANSPORT:-openai}
+      DERIVER_MODEL_CONFIG__MODEL: ${DERIVER_MODEL:-gpt-4o-mini}
+      # All five dialectic reasoning levels (minimal/low/medium/high/max) carry
+      # built-in openai/gpt-5.4-mini defaults in 3.0.11, but we pin them to the
+      # same small model for a predictable, low-cost local default. Nested path:
+      # env_prefix DIALECTIC_ + "__" delimiter + the MODEL_CONFIG sub-model.
+      DIALECTIC_LEVELS__minimal__MODEL_CONFIG__TRANSPORT: openai
+      DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL: gpt-4o-mini
       DIALECTIC_LEVELS__minimal__MAX_TOOL_ITERATIONS: "1"
-      DIALECTIC_LEVELS__low__PROVIDER: openai
-      DIALECTIC_LEVELS__low__MODEL: gpt-4o-mini
-      DIALECTIC_LEVELS__low__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__low__MODEL_CONFIG__TRANSPORT: openai
+      DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL: gpt-4o-mini
       DIALECTIC_LEVELS__low__MAX_TOOL_ITERATIONS: "2"
-      DIALECTIC_LEVELS__medium__PROVIDER: openai
-      DIALECTIC_LEVELS__medium__MODEL: gpt-4o-mini
-      DIALECTIC_LEVELS__medium__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__medium__MODEL_CONFIG__TRANSPORT: openai
+      DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL: gpt-4o-mini
       DIALECTIC_LEVELS__medium__MAX_TOOL_ITERATIONS: "3"
-      DIALECTIC_LEVELS__high__PROVIDER: openai
-      DIALECTIC_LEVELS__high__MODEL: gpt-4o-mini
-      DIALECTIC_LEVELS__high__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__high__MODEL_CONFIG__TRANSPORT: openai
+      DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL: gpt-4o-mini
       DIALECTIC_LEVELS__high__MAX_TOOL_ITERATIONS: "4"
-      DIALECTIC_LEVELS__max__PROVIDER: openai
-      DIALECTIC_LEVELS__max__MODEL: gpt-4o-mini
-      DIALECTIC_LEVELS__max__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__max__MODEL_CONFIG__TRANSPORT: openai
+      DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL: gpt-4o-mini
       DIALECTIC_LEVELS__max__MAX_TOOL_ITERATIONS: "5"
     ports: ["${HONCHO_PORT:-8000}:8000"]
 
@@ -162,8 +163,8 @@ services:
       context: .
       dockerfile: services/paperclip/Dockerfile
       args:
-        PAPERCLIP_VERSION: ${PAPERCLIP_VERSION:-v2026.517.0}
-        PAPERCLIP_EXPECTED_SHA: ${PAPERCLIP_EXPECTED_SHA:-3e6610fb938d04638fa578a1fc0d119b434fa2e4}
+        PAPERCLIP_VERSION: ${PAPERCLIP_VERSION:-v2026.707.0}
+        PAPERCLIP_EXPECTED_SHA: ${PAPERCLIP_EXPECTED_SHA:-390627b46eb333309d357004384b220ecf8a65af}
     depends_on:
       postgres:
         condition: service_healthy
