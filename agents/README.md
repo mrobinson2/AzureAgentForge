@@ -86,6 +86,15 @@ Each role's `toolsets` (above) are the coarse capability grants; within those gr
 
 Read each role's `.AGENTS.md` for the authoritative tool list, including the matching **Forbidden tools** section (for example, specialists never `terraform apply` or `git push --force`).
 
+## Templates and skills
+
+Two companion resources help you build and extend roles:
+
+- **Reusable role templates** live in [`templates/`](templates/) — an annotated blank skeleton (`AGENTS.template.md`), a filled generic **coordinator** front-door role, a filled generic customer-facing **intake** role, and a **small-model overlay** you prepend for economy-tier deployments. Start here when you need a role the shipped profiles don't already cover, or to learn the house prompt pattern. [`templates/README.md`](templates/README.md) explains how the pieces compose into a deployable agent.
+- **Skill specs** live in [`../docs/skills/`](../docs/skills/) — model-agnostic, tenant-neutral playbooks (business AI-opportunity assessment, executive-assistant digest/triage/calendar-prep, a YouTube channel digest, and a multi-tenant service security review) that an agent loads at task time. See the [Skills Library index](../docs/skills/README.md).
+
+A deployable agent composes as: a role prompt (a profile or an adapted template) **+** the skills it needs from the library **+** (optionally, for economy tiers) the small-model overlay.
+
 ## Profile schema
 
 Each profile is a YAML file validated against `profile.schema.json`.
