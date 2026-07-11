@@ -1,0 +1,6 @@
+# Local Functions settings hold your real key — never commit them.
+local.settings.json
+node_modules/
+__blobstorage__
+__queuestorage__
+__azurite_db*__.json

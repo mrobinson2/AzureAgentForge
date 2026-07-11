@@ -1,0 +1,10 @@
+.git*
+.vscode
+__blobstorage__
+__queuestorage__
+__azurite_db*__.json
+local.settings.json
+local.settings.json.example
+infra
+README.md
+test
