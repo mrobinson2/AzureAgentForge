@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="neutral">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Governed-AI Interface Pattern Library — Reference Implementations</title>
+<meta name="description" content="Nine governed-AI interface patterns for consumer-facing AI: honesty badge, trust receipt, refusal card, approval gate, pricing-policy engine, autonomy policy panel, sealed record, movement log, signed charter. Live, themeable, copy-pastable. Vendor-neutral; all example data is fictional and labeled as a simulation.">
+<link rel="stylesheet" href="patterns.css">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "TechArticle",
+  "headline": "The Governed-AI Interface Pattern Library",
+  "description": "Nine reusable interface patterns for keeping consumer-facing AI honest, deferential, and auditable: honesty badge, trust receipt, refusal card, approval gate, pricing-policy engine, autonomy policy panel, sealed record, movement log, and signed charter.",
+  "keywords": "governed AI, human-in-the-loop, approval gate, AI transparency, trust receipt, refusal, autonomy policy",
+  "inLanguage": "en",
+  "isAccessibleForFree": true,
+  "about": [
+    { "@type": "Thing", "name": "AI governance" },
+    { "@type": "Thing", "name": "Human-in-the-loop approval" }
+  ]
+}
+</script>
+</head>
+<body>
+
+<a class="skip-link" href="#patterns">Skip to patterns</a>
+
+<header class="lib-head">
+  <div class="wrap">
+    <p class="lib-mark">Governed-AI reference · demonstration content</p>
+    <h1>The Governed-AI Pattern Library</h1>
+    <p class="lib-lede">Nine interface patterns for consumer-facing AI, extracted as reference
+    implementations: live below, documented inline, themeable by design tokens. New pages should
+    compose these, not reinvent them — and real product work can treat them as spec. All example
+    businesses and data are fictional; every interactive surface is a simulation.</p>
+
+    <div class="theme-bar" role="group" aria-label="Preview theme — proves patterns reskin via tokens only">
+      <span class="tb-label">Token theme (same markup, zero changes):</span>
+      <button type="button" class="tb-btn" data-theme="neutral" aria-pressed="true">Neutral</button>
+      <button type="button" class="tb-btn" data-theme="night" aria-pressed="false">Night shift</button>
+      <button type="button" class="tb-btn" data-theme="trade" aria-pressed="false">Warm trade</button>
+    </div>
+  </div>
+</header>
+
+<main id="patterns" class="wrap">
+
+<!-- ============ P1: HONESTY BADGE ============ -->
+<section class="pattern" id="p-badge" aria-labelledby="p1-h">
+  <div class="p-doc">
+    <h2 id="p1-h"><span class="p-no">P1</span> Demo Honesty Badge</h2>
+    <p class="p-problem"><b>Problem:</b> a demo that lets anyone believe a mock is live poisons trust in
+    everything after it. The hardest rule: never imply a simulation is live.</p>
+    <p class="p-where"><b>Where it applies:</b> every simulated surface, styled per identity.</p>
+    <p class="p-usage"><b>Usage:</b> one badge per simulated surface, permanently visible (not a tooltip,
+    not a footnote). Name what is simulated and what production does instead. Tokens: <code>--gov-warn</code>.</p>
+  </div>
+  <div class="p-demo">
+    <span class="gov-badge">Demonstration — simulated AI, not a live integration. Production runs live under the same governance.</span>
+  </div>
+</section>
+
+<!-- ============ P2: TRUST RECEIPT ============ -->
+<section class="pattern" id="p-receipt" aria-labelledby="p2-h">
+  <div class="p-doc">
+    <h2 id="p2-h"><span class="p-no">P2</span> Trust Receipt</h2>
+    <p class="p-problem"><b>Problem:</b> invisible AI work erodes trust even when correct. Owners ask
+    "what did it say to my customer?"; customers ask "where did this number come from?"</p>
+    <p class="p-where"><b>Where it applies:</b> quote receipts, per-message summaries, call summaries,
+    assembly/order receipts, and privacy receipts (the pattern turned inward).</p>
+    <p class="p-usage"><b>Usage:</b> attach to every consequential AI output. Three line types:
+    <em>did</em> (what happened), <em>applied</em> (which policy/source), <em>deferred</em> (where a human
+    decides — always ≥1 or say "none"). Collapsible via <code>&lt;details&gt;</code>; keep the summary
+    line visible. JS: none required.</p>
+  </div>
+  <div class="p-demo">
+    <details class="gov-receipt" open>
+      <summary>Trust receipt — what the AI did &amp; where it deferred</summary>
+      <ul>
+        <li class="r-did">Answered from the approved FAQ (entry #14, dated Jun 2026)</li>
+        <li class="r-applied">Applied pricing policy v7 — no invented numbers</li>
+        <li class="r-deferred">Deferred to the owner: final price approval — nothing sent without it</li>
+      </ul>
+    </details>
+  </div>
+</section>
+
+<!-- ============ P3: REFUSAL CARD ============ -->
+<section class="pattern" id="p-refusal" aria-labelledby="p3-h">
+  <div class="p-doc">
+    <h2 id="p3-h"><span class="p-no">P3</span> Refusal Card</h2>
+    <p class="p-problem"><b>Problem:</b> a wrong answer in a licensed/judgment domain is a liability event.
+    The repeated finding: <em>the refusal is every demo's most-trusted moment.</em></p>
+    <p class="p-where"><b>Where it applies:</b> out-of-area work, permit thresholds, vague deadlines,
+    drainage/engineering calls, allergy and medical questions, and coverage/out-of-pocket questions —
+    any place the owner hasn't priced or ruled.</p>
+    <p class="p-usage"><b>Usage:</b> three mandatory parts — <em>the refusal</em> (plain, unhedged),
+    <em>the why</em> (a rule the reader can respect), <em>the human path</em> (named person + promised time).
+    Never refuse into a dead end. Tokens: <code>--gov-warn</code> border.</p>
+  </div>
+  <div class="p-demo">
+    <div class="gov-refusal">
+      <p class="rf-head">That's not mine to answer.</p>
+      <p class="rf-why"><b>Why:</b> repair-permit thresholds vary by local authority — this is on the
+      owner's never-answer list, and guessing here could cost you a stop-work order.</p>
+      <p class="rf-path"><b>What happens instead:</b> Robin at Fabrikam Field Services (simulated) verifies
+      with the permitting authority and calls you back <b>before 11 AM tomorrow</b>. Verified answers become
+      new cited entries.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ P4: APPROVAL GATE ============ -->
+<section class="pattern" id="p-gate" aria-labelledby="p4-h">
+  <div class="p-doc">
+    <h2 id="p4-h"><span class="p-no">P4</span> Approval Gate</h2>
+    <p class="p-problem"><b>Problem:</b> owners want AI's speed but not its authority. Consequential
+    actions must wait for a human — visibly.</p>
+    <p class="p-where"><b>Where it applies:</b> morning briefings, at-risk-customer rescues, message
+    queues, event follow-ups, win-back drafts (with a "skip — leave them be" option), and proposal review.</p>
+    <p class="p-usage"><b>Usage:</b> show the draft in full (never "AI has prepared a message"), then
+    Approve / Adjust / Decline. Every outcome renders a decided-state line naming what actually happened,
+    including "(simulated)" in demos. Init: <code>Gov.gate(el)</code>. Try it:</p>
+  </div>
+  <div class="p-demo">
+    <div class="gov-gate" id="demo-gate"
+         data-approve="✓ Sent (simulated) — and logged to the action ledger."
+         data-adjust="✎ Draft opened for editing (simulated) — the AI never sends without a human decision."
+         data-decline="✕ Declined (simulated) — preference logged so the next draft learns.">
+      <p class="gg-draft">Draft to customer (Fabrikam Field Services, simulated): "Quick heads-up on
+      tomorrow — your part is on a delayed truck. We're holding two backup windows and will confirm by 8 AM."</p>
+      <div class="gg-actions">
+        <button type="button" class="gg-approve">Approve</button>
+        <button type="button" class="gg-adjust">Adjust</button>
+        <button type="button" class="gg-decline">Decline</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ P5: PRICING-POLICY ENGINE ============ -->
+<section class="pattern" id="p-policy" aria-labelledby="p5-h">
+  <div class="p-doc">
+    <h2 id="p5-h"><span class="p-no">P5</span> Pricing-Policy Engine</h2>
+    <p class="p-problem"><b>Problem:</b> instant quotes feel made-up and owners fear being locked into
+    an AI's bad price. The fix: a deterministic engine over the <em>owner's written policy</em>, showing
+    its math, quoting ranges, deferring the final number.</p>
+    <p class="p-where"><b>Where it applies:</b> service price books, phased estimates, per-unit pricing,
+    and menu-style quotes.</p>
+    <p class="p-usage"><b>Usage:</b> policy = data (versioned, owner-named); output = line items + range,
+    never a single figure; always paired with P2 (receipt) and an owner-approval step. API:
+    <code>Gov.quote(policy, picks)</code>. Live (three picks, watch the math):</p>
+  </div>
+  <div class="p-demo">
+    <div class="gov-policy" id="demo-policy">
+      <div class="gp-picks">
+        <button type="button" class="gp-pick" data-k="base" aria-pressed="true">Base service $180</button>
+        <button type="button" class="gp-pick" data-k="size" aria-pressed="false">Large size ×1.3</button>
+        <button type="button" class="gp-pick" data-k="cond" aria-pressed="false">Heavy condition ×1.2</button>
+      </div>
+      <ul class="gp-lines" id="gp-lines"></ul>
+      <p class="gp-range" id="gp-range"></p>
+      <p class="gp-foot">Policy v3 (demo) · range = ±10% · final number is the owner's call.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ P6: AUTONOMY POLICY PANEL ============ -->
+<section class="pattern" id="p-autonomy" aria-labelledby="p6-h">
+  <div class="p-doc">
+    <h2 id="p6-h"><span class="p-no">P6</span> Autonomy Policy Panel</h2>
+    <p class="p-problem"><b>Problem:</b> a single AI on/off switch forces an impossible choice.
+    Autonomy must be per-action-type, owner-set, with an enforced "never" tier.</p>
+    <p class="p-where"><b>Where it applies:</b> anywhere an assistant can both answer safely and act
+    consequentially — booking-within-policy vs. judgment calls, win-back rules, escalation-only topics.</p>
+    <p class="p-usage"><b>Usage:</b> exactly three tiers — <em>autonomous</em> (reversible, ledgered),
+    <em>your approval</em> (P4 gate), <em>never — escalate</em> (P3 card; enforced in code, not prompt).
+    Pair with an autonomous-action ledger. Extension: an earned-autonomy ladder.</p>
+  </div>
+  <div class="p-demo">
+    <ul class="gov-autonomy">
+      <li><span>Answer approved FAQs</span><b class="au-auto">autonomous</b></li>
+      <li><span>Send reminders</span><b class="au-auto">autonomous</b></li>
+      <li><span>Send quotes</span><b class="au-approve">your approval</b></li>
+      <li><span>Reschedule a customer</span><b class="au-approve">your approval</b></li>
+      <li><span>Code / permit / medical / coverage answers</span><b class="au-never">never — escalate</b></li>
+    </ul>
+  </div>
+</section>
+
+
+<!-- ============ P7: SEALED RECORD ============ -->
+<section class="pattern" id="p-sealed" aria-labelledby="p7-h">
+  <div class="p-doc">
+    <h2 id="p7-h"><span class="p-no">P7</span> Sealed Record</h2>
+    <p class="p-problem"><b>Problem:</b> a quoted number that lives in a text thread is deniable by
+    either side — the "lowball trap" trades on exactly that. Numbers that outlive the conversation
+    need a record the customer can check.</p>
+    <p class="p-where"><b>Where it applies:</b> sealed quotes, change orders, and the delivery-day test —
+    any quote a customer will hold you to later.</p>
+    <p class="p-usage"><b>Usage:</b> seal = <code>{id, sealed-at, basis, range, change-rules}</code>.
+    Append-only: re-sealing supersedes, never edits; changes are their own sealed records priced at the
+    ORIGINAL seal's policy version. Verification is customer-facing: an ID lookup renders VERIFIED or
+    MISMATCH with a named human path. Demos use scripted lookups — free text would imply live
+    classification. Tokens: <code>--gov-ok</code>, <code>--gov-warn</code>.</p>
+  </div>
+  <div class="p-demo">
+    <div class="p7-record">
+      <span class="p7-stamp">SEALED · SIMULATED</span>
+      <p class="p7-id">Q-1187 · sealed Mar 14 · basis: 600 ft³, rate card v8 · range <b>$1,420–$1,690</b></p>
+      <div class="p7-actions">
+        <button type="button" class="p-btn" id="p7-verify">Verify Q-1187</button>
+        <button type="button" class="p-btn p-btn-warn" id="p7-test">Test a $2,890 claim against it</button>
+      </div>
+      <p id="p7-out" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ P8: MOVEMENT LOG ============ -->
+<section class="pattern" id="p-movement" aria-labelledby="p8-h">
+  <div class="p-doc">
+    <h2 id="p8-h"><span class="p-no">P8</span> Movement Log (queue transparency)</h2>
+    <p class="p-problem"><b>Problem:</b> opaque queues breed "any news?" calls and stale lists in both
+    directions — customers defect silently, businesses chase blindly.</p>
+    <p class="p-where"><b>Where it applies:</b> waitlists (e.g. a childcare enrollment queue) and
+    deadline-chain variants such as client-owed documents.</p>
+    <p class="p-usage"><b>Usage:</b> position card = <code>{position, of-N, honest-window,
+    movement-log[], what-would-change-this}</code>. Every movement names its cause and appears in every
+    affected customer's log; the window is a range on purpose (an exact date is a P3 refusal); priority
+    rules are published. Queue-hygiene messages are drafted no-pressure and gated (P4).</p>
+  </div>
+  <div class="p-demo">
+    <div class="p8-card">
+      <p class="p8-pos">#<span id="p8-num">4</span> <span class="p8-of">of 11 · honest window: Aug–Oct
+      (a range, on purpose)</span></p>
+      <ul class="p8-log" id="p8-log">
+        <li><b>JUN</b> Moved to #4 — a family ahead moved out of district.</li>
+      </ul>
+      <button type="button" class="p-btn" id="p8-decline">Simulate: a family ahead declines</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ P9: SIGNED CHARTER ============ -->
+<section class="pattern" id="p-charter" aria-labelledby="p9-h">
+  <div class="p-doc">
+    <h2 id="p9-h"><span class="p-no">P9</span> Signed Charter (amendment asymmetry)</h2>
+    <p class="p-problem"><b>Problem:</b> settings sprawl — five surfaces, five vendors' toggles, no
+    artifact the owner has actually read and signed, nothing the surfaces can cite.</p>
+    <p class="p-where"><b>Where it applies:</b> the single governance profile that P6 summarizes, that a
+    governance firewall enforces, and that a public disclosures page can publish.</p>
+    <p class="p-usage"><b>Usage:</b> charter = <code>{articles, signature, version, history[]}</code>.
+    The asymmetry: <em>tighten</em> applies instantly with no ceremony; <em>loosen</em> requires a fresh
+    signature on version N+1; never-list items are not loosenable in-product (P3 → human review).
+    Versions are never edited, only succeeded. Every surface cites its clause — that's what makes
+    refusals respectable.</p>
+  </div>
+  <div class="p-demo">
+    <div class="p9-charter">
+      <p class="p9-head">Charter <b id="p9-ver">v4</b> · <span id="p9-row">Quotes under $500:
+      <b>your approval</b></span></p>
+      <div class="p7-actions">
+        <button type="button" class="p-btn" id="p9-tighten">Tighten (instant)</button>
+        <button type="button" class="p-btn p-btn-warn" id="p9-loosen">Loosen (needs signature)</button>
+      </div>
+      <div id="p9-sign" hidden>
+        <label class="p9-lab" for="p9-name">Sign to enact v5 (simulated)</label>
+        <input id="p9-name" class="p9-input" autocomplete="off">
+        <button type="button" class="p-btn" id="p9-confirm">Sign</button>
+      </div>
+      <p id="p9-out" aria-live="polite"></p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer class="lib-foot">
+  <div class="wrap">
+    <p><strong>Composition rule of thumb:</strong> every AI surface = P1 always · P2 on every consequential
+    output · P3 wherever the owner hasn't priced/ruled · P4 before anything external · P5 wherever money is
+    quoted · P6 declared once, enforced everywhere · P7 wherever a number outlives the conversation ·
+    P8 wherever customers queue · P9 as the single source P6 summarizes. See <code>README.md</code> for
+    markup contracts and the conformance linter (<code>check.js</code>).</p>
+    <p class="lf-note">Vendor-neutral reference implementations. Everything above is demonstration content;
+    all businesses and data are fictional and every interactive surface is a simulation.</p>
+  </div>
+</footer>
+
+<script src="patterns.js"></script>
+</body>
+</html>
