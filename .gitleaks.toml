@@ -16,3 +16,7 @@ regex = '''eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'''
 [[allowlists]]
 description = "example and docs files"
 paths = ['''(.*)?\.example$''', '''README\.md''']
+
+[[allowlists]]
+description = "static demo/sample UI fixtures — feature-flag & capability keys are not secrets"
+paths = ['''demos/.*\.html$''', '''installer/static/.*\.html$''']
