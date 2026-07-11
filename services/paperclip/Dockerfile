@@ -11,11 +11,11 @@
 # Port: 3100 (Paperclip default)
 # Data: /paperclip (mount an Azure File Share here for persistence)
 
-ARG PAPERCLIP_VERSION=v2026.517.0
+ARG PAPERCLIP_VERSION=v2026.707.0
 # Guard against git-tag drift: the build fails if the cloned tag resolves to a
 # commit other than this. Resolve with:
 #   git ls-remote https://github.com/paperclipai/paperclip refs/tags/<tag>
-ARG PAPERCLIP_EXPECTED_SHA=3e6610fb938d04638fa578a1fc0d119b434fa2e4
+ARG PAPERCLIP_EXPECTED_SHA=390627b46eb333309d357004384b220ecf8a65af
 ARG NODE_VERSION=lts-trixie-slim
 
 # ── Stage 0: upstream-style base image ────────────────────────────────────────
@@ -54,7 +54,7 @@ WORKDIR /app
 # Clone the pinned release tag, then verify the resolved commit matches the
 # expected SHA. A git tag is not immutable; this fails the build on tag drift.
 # CACHE_BUST invalidates Docker layer cache so a version change actually takes effect.
-ARG CACHE_BUST=2026-05-23
+ARG CACHE_BUST=2026-07-11
 RUN echo "cache-bust=${CACHE_BUST}" \
  && git clone --depth=1 --branch ${PAPERCLIP_VERSION} \
     https://github.com/paperclipai/paperclip.git . \
