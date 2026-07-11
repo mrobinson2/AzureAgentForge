@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.5-blue" alt="Release v1.5"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.7-blue" alt="Release v1.7"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
@@ -87,6 +87,12 @@ New in v1.7 (since v1.5):
 - **Read-only memory inspector summary**: `GET /memory/inspector-summary` aggregates a workspace's governed memory at a glance — live counts by memory class / verification state / source type, the embedding-sync queue, and a 7-day tally of Plane C ranking modes (vector vs trigram). No mutation, no new state.
 - **Daily memory review-queue digest**: `GET /memory-digest` lists, per workspace, what needs operator action — pending pin-candidates, memories flagged `needs_review` by the contradiction sweep, and memories expiring within 7 days — each section capped with an honest "+N more" overflow line. Read-only, always available for preview; `MEMORY_DIGEST_ENABLED` (migration [`0010`](infrastructure/migrations/0010_memory_digest_flag.sql), seeded off) only gates folding the listing into the daily `/digest` post.
 - **Escalation SLA auditor (ship-dark)**: `GET /escalation-sla` audits the human side of the autonomy handoff — an event taxonomy on the `agent_events` spine plus a pure pairing/rollup that measures human ack latency against a per-tenant SLA (default 30m, optional business-hours clock), where TTL expiry always counts as a breach AND unresolved (fail-closed made visible, never weakened) and the v1.5 approval seam's `autonomy_decision` events serve as retroactive ack+resolution. Read-only; the auditor never acts. `ESCALATION_SLA_ENABLED` (migration [`0011`](infrastructure/migrations/0011_escalation_sla_flag.sql), seeded off) only gates folding the report into the daily `/digest`; emitters land when the HITL approval seam is wired for real volume.
+
+- **Security remediation batch** ([#97](https://github.com/mrobinson2/AzureAgentForge/pull/97)): ~27 findings remediated across the auth-proxy, the multi-tenant reference design, model-router, chat bridges, memory-governor, the installer/forge-console, and the infrastructure modules. Headline changes: **fail-closed auth** (model-router, memory-governor, slack-bridge, teams-bridge, and the multi-tenant control-plane/memory-store now return `503` when their auth secret is unconfigured instead of silently running open); **tenant isolation** (memory-store derives `tenant_id` from a verified bearer token, Postgres RLS backstops the control-plane and memory-store tables, and the tenant-console `vertical` field is allowlisted + realpath-contained); **prompt-injection fencing** (untrusted Slack/Teams/governed-memory/watchdog text is wrapped in explicit untrusted-data delimiters before reaching a model); plus CSRF/DNS-rebinding guards, error-detail hardening, and secure-by-default Key Vault/storage firewalls (`Deny` + allowlist). Full grouped notes in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
+- **Governance examples & samples** (three new self-contained packages, sanitized and flags-off, readable and testable locally with no live Azure subscription):
+  - **`examples/governed-ui-patterns/`** — nine themeable UI governance patterns (honesty badge, trust receipt, refusal card, approval gate, pricing-policy engine, autonomy panel, sealed record, movement log, signed charter) + an 11-check conformance linter (`check.js`) with a CI-able exit-code contract + a live demo page.
+  - **`samples/foundry-chat-proxy/`** — a minimal Node 24 Flex Consumption Azure Function fronting an AI Foundry chat deployment, with a grounded persona, message clamping, prompt-injection guardrails, Bicep for the function app, and a runbook README of the hard-won Flex/Node-24 gotchas.
+  - **`examples/governed-transaction-saga/`** — a compact (~300-line + tests) event-sourced governance core: append-only event log with tenant/correlation/causation IDs + idempotency, a fold/apply state machine, complete-at-write receipts, and an audit walk producing a chronological narrative + receipt-gap report. Pure Python stdlib + pytest.
 
 New in v1.5 (since v1.4):
 
@@ -308,7 +314,7 @@ The goal is simple: agents should not be trapped behind a text box. You should b
 
 ## What is included today
 
-As of v1.3, AzureAgentForge includes:
+As of v1.7, AzureAgentForge includes:
 
 - Full Terraform IaC for the Azure foundation
 - Two infrastructure cost profiles
@@ -335,6 +341,10 @@ As of v1.3, AzureAgentForge includes:
 - Web-research agent tooling (web read, search, and video-transcript wrappers)
 - One-command full local stack (`scripts/local-stack.sh up`)
 - Multi-tenant architecture design and early scaffolding
+- Governor operator endpoints: read-only inspector summary (`/memory/inspector-summary`), review-queue digest (`/memory-digest`, ship-dark), and escalation SLA auditor (`/escalation-sla`, ship-dark), plus contradiction-sweep performance hardening (trigram index + per-query timeout + recency window)
+- Security remediation batch: fail-closed auth, bearer-derived tenant isolation with Postgres RLS, prompt-injection fencing, CSRF/DNS-rebinding guards, and secure-by-default Key Vault/storage firewalls
+- Governance examples & samples: `examples/governed-ui-patterns/` (UI pattern library + conformance linter), `samples/foundry-chat-proxy/` (minimal AI Foundry chat backend), and `examples/governed-transaction-saga/` (event-sourced governance core) — self-contained, sanitized, no live Azure needed
+- Full grouped release notes in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md)
 
 The local quickstart brings up PostgreSQL and the model router. The full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The end-to-end Azure deploy is automated (`scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline, which now runs green end to end).
 
@@ -344,7 +354,7 @@ The local quickstart brings up PostgreSQL and the model router. The full platfor
 
 AzureAgentForge is not a one-click SaaS product. Standing up your own instance takes real setup: an Azure subscription, GitHub-to-Azure IAM (OIDC), and a handful of environment-specific values.
 
-The v1.3 release gives you the architecture, Terraform, model router, role schema, Docker and config scaffolding, the full local stack, the Forge Console, a reference deploy pipeline that now runs green end to end, and automated image build/push plus Key Vault seeding. The end-to-end Azure deploy is validated against a clean subscription.
+Through v1.7 you get the architecture, Terraform, model router, role schema, Docker and config scaffolding, the full local stack, the Forge Console, a reference deploy pipeline that runs green end to end, automated image build/push plus Key Vault seeding, the flag-gated governed-memory stack with its operator endpoints, and the security-hardened service and infrastructure surface. The end-to-end Azure deploy is validated against a clean subscription.
 
 What you get is a foundation you can inspect, fork, improve, and run in your own Azure environment.
 
@@ -519,6 +529,32 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Cloudflare-managed ingress module (named tunnel + proxied DNS) for public chat-surface exposure
 - ✅ Deploy into an existing VNet (BYO-VNet)
 
+### Shipped in v1.4
+
+- ✅ Multi-tenant tenant console (reference): playbook-driven onboarding, per-tenant memory/workspace/budget
+- ✅ Self-hosted-primary topology: full stack on an owned machine, Azure as warm standby on one shared Postgres
+- ✅ Vendor-neutral inbound-intake webhook (reference)
+- ✅ Slack bridge at parity with Discord/Telegram/Teams (flag-gated off)
+- ✅ ACA `aca-job` sandbox provider (scaffold, unverified, default stays `local`)
+
+### Shipped in v1.5
+
+- ✅ Governed memory enable-able for real: startup schema self-provision (`0002` overlay), `memory_governor_enabled` threaded through deploy, `showcase` profile with cost + go-live checklist (flags still seed off)
+- ✅ Retrieval observability: Plane C ranking-path reporting + a watchdog detector on vector→trigram degradation
+- ✅ `aca-job` sandbox contract reconciled to the ACA dynamic-sessions executions API (still unverified against a live pool)
+- ✅ Observability + cost governance: `gen_ai.usage` metrics, per-caller spend attribution + optional daily cap, SLO-burn alert, GenAI cost workbook tile
+- ✅ Human-in-the-loop action approval seam (provider-pluggable, fails closed, ships unwired)
+
+### Shipped in v1.7
+
+- ✅ Contradiction sweep performance hardening: `gin_trgm_ops` index (migration 0009), dedicated candidate-fetch timeout, recency window
+- ✅ Read-only memory inspector summary (`GET /memory/inspector-summary`)
+- ✅ Daily memory review-queue digest (`GET /memory-digest`, ship-dark, migration 0010)
+- ✅ Escalation SLA auditor (`GET /escalation-sla`, ship-dark, migration 0011)
+- ✅ Security remediation batch: fail-closed auth, bearer-derived tenant isolation + Postgres RLS, prompt-injection fencing, CSRF/DNS-rebinding guards, secure-by-default infra firewalls
+- ✅ Governance examples & samples: `examples/governed-ui-patterns/`, `samples/foundry-chat-proxy/`, `examples/governed-transaction-saga/`
+- ✅ Full grouped release notes: [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md)
+
 ### Future releases
 
 - ⬜ A second, alternative agent runtime
@@ -601,6 +637,7 @@ Multi-tenant support is designed and partially scaffolded.
 | [`docs/design/memory-system.md`](docs/design/memory-system.md) | Governed-memory architecture (four planes, six classes, trust model, self-improvement loop); shipped flag-gated off; code under [`services/memory-governor/`](services/memory-governor/) + [`services/watchdog/`](services/watchdog/) |
 | [`docs/deploy-pipeline.md`](docs/deploy-pipeline.md) | Reference GitHub Actions deploy pipeline with a destroy-aware approval gate (OIDC, no stored secrets) |
 | [`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md) | Two-way memory ↔ Obsidian vault CLI: export governed memory, curate in Obsidian, sync edits back |
+| [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md) | Full grouped v1.7.0 release notes: platform features, security, examples & samples, docs & dependencies, upgrade notes |
 
 ---
 
