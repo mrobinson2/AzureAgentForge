@@ -1,0 +1,188 @@
+/* Governed-AI Interface Pattern Library — reference styles.
+ *
+ * Everything pattern-visual hangs off the --gov-* tokens below, so a consumer page (or a real
+ * product) reskins by redefining tokens only — proven by the demo page's theme switcher.
+ * Page chrome (.lib-*, .pattern) is library presentation, not part of the patterns.
+ *
+ * Vendor-neutral. All example content is fictional and labeled as a simulation.
+ */
+
+/* ---------- design tokens: the whole theming contract ---------- */
+:root, [data-theme="neutral"] {
+  --gov-bg: #f7f8fa;
+  --gov-surface: #ffffff;
+  --gov-ink: #20242c;
+  --gov-muted: #5c6470;
+  --gov-line: #dfe3ea;
+  --gov-accent: #2f6fdb;      /* primary actions, applied-policy lines */
+  --gov-ok: #257a4a;          /* kept / sent / autonomous */
+  --gov-warn: #b3532f;        /* refusals, deferrals, honesty badges */
+  --gov-radius: 12px;
+  --gov-font: -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+[data-theme="night"] {
+  --gov-bg: #10141d;
+  --gov-surface: #1a2130;
+  --gov-ink: #e6eaf2;
+  --gov-muted: #9aa4b6;
+  --gov-line: #303a4e;
+  --gov-accent: #4dd4c6;
+  --gov-ok: #58c98b;
+  --gov-warn: #f0a860;
+}
+[data-theme="trade"] {
+  --gov-bg: #faf6ec;
+  --gov-surface: #fffdf6;
+  --gov-ink: #2b2418;
+  --gov-muted: #6d6353;
+  --gov-line: #e2d8c2;
+  --gov-accent: #3e7a2e;
+  --gov-ok: #3e7a2e;
+  --gov-warn: #b0552b;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  margin: 0; font-family: var(--gov-font); background: var(--gov-bg); color: var(--gov-ink);
+  line-height: 1.6; transition: background .25s, color .25s;
+}
+.wrap { max-width: 1060px; margin: 0 auto; padding: 0 22px; }
+code { background: color-mix(in srgb, var(--gov-line) 55%, transparent); padding: .1em .4em; border-radius: 5px; font-size: .88em; }
+a { color: var(--gov-accent); }
+
+.skip-link {
+  position: absolute; left: -9999px; top: 0; background: var(--gov-accent); color: #fff;
+  padding: .6em 1em; z-index: 100; font-weight: 700;
+}
+.skip-link:focus { left: 8px; top: 8px; }
+
+/* ---------- library chrome ---------- */
+.lib-head { padding: 52px 0 36px; border-bottom: 1px solid var(--gov-line); }
+.lib-mark { text-transform: uppercase; letter-spacing: .18em; font-size: .72rem; font-weight: 800; color: var(--gov-warn); margin: 0 0 1em; }
+.lib-head h1 { font-size: clamp(1.7rem, 3.6vw, 2.5rem); margin: 0 0 .4em; letter-spacing: -.01em; }
+.lib-lede { color: var(--gov-muted); max-width: 52rem; }
+.theme-bar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-top: 1.4em; }
+.tb-label { font-size: .82rem; color: var(--gov-muted); font-weight: 600; }
+.tb-btn {
+  font: inherit; font-size: .86rem; cursor: pointer; border-radius: 999px;
+  background: var(--gov-surface); color: var(--gov-ink); border: 1.5px solid var(--gov-line); padding: .45em 1.1em;
+}
+.tb-btn:hover, .tb-btn:focus { border-color: var(--gov-accent); }
+.tb-btn[aria-pressed="true"] { background: var(--gov-accent); border-color: var(--gov-accent); color: #fff; font-weight: 700; }
+
+.pattern {
+  display: grid; grid-template-columns: 1.05fr .95fr; gap: 32px; align-items: start;
+  padding: 44px 0; border-bottom: 1px solid var(--gov-line);
+}
+.pattern h2 { margin: 0 0 .6em; font-size: 1.3rem; display: flex; gap: 12px; align-items: baseline; }
+.p-no { font-size: .74rem; font-weight: 800; color: var(--gov-accent); letter-spacing: .1em; }
+.p-doc p { font-size: .92rem; color: var(--gov-muted); margin: .5em 0; }
+.p-doc b { color: var(--gov-ink); }
+.p-demo {
+  background: var(--gov-surface); border: 1px solid var(--gov-line); border-radius: var(--gov-radius);
+  padding: 22px; box-shadow: 0 6px 22px color-mix(in srgb, var(--gov-ink) 8%, transparent);
+}
+
+.lib-foot { padding: 36px 0 56px; color: var(--gov-muted); font-size: .92rem; }
+.lf-note { font-size: .78rem; }
+
+/* ================================================================
+   THE PATTERNS — reference implementations (copy from here down)
+   ================================================================ */
+
+/* ---- P1: honesty badge ---- */
+.gov-badge {
+  display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .05em;
+  text-transform: uppercase; color: var(--gov-warn); border: 1px solid var(--gov-warn);
+  border-radius: 5px; padding: .45em .8em;
+  background: color-mix(in srgb, var(--gov-warn) 6%, transparent);
+}
+
+/* ---- P2: trust receipt ---- */
+.gov-receipt {
+  border: 1px dashed var(--gov-line); border-radius: 10px; padding: 12px 16px;
+  font-size: .9rem; color: var(--gov-muted); background: var(--gov-surface);
+}
+.gov-receipt summary { cursor: pointer; font-weight: 700; color: var(--gov-ink); }
+.gov-receipt ul { margin: .7em 0 0; padding-left: 1.2em; display: grid; gap: .35em; }
+.gov-receipt .r-did { color: var(--gov-muted); }
+.gov-receipt .r-applied { color: var(--gov-accent); }
+.gov-receipt .r-deferred { color: var(--gov-warn); font-weight: 600; }
+
+/* ---- P3: refusal card ---- */
+.gov-refusal {
+  border: 1.5px dashed var(--gov-warn); border-radius: 10px; padding: 16px 18px;
+  background: color-mix(in srgb, var(--gov-warn) 5%, transparent); font-size: .92rem;
+}
+.gov-refusal .rf-head { margin: 0 0 .5em; font-weight: 800; color: var(--gov-warn); font-size: 1.02rem; }
+.gov-refusal .rf-why, .gov-refusal .rf-path { margin: .35em 0; color: var(--gov-muted); }
+.gov-refusal b { color: var(--gov-ink); }
+
+/* ---- P4: approval gate ---- */
+.gov-gate { font-size: .92rem; }
+.gov-gate .gg-draft {
+  background: color-mix(in srgb, var(--gov-line) 40%, transparent); border-radius: 10px;
+  padding: 12px 14px; font-style: italic; margin: 0 0 .8em; color: var(--gov-ink);
+}
+.gg-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.gg-actions button { font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; border-radius: 9px; padding: .5em 1.1em; }
+.gg-approve { background: var(--gov-accent); color: #fff; border: 1px solid var(--gov-accent); }
+.gg-approve:hover, .gg-approve:focus { filter: brightness(1.1); }
+.gg-adjust { background: transparent; color: var(--gov-ink); border: 1px solid var(--gov-line); }
+.gg-decline { background: transparent; color: var(--gov-warn); border: 1px solid color-mix(in srgb, var(--gov-warn) 45%, transparent); }
+.gg-decided { font-weight: 700; margin: .3em 0 0; }
+.gg-decided.ok { color: var(--gov-ok); }
+.gg-decided.adj { color: var(--gov-accent); }
+.gg-decided.no { color: var(--gov-warn); }
+
+/* ---- P5: pricing-policy engine ---- */
+.gov-policy { font-size: .92rem; }
+.gp-picks { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1em; }
+.gp-pick {
+  font: inherit; font-size: .85rem; cursor: pointer; border-radius: 999px;
+  background: var(--gov-surface); color: var(--gov-ink); border: 1.5px solid var(--gov-line); padding: .45em 1em;
+}
+.gp-pick:hover, .gp-pick:focus { border-color: var(--gov-accent); }
+.gp-pick[aria-pressed="true"] { background: var(--gov-accent); border-color: var(--gov-accent); color: #fff; }
+.gp-lines { list-style: none; margin: 0 0 .6em; padding: 0; display: grid; gap: .3em; color: var(--gov-muted); }
+.gp-lines li { display: flex; justify-content: space-between; gap: 12px; }
+.gp-lines li span:last-child { font-variant-numeric: tabular-nums; }
+.gp-range { font-size: 1.3rem; font-weight: 800; color: var(--gov-ok); margin: .2em 0; font-variant-numeric: tabular-nums; }
+.gp-foot { font-size: .76rem; color: var(--gov-muted); margin: .6em 0 0; }
+
+/* ---- P6: autonomy policy panel ---- */
+.gov-autonomy { list-style: none; margin: 0; padding: 0; display: grid; gap: .55em; font-size: .9rem; }
+.gov-autonomy li {
+  display: flex; justify-content: space-between; gap: 12px; align-items: baseline;
+  border-bottom: 1px dashed var(--gov-line); padding-bottom: .55em;
+}
+.gov-autonomy b { font-size: .72rem; font-weight: 800; text-transform: uppercase; letter-spacing: .05em; }
+.au-auto { color: var(--gov-ok); }
+.au-approve { color: var(--gov-accent); }
+.au-never { color: var(--gov-warn); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 800px) {
+  .pattern { grid-template-columns: 1fr; }
+}
+
+/* P7–P9 — all off --gov-* tokens, theme-switchable */
+.p7-record { border: 1.5px solid var(--gov-ink); border-radius: 10px; padding: 14px 16px; position: relative; background: var(--gov-surface); }
+.p7-stamp { display: inline-block; transform: rotate(4deg); border: 3px double var(--gov-warn); color: var(--gov-warn); font-weight: 900; letter-spacing: .12em; font-size: .68rem; padding: .25em .6em; border-radius: 6px; position: absolute; top: 10px; right: 12px; }
+.p7-id { margin: 0 0 .8em; font-size: .88rem; max-width: 75%; }
+.p7-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.p-btn { font: inherit; font-size: .82rem; font-weight: 700; cursor: pointer; background: var(--gov-ink); color: var(--gov-surface); border: 1px solid var(--gov-ink); border-radius: 8px; padding: .5em 1em; }
+.p-btn-warn { background: transparent; color: var(--gov-warn); border-color: var(--gov-warn); }
+#p7-out, #p9-out { font-size: .85rem; font-weight: 600; margin: .8em 0 0; }
+.p7-ok { color: var(--gov-ok); } .p7-bad { color: var(--gov-warn); }
+.p8-card { border: 1.5px solid var(--gov-line); border-radius: 10px; padding: 14px 16px; background: var(--gov-surface); }
+.p8-pos { margin: 0 0 .6em; font-size: 1.4rem; font-weight: 900; color: var(--gov-accent); }
+.p8-of { font-size: .8rem; font-weight: 400; color: var(--gov-muted); }
+.p8-log { list-style: none; margin: 0 0 12px; padding: 0; font-size: .84rem; }
+.p8-log li { padding: .35em 0; border-bottom: 1px dotted var(--gov-line); }
+.p8-log b { color: var(--gov-ok); margin-right: .5em; }
+.p9-charter { border: 1.5px solid var(--gov-line); border-radius: 10px; padding: 14px 16px; background: var(--gov-surface); }
+.p9-head { margin: 0 0 .8em; font-size: .92rem; }
+.p9-lab { display: block; font-size: .74rem; color: var(--gov-muted); margin: 10px 0 4px; }
+.p9-input { font-family: "Snell Roundhand", cursive; font-size: 1.15rem; border: none; border-bottom: 1.5px solid var(--gov-ink); background: transparent; margin-right: 8px; max-width: 180px; }
