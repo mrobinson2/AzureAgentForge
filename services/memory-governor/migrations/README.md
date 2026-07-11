@@ -36,6 +36,10 @@ DATABASE_URL="<postgres-connection-string from Key Vault>" \
   (mirrors `infrastructure/migrations/0010_memory_digest_flag.sql`): the gate
   for folding the `/memory-digest` review-queue listing into the daily
   `/digest` post.
+- **`0004_escalation_sla_flag.sql`** — seeds `ESCALATION_SLA_ENABLED` **OFF**
+  (mirrors `infrastructure/migrations/0011_escalation_sla_flag.sql`): the gate
+  for folding the `/escalation-sla` ack-latency report into the daily
+  `/digest` post.
 - **Type reconciliation (resolved).** `documents.id` is a 21-char nanoid
   (**TEXT**) in Honcho's schema, so `*_doc_id` reference columns are text.
   `deleted_at` / `sync_state` / `last_sync_at` are Honcho-native (its

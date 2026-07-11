@@ -23,6 +23,7 @@ Apply in filename order. Each file is idempotent (`CREATE … IF NOT EXISTS`,
 | `0008_skill_autogen.sql` | `skill_candidates` table + seeds `SKILL_AUTOGEN_ENABLED` (off). |
 | `0009_contradiction_sweep_perf.sql` | Trigram GIN index on `documents.content` (guarded on `pg_trgm` presence) so the contradiction sweep's candidate self-join is indexable. |
 | `0010_memory_digest_flag.sql` | Seeds `MEMORY_DIGEST_ENABLED` (off) — fold the `/memory-digest` review-queue listing into the daily `/digest` post. |
+| `0011_escalation_sla_flag.sql` | Seeds `ESCALATION_SLA_ENABLED` (off) — fold the `/escalation-sla` ack-latency report into the daily `/digest` post. |
 
 Numbering follows the design's feature ordering, so there is no `0005`.
 
