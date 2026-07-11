@@ -93,6 +93,8 @@ New in v1.7 (since v1.5):
   - **`examples/governed-ui-patterns/`** — nine themeable UI governance patterns (honesty badge, trust receipt, refusal card, approval gate, pricing-policy engine, autonomy panel, sealed record, movement log, signed charter) + an 11-check conformance linter (`check.js`) with a CI-able exit-code contract + a live demo page.
   - **`samples/foundry-chat-proxy/`** — a minimal Node 24 Flex Consumption Azure Function fronting an AI Foundry chat deployment, with a grounded persona, message clamping, prompt-injection guardrails, Bicep for the function app, and a runbook README of the hard-won Flex/Node-24 gotchas.
   - **`examples/governed-transaction-saga/`** — a compact (~300-line + tests) event-sourced governance core: append-only event log with tenant/correlation/causation IDs + idempotency, a fold/apply state machine, complete-at-write receipts, and an audit walk producing a chronological narrative + receipt-gap report. Pure Python stdlib + pytest.
+- **Multi-tenant console demo** ([`demos/tenant-console/`](demos/tenant-console/)): a sanitized, self-contained static demo of the multi-tenant operator console — a tenant list (six fictional tenants with vertical, status, assigned playbook pack, monthly budget cap, and spend-to-date), a per-tenant detail drawer (pack, read-only feature-flags panel with every flag **off**, budget/cost bars, roster, autonomy policy), and a playbook-packs view showing pack-to-tenant assignment. One `index.html`, inline CSS/JS, zero external resources, opens from `file://`, clearly labeled "DEMO — sample data, read-only, no live tenants". The concepts (tenant-as-contract, per-vertical pack bundles, green/yellow/red fail-closed autonomy policy, per-tenant budget ledger) mirror the `experimental/multi-tenant/` design.
+- **Deployment experience**: `./forge --check` (alias `--preflight`) runs an offline, dependency-free preflight — a prerequisite table, a per-path readiness verdict (Azure / local Docker), and the operator-gate reference — before you touch the console. The Forge Console gains an "Operator gates — where you sign off" card naming every human-approval gate (subscription/billing, secrets-in-Key-Vault, environment-name confirmation, destroy-approval, CI/CD scaffold-apply), advisory inline validation on the Configure fields (the server stays source of truth), and theming for the CI/CD setup panel. [`AI-ASSISTED-SETUP.md`](AI-ASSISTED-SETUP.md) adds a preconditions checklist, an operator-gates subsection, and per-phase "how to know it worked" verification signals.
 
 New in v1.5 (since v1.4):
 
@@ -344,6 +346,8 @@ As of v1.7, AzureAgentForge includes:
 - Governor operator endpoints: read-only inspector summary (`/memory/inspector-summary`), review-queue digest (`/memory-digest`, ship-dark), and escalation SLA auditor (`/escalation-sla`, ship-dark), plus contradiction-sweep performance hardening (trigram index + per-query timeout + recency window)
 - Security remediation batch: fail-closed auth, bearer-derived tenant isolation with Postgres RLS, prompt-injection fencing, CSRF/DNS-rebinding guards, and secure-by-default Key Vault/storage firewalls
 - Governance examples & samples: `examples/governed-ui-patterns/` (UI pattern library + conformance linter), `samples/foundry-chat-proxy/` (minimal AI Foundry chat backend), and `examples/governed-transaction-saga/` (event-sourced governance core) — self-contained, sanitized, no live Azure needed
+- Multi-tenant console demo (`demos/tenant-console/`): static, read-only, fictional tenants, all flags off — the operator-console concept made inspectable without a deployment
+- Deployment preflight and operator-gate UX: `./forge --check` offline preflight, named operator sign-off gates in the Forge Console and `AI-ASSISTED-SETUP.md`, advisory inline field validation
 - Full grouped release notes in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md)
 
 The local quickstart brings up PostgreSQL and the model router. The full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The end-to-end Azure deploy is automated (`scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline, which now runs green end to end).
@@ -553,6 +557,8 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Escalation SLA auditor (`GET /escalation-sla`, ship-dark, migration 0011)
 - ✅ Security remediation batch: fail-closed auth, bearer-derived tenant isolation + Postgres RLS, prompt-injection fencing, CSRF/DNS-rebinding guards, secure-by-default infra firewalls
 - ✅ Governance examples & samples: `examples/governed-ui-patterns/`, `samples/foundry-chat-proxy/`, `examples/governed-transaction-saga/`
+- ✅ Multi-tenant console demo: `demos/tenant-console/` (static, sanitized, read-only, all flags off)
+- ✅ Deployment experience: `./forge --check` offline preflight, named operator gates in the Forge Console + `AI-ASSISTED-SETUP.md`, advisory inline validation
 - ✅ Full grouped release notes: [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md)
 
 ### Future releases

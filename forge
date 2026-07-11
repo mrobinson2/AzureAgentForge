@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Forge Console launcher — one command from clone to deployment GUI.
 #   ./forge            start the console (creates .forge-venv on first run)
+#   ./forge --check    offline preflight: prerequisites + operator gates (no venv, no cloud)
 #   ./forge --help     this text
 set -euo pipefail
 cd "$(dirname "$0")"
 
 if [[ "${1:-}" == "--help" || "${1:-}" == "-h" ]]; then
-  sed -n '2,4p' "$0"; exit 0
+  sed -n '2,5p' "$0"; exit 0
 fi
 
 PY="${PYTHON:-python3}"
@@ -15,6 +16,14 @@ if ! command -v "$PY" >/dev/null; then
 fi
 if ! "$PY" -c 'import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)'; then
   echo "forge: Python 3.10+ required (found $("$PY" --version 2>&1))" >&2; exit 1
+fi
+
+# Offline preflight — prerequisite detection + the operator-gate summary.
+# installer.preflight imports only the stdlib half of the installer, so this
+# needs neither the virtualenv nor any cloud call. Exits non-zero if no deploy
+# path is ready, which makes it usable as a scriptable readiness gate.
+if [[ "${1:-}" == "--check" || "${1:-}" == "--preflight" ]]; then
+  exec "$PY" -m installer.preflight
 fi
 
 VENV=.forge-venv

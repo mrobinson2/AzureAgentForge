@@ -82,6 +82,37 @@
   dialog.destroy pre { background: #0a0e14; border: 1px solid var(--err); border-radius: 8px;
                        padding: 10px 12px; max-height: 180px; overflow-y: auto;
                        font: 12px/1.5 var(--mono); color: #f0b8b4; white-space: pre-wrap; }
+  /* v1.7 — advisory inline validation hints (server stays source of truth) */
+  .field-err { display: none; font-size: 12px; color: var(--err); margin: 4px 0 2px;
+               font-family: var(--mono); }
+  .field-err.show { display: block; }
+  input.invalid { border-color: var(--err); }
+  /* v1.7 — operator-gates reference card */
+  .step .num.gate { background: rgba(210,153,34,.15); border-color: var(--warn);
+                    color: var(--warn); font-size: 13px; }
+  .gates-list { list-style: none; padding: 0; margin: 8px 0 0; }
+  .gates-list li { padding: 9px 0; border-top: 1px solid var(--border); }
+  .gates-list li:first-child { border-top: 0; }
+  .gates-list .gname { font-weight: 600; font-size: 13px; color: var(--text); }
+  .gates-list .gdesc { font-size: 12.5px; color: var(--dim); margin-top: 3px; }
+  .gates-list code, #cicd-setup .gate-note code { color: var(--warn); }
+  /* v1.7 — theme the one-time CI/CD setup panel to match the console */
+  #cicd-setup { border-top: 1px solid var(--border); background: var(--panel);
+                padding: 22px 28px; }
+  #cicd-setup h2 { font-size: 16px; margin: 0 0 6px; }
+  #cicd-setup > p { color: var(--dim); font-size: 13px; max-width: 760px; margin: 0 0 6px; }
+  #cicd-setup label { color: var(--text); margin-top: 10px; }
+  #cicd-setup input:not([type=checkbox]) { width: 100%; max-width: 420px; padding: 8px 10px;
+      border-radius: 7px; border: 1px solid var(--border); background: var(--panel2);
+      color: var(--text); font-size: 14px; margin-top: 4px; }
+  #cicd-setup fieldset { border: 1px solid var(--border); border-radius: 8px;
+      margin: 14px 0; padding: 10px 14px; max-width: 440px; }
+  #cicd-setup legend { color: var(--dim); font-size: 12.5px; padding: 0 6px; }
+  #cicd-setup button { margin: 12px 8px 0 0; }
+  #cicd-setup pre { background: #0a0e14; border: 1px solid var(--border); border-radius: 8px;
+      padding: 12px; margin-top: 12px; font: 12.5px/1.55 var(--mono); color: #c9d6e3;
+      white-space: pre-wrap; overflow-x: auto; }
+  #cicd-setup .gate-note { color: var(--warn); font-size: 12.5px; margin-top: 10px; }
 </style>
 </head>
 <body>
@@ -182,6 +213,37 @@
           <button class="secondary" onclick="run('compose-ps')">status</button>
           <button class="secondary" onclick="run('compose-down')">compose down</button>
         </div>
+      </div>
+    </div>
+
+    <div class="step" id="step-gates">
+      <div class="head" onclick="open_('gates')"><div class="num gate">🔒</div>
+        <div class="title">Operator gates — where you sign off</div></div>
+      <div class="body">
+        <div class="note" style="margin-top:0">Human approval is required at each point
+        below. The console enforces every one of these <b>server-side</b>, so they can't
+        be skipped from the browser.</div>
+        <ul class="gates-list">
+          <li><div class="gname">Subscription / billing gate</div>
+              <div class="gdesc">You pick the Azure subscription in step 2. <b>apply</b>
+              creates real, billable Azure resources — review <code>docs/cost.md</code>
+              before you run it.</div></li>
+          <li><div class="gname">Secrets-in-Key-Vault gate</div>
+              <div class="gdesc">Provider keys and the Postgres connection strings are
+              seeded into Key Vault by you (<code>scripts/bootstrap.sh</code>,
+              <code>scripts/seed-keyvault.sh</code>) — never typed into this browser UI.</div></li>
+          <li><div class="gname">Environment-name confirmation gate</div>
+              <div class="gdesc"><b>apply</b> and <b>destroy</b> require typing the
+              environment name (<code id="gateEnvName">dev</code>) before they run.</div></li>
+          <li><div class="gname">Destroy-approval gate</div>
+              <div class="gdesc">If the saved plan would delete or replace any resource, a
+              second, louder prompt requires typing <code>approve-destroy</code>. Pure
+              adds and in-place updates apply without it.</div></li>
+          <li><div class="gname">CI/CD scaffold-apply gate</div>
+              <div class="gdesc">Running the one-time CI/CD setup with apply mutates Azure
+              identity/RBAC and GitHub config, so it requires typing
+              <code>scaffold-apply</code>.</div></li>
+        </ul>
       </div>
     </div>
 
@@ -303,6 +365,7 @@ async function writeConfig() {
     const r = await api('/api/config', { method: 'POST', body: configBody(false) });
     ENV_NAME = $('environment').value.trim() || 'dev';
     $('deployEnvName').textContent = ENV_NAME;
+    const gEnv = $('gateEnvName'); if (gEnv) gEnv.textContent = ENV_NAME;
     $('configPreview').innerHTML =
       `<div class="preview">${r.preview.replace(/</g,'&lt;')}</div>` +
       `<div class="note ok">✔ written — profile: ${r.profile_file.split('/').pop()}</div>`;
@@ -386,6 +449,64 @@ function startStream() {
   es.onerror = () => setStatus('', 'stream reconnecting…');
 }
 
+// v1.7 — advisory client-side validation. core.DeployConfig.validate on the
+// server stays the source of truth; these hints just catch format mistakes
+// before submit. Patterns mirror the regexes in installer/core.py.
+const VALIDATORS = {
+  location:          { re: /^[a-z0-9]{3,30}$/,                 msg: "lowercase region slug, e.g. eastus" },
+  environment:       { re: /^[a-z][a-z0-9]{1,11}$/,            msg: "2–12 chars, lowercase, letter first (e.g. dev)" },
+  foundry:           { re: /^https:\/\/.+/,      optional: true, msg: "must be an https:// URL" },
+  foundryDeployment: { re: /^[A-Za-z0-9._-]+$/,  optional: true, msg: "a deployment name (letters, digits, . _ -)" },
+  imageTag:          { re: /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/, optional: true, msg: "container tag: letters, digits, . _ -" },
+};
+
+function checkField(id) {
+  const el = $(id), spec = VALIDATORS[id];
+  if (!el || !spec) return true;
+  const v = el.value.trim();
+  const ok = (!v && spec.optional) || spec.re.test(v);
+  const err = $('err-' + id);
+  if (err) err.classList.toggle('show', !ok);
+  el.classList.toggle('invalid', !ok);
+  return ok;
+}
+
+function checkKvAdmins() {
+  const el = $('kvAdmins');
+  if (!el) return true;
+  const ids = el.value.split(',').map(s => s.trim()).filter(Boolean);
+  const ok = ids.every(x => /^[0-9a-fA-F-]{36}$/.test(x));
+  const err = $('err-kvAdmins');
+  if (err) err.classList.toggle('show', !ok);
+  el.classList.toggle('invalid', !ok);
+  return ok;
+}
+
+// Attach an inline error span + input/blur listeners to each validated field.
+function attachValidation() {
+  for (const id of Object.keys(VALIDATORS)) {
+    const el = $(id);
+    if (!el) continue;
+    const span = document.createElement('span');
+    span.className = 'field-err';
+    span.id = 'err-' + id;
+    span.textContent = VALIDATORS[id].msg;
+    el.insertAdjacentElement('afterend', span);
+    el.addEventListener('input', () => checkField(id));
+    el.addEventListener('blur', () => checkField(id));
+  }
+  const kv = $('kvAdmins');
+  if (kv) {
+    const span = document.createElement('span');
+    span.className = 'field-err';
+    span.id = 'err-kvAdmins';
+    span.textContent = 'each entry must be a GUID (36 chars)';
+    kv.insertAdjacentElement('afterend', span);
+    kv.addEventListener('input', checkKvAdmins);
+    kv.addEventListener('blur', checkKvAdmins);
+  }
+}
+
 (async () => {
   try {
     const b = await api('/api/bootstrap?token=' + encodeURIComponent(TOKEN));
@@ -395,17 +516,23 @@ function startStream() {
       'Unauthorized. Open the console using the exact URL printed when you started <code>./forge</code>.</p>';
     return;
   }
+  attachValidation();
   startStream();
   loadChecks();
 })();
 </script>
 
 <section id="cicd-setup">
-  <h2>CI/CD Setup</h2>
-  <p>One-time setup for the reference deploy pipeline: an Entra OIDC app, the
-     Terraform state backend, and GitHub variables/secrets + the
-     <code>deploy-destroy</code> approval environment. <strong>Preview first;</strong>
-     apply mutates Azure identity/RBAC and GitHub config.</p>
+  <h2>CI/CD setup — one-time, optional</h2>
+  <p>Sets up the reference deploy pipeline: an Entra OIDC app, the Terraform
+     state backend, and GitHub variables/secrets + the <code>deploy-destroy</code>
+     approval environment. Only needed if you want GitHub Actions to run deploys;
+     the steps above deploy fine without it. <strong>Preview first</strong> — it
+     changes nothing until you apply.</p>
+  <p class="gate-note">🔒 Operator gate: <b>apply</b> here mutates Azure identity/RBAC
+     and GitHub config, so it requires typing <code>scaffold-apply</code>. Provider
+     secrets are sent via the process environment, never placed on the command line
+     or logged.</p>
 
   <label>GitHub repo (OWNER/REPO) <input id="sc-repo" placeholder="me/AzureAgentForge"></label>
   <label>Subscription ID <input id="sc-subscription" placeholder="(current az account)"></label>
