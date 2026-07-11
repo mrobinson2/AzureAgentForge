@@ -1,0 +1,13 @@
+{
+  "name": "foundry-chat-proxy",
+  "version": "1.0.0",
+  "description": "Minimal Azure Functions (v4, Node 24) chat proxy fronting an Azure AI Foundry chat deployment. Example sample for AzureAgentForge.",
+  "main": "src/index.js",
+  "license": "Apache-2.0",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "start": "func start",
+    "check": "node --check src/index.js"
+  },
+  "dependencies": { "@azure/functions": "^4.7.0" }
+}

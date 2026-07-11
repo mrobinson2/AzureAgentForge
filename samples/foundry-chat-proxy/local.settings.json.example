@@ -1,0 +1,12 @@
+{
+  "//": "Copy to local.settings.json for `func start`. NEVER commit local.settings.json — it is gitignored and is where your real key goes locally.",
+  "IsEncrypted": false,
+  "Values": {
+    "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+    "FUNCTIONS_WORKER_RUNTIME": "node",
+    "FOUNDRY_ENDPOINT": "https://<your-foundry-resource>.cognitiveservices.azure.com/",
+    "FOUNDRY_API_KEY": "<set-locally-do-not-commit>",
+    "FOUNDRY_DEPLOYMENT": "gpt-4o-mini",
+    "FOUNDRY_API_VERSION": "2024-10-21"
+  }
+}
