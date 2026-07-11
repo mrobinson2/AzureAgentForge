@@ -9,7 +9,7 @@ from typing import Any
 
 import asyncpg
 
-from . import config
+from . import config, escalation_sla
 
 log = logging.getLogger("governor.db")
 
@@ -155,6 +155,69 @@ async def memory_digest_rollup(fetch_cap: int = MEMORY_DIGEST_FETCH_CAP) -> dict
     except Exception:  # noqa: BLE001 — read-only reporting path, fail open
         log.exception("memory_digest_rollup failed")
     return out
+
+
+async def escalation_sla_rollup(
+    workspace_name: str | None,
+    window_days: int = 7,
+    sla_config: Any = None,
+) -> dict[str, Any]:
+    """Escalation SLA auditor rollup: fetch the window's escalation_opened/
+    acked/resolved + autonomy_decision events (payload->>'workspace' is the
+    tenant dimension; migration 0001's agent_events indexes serve this query
+    shape — no new spine, no new table) and delegate all pairing/SLA math to
+    the pure escalation_sla.build_sla_stats. ``workspace_name=None`` rolls up
+    across every tenant (the daily-digest posture). Never raises — a DB
+    hiccup yields the honest empty stats, not a 500."""
+    try:
+        p = await pool()
+        if workspace_name:
+            rows = await p.fetch(
+                """SELECT ts, actor_peer, event_type, payload
+                     FROM agent_events
+                    WHERE ts > now() - make_interval(days => $2)
+                      AND event_type = ANY($3::text[])
+                      AND payload->>'workspace' = $1
+                    ORDER BY ts ASC""",
+                workspace_name,
+                window_days,
+                list(escalation_sla.ROLLUP_EVENT_TYPES),
+            )
+        else:
+            rows = await p.fetch(
+                """SELECT ts, actor_peer, event_type, payload
+                     FROM agent_events
+                    WHERE ts > now() - make_interval(days => $1)
+                      AND event_type = ANY($2::text[])
+                    ORDER BY ts ASC""",
+                window_days,
+                list(escalation_sla.ROLLUP_EVENT_TYPES),
+            )
+        parsed: list[dict[str, Any]] = []
+        for r in rows:
+            payload = r["payload"]
+            if not isinstance(payload, dict):
+                try:
+                    payload = json.loads(payload) if payload else {}
+                except (TypeError, ValueError):
+                    payload = {}
+            parsed.append(
+                {
+                    "ts": r["ts"],
+                    "actor_peer": r["actor_peer"],
+                    "event_type": r["event_type"],
+                    "payload": payload,
+                }
+            )
+        return escalation_sla.build_sla_stats(
+            parsed,
+            workspace=workspace_name,
+            window_days=window_days,
+            sla_config=sla_config,
+        )
+    except Exception:  # noqa: BLE001 — read-only reporting path, fail open
+        log.exception("escalation_sla_rollup(%s) failed", workspace_name)
+        return escalation_sla.empty_stats(workspace_name, window_days)
 
 
 async def emit_event(

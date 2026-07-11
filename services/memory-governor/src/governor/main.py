@@ -19,7 +19,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from . import config, db, digest
+from . import config, db, digest, escalation_sla
 from . import memory_digest as mem_digest  # `memory_digest` below is the /digest handler
 from .memory import admission, planner
 
@@ -522,6 +522,21 @@ async def memory_digest(window_hours: int = 24) -> dict[str, Any]:
         review["text"] = mem_digest.format_memory_digest(review)
         stats["review_queue"] = review
         stats["text"] = stats["text"] + "\n\n" + review["text"]
+
+    # ESCALATION_SLA_ENABLED: ONLY when the flag is on does the daily digest
+    # gain the escalation ack-SLA section (an "escalation_sla" key + the
+    # rendered report appended to "text", which digest_post delivers). With
+    # the flag off (default, seeded by migration 0011) the response is
+    # byte-for-byte unchanged. Cross-workspace here (workspace=None) — the
+    # daily digest is the operator's whole-platform view; breaches and
+    # currently-unacked escalations surface with ages.
+    if await db.flag_enabled("ESCALATION_SLA_ENABLED"):
+        esc = await db.escalation_sla_rollup(
+            None, window_days=max(1, -(-window_hours // 24))
+        )
+        esc["text"] = escalation_sla.format_escalation_report(esc)
+        stats["escalation_sla"] = esc
+        stats["text"] = stats["text"] + "\n\n" + esc["text"]
     return stats
 
 
@@ -548,6 +563,25 @@ async def memory_digest_endpoint(limit: int = mem_digest.DEFAULT_LIMIT) -> dict[
     limit = mem_digest.clamp_limit(limit)
     stats = await _memory_digest_stats(limit)
     stats["text"] = mem_digest.format_memory_digest(stats)
+    return stats
+
+
+@app.get("/escalation-sla", dependencies=[Depends(require_key)])
+async def escalation_sla_endpoint(
+    workspace: str | None = None, window_days: int = 7
+) -> dict[str, Any]:
+    """Escalation SLA auditor: pair escalation_opened/acked/resolved events
+    (correlated by payload.escalation_id) plus the approval gate's
+    autonomy_decision events (retro-compat ack+resolution; TTL expiry =
+    breach + unresolved, always) into per-window ack-latency stats vs the
+    SLA. Read-only; the auditor never acts. Always available for operator
+    preview regardless of ESCALATION_SLA_ENABLED (mirrors /memory-digest's
+    posture) — the flag only gates the fold-in to the daily /digest. Event
+    emitters land when the HITL approval seam (apps/paperclip/approval.mjs)
+    is wired for real volume; until then this reports the honest zero."""
+    window_days = max(1, min(int(window_days), 90))
+    stats = await db.escalation_sla_rollup(workspace, window_days)
+    stats["text"] = escalation_sla.format_escalation_report(stats)
     return stats
 
 
