@@ -42,6 +42,10 @@ services:
     environment:
       # Model-tier names, output caps, and daily budgets (see x-router-models).
       <<: *router-models
+      # aaf-0005: the router fails closed (503 on every /v1/* call) when unset.
+      # Every in-mesh caller below (paperclip, memory-governor) sends this same
+      # value as its bearer — override ROUTER_API_KEY in .env to change it.
+      ROUTER_API_KEY: ${ROUTER_API_KEY:-localdev-router-key}
       LLM_PROVIDER: ${LLM_PROVIDER:-azure_foundry}
       # Primary tier: set AZURE_FOUNDRY_ENDPOINT + AZURE_FOUNDRY_API_KEY,
       # or GPT4O_BASE_URL + GPT4O_API_KEY directly. Both pairs activate gpt4o-mini.
@@ -172,6 +176,9 @@ services:
     environment:
       PORT: "3100"
       OPENAI_BASE_URL: http://model-router:8080/v1
+      # aaf-0005: must match model-router's ROUTER_API_KEY above, or every
+      # agent call the Hermes adapter makes through the router 401s.
+      OPENAI_API_KEY: ${ROUTER_API_KEY:-localdev-router-key}
       HONCHO_BASE_URL: http://honcho:8000
       GOVERNOR_BASE_URL: http://memory-governor:8090
       PAPERCLIP_AUTOMATION_JWT_SECRET: ${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-automation-secret-change-me}
@@ -200,6 +207,9 @@ services:
       # (raw special chars are rejected there); defaults to the plain password.
       DATABASE_URL: postgresql://${POSTGRES_USER:-aaf}:${POSTGRES_PASSWORD_URLENC:-${POSTGRES_PASSWORD:-localdev}}@postgres:5432/${POSTGRES_DB:-aaf}
       ROUTER_BASE_URL: http://model-router:8080/v1
+      # aaf-0005: bearer governor/llm.py sends the router — must match
+      # model-router's ROUTER_API_KEY above.
+      ROUTER_API_KEY: ${ROUTER_API_KEY:-localdev-router-key}
       HONCHO_BASE_URL: http://honcho:8000
       GOVERNOR_API_KEY: ${GOVERNOR_API_KEY:-localdev}
     ports: ["${GOVERNOR_PORT:-8090}:8090"]

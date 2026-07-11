@@ -23,7 +23,10 @@ class MemoryRecordBase(BaseModel):
 
 
 class MemoryRecordRequest(MemoryRecordBase):
-    pass
+    # aaf-0002: tenant scope is derived from the verified bearer token by the
+    # route, not trusted from the body. Optional here so a caller need not send
+    # it; the route overrides it and rejects a mismatching value.
+    tenant_id: str | None = None
 
 
 class MemoryRecordResponse(MemoryRecordBase):

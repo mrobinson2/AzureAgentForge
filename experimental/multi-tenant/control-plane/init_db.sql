@@ -106,3 +106,65 @@ CREATE TRIGGER update_users_updated_at BEFORE UPDATE ON users
 
 CREATE TRIGGER update_channels_updated_at BEFORE UPDATE ON channels
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- ─── Row-Level Security backstop (aaf-0018) ─────────────────────────────────
+-- Defense-in-depth beneath the application's tenant-scoping. Even if a query is
+-- ever built without a tenant predicate, the database refuses to return another
+-- tenant's rows. The application sets the active tenant per request/transaction:
+--     SET LOCAL app.tenant_id = '<tenant-uuid>';
+-- `current_setting('app.tenant_id', true)` returns NULL when unset, so an
+-- un-scoped connection sees NO tenant rows (fail closed) rather than all of them.
+--
+-- The control-plane operator (which must provision and enumerate ALL tenants)
+-- should connect as a role created with BYPASSRLS, or run under a role listed in
+-- the tenants policy below; RLS here guards the per-tenant data-plane paths.
+
+-- tenants: a tenant may see only its own row (keyed on its own id).
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenants_self_isolation ON tenants
+    USING (id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+-- Child tables: scoped by tenant_id.
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
+CREATE POLICY users_tenant_isolation ON users
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE channels ENABLE ROW LEVEL SECURITY;
+ALTER TABLE channels FORCE ROW LEVEL SECURITY;
+CREATE POLICY channels_tenant_isolation ON channels
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE tenant_api_keys ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_api_keys FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_api_keys_tenant_isolation ON tenant_api_keys
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE tenant_features ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_features FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_features_tenant_isolation ON tenant_features
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+-- ─── Control-plane operator role (BYPASSRLS) ────────────────────────────────
+-- control-plane/main.py (PG_CONNSTR) MUST connect as a role with BYPASSRLS.
+-- Every control-plane route is cross-tenant by nature (create_tenant INSERTs a
+-- brand-new tenant row before any app.tenant_id could exist to satisfy the
+-- tenants_self_isolation WITH CHECK; list_tenants enumerates ALL tenants) —
+-- there is no single verified tenant_id to SET LOCAL for an operator request,
+-- so (unlike the per-request `SET LOCAL app.tenant_id` the memory-store uses,
+-- see memory-store/app/db.py) BYPASSRLS is the only coherent fit here, not a
+-- workaround. Without it every control-plane route breaks under RLS: inserts
+-- raise "new row violates row-level security policy" and reads return zero
+-- rows.
+--
+-- Uncomment and set a real, generated password before running (or use your
+-- provisioning tool's role-creation step instead), then point PG_CONNSTR at
+-- this role rather than the table-owning/migration role:
+--   CREATE ROLE control_plane_operator WITH LOGIN PASSWORD '<CHANGE_ME>' BYPASSRLS;
+--   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO control_plane_operator;
+--   GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO control_plane_operator;

@@ -56,7 +56,7 @@ services:
 
   # ── Honcho (memory API) ────────────────────────────────────────────────────
   honcho:
-    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/honcho:${HONCHO_IMAGE_TAG:-latest}"
+    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/honcho:${HONCHO_IMAGE_TAG:?aaf-0025: pin an explicit image tag in .env, not floating latest}"
     container_name: aaf-honcho
     restart: unless-stopped
     depends_on:
@@ -98,7 +98,7 @@ services:
 
   # ── Model router (OpenAI-compatible tier router) ───────────────────────────
   model-router:
-    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/model-router:${ROUTER_IMAGE_TAG:-latest}"
+    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/model-router:${ROUTER_IMAGE_TAG:?aaf-0025: pin an explicit image tag in .env, not floating latest}"
     container_name: aaf-model-router
     restart: unless-stopped
     depends_on:
@@ -110,7 +110,7 @@ services:
 
   # ── Memory governor (governed-memory sidecar) ──────────────────────────────
   memory-governor:
-    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/memory-governor:${MEMORY_GOVERNOR_IMAGE_TAG:-latest}"
+    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/memory-governor:${MEMORY_GOVERNOR_IMAGE_TAG:?aaf-0025: pin an explicit image tag in .env, not floating latest}"
     container_name: aaf-memory-governor
     restart: unless-stopped
     depends_on:
@@ -127,7 +127,7 @@ services:
 
   # ── PaperClip (auth-proxy + UI/API + agent runtime) ────────────────────────
   paperclip:
-    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/paperclip:${PAPERCLIP_IMAGE_TAG:-latest}"
+    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/paperclip:${PAPERCLIP_IMAGE_TAG:?aaf-0025: pin an explicit image tag in .env, not floating latest}"
     container_name: aaf-paperclip
     restart: unless-stopped
     depends_on:
@@ -139,6 +139,9 @@ services:
     environment:
       DATABASE_URL: "postgresql://${POSTGRES_USER:-dbadmin}:${POSTGRES_PASSWORD_URLENC:?run secrets-pull.sh}@${AZURE_PG_HOST:?set in .env}:5432/paperclip?sslmode=require"
       OPENAI_BASE_URL: "http://model-router:8080/v1"
+      # aaf-0005: must match model-router's ROUTER_API_KEY (env_file above), or
+      # every agent call the Hermes adapter makes through the router 401s.
+      OPENAI_API_KEY: "${ROUTER_API_KEY:?run secrets-pull.sh}"
       GOVERNOR_BASE_URL: "http://memory-governor:8090"
       HONCHO_BASE_URL: "http://honcho:8000"
       # Agents run inside this container and authenticate with a local agent JWT
@@ -154,7 +157,10 @@ services:
   # One tunnel, two connectors (cloud + this host); the lease keeps exactly one
   # live at a time. The tunnel's remote origin points at http://paperclip:3100.
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    # aaf-0025: pinned off floating :latest. Override CLOUDFLARED_TAG in .env to
+    # bump deliberately; confirm the running digest with `docker inspect` and
+    # prefer a @sha256 pin once known.
+    image: "cloudflare/cloudflared:${CLOUDFLARED_TAG:-2024.12.2}"
     container_name: aaf-cloudflared
     restart: unless-stopped
     profiles: ["live"]
@@ -165,7 +171,7 @@ services:
 
   # ── Periodic jobs (profiles: jobs) — fired by the host timer, not by `up` ───
   honcho-deriver:
-    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/honcho:${HONCHO_IMAGE_TAG:-latest}"
+    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/honcho:${HONCHO_IMAGE_TAG:?aaf-0025: pin an explicit image tag in .env, not floating latest}"
     profiles: ["jobs"]
     env_file: [.env]
     environment:
@@ -173,7 +179,7 @@ services:
     command: ["python", "-m", "honcho.deriver"]
 
   memory-sweeper:
-    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/memory-governor:${MEMORY_GOVERNOR_IMAGE_TAG:-latest}"
+    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/memory-governor:${MEMORY_GOVERNOR_IMAGE_TAG:?aaf-0025: pin an explicit image tag in .env, not floating latest}"
     profiles: ["jobs"]
     env_file: [.env]
     environment:
@@ -181,11 +187,13 @@ services:
     command: ["python", "-m", "governor.sweeper"]
 
   skill-curator:
-    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/paperclip:${PAPERCLIP_IMAGE_TAG:-latest}"
+    image: "${ACR_LOGIN_SERVER:-your-registry.azurecr.io}/paperclip:${PAPERCLIP_IMAGE_TAG:?aaf-0025: pin an explicit image tag in .env, not floating latest}"
     profiles: ["jobs"]
     env_file: [.env]
     environment:
       OPENAI_BASE_URL: "http://model-router:8080/v1"
+      # aaf-0005: see paperclip's OPENAI_API_KEY above — same requirement.
+      OPENAI_API_KEY: "${ROUTER_API_KEY:?run secrets-pull.sh}"
     volumes:
       - ${AAF_HOME:-~/aaf}/shares/paperclip-data:/paperclip
     command: ["hermes", "curator", "run"]

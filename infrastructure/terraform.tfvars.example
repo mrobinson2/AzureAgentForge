@@ -5,3 +5,21 @@ environment     = "dev"
 # Optional surfaces (all default off)
 telegram_enabled = false
 discord_enabled  = false
+
+# aaf-0015: governed-memory workspace name — REQUIRED per environment (no default).
+# Keep it generic; "hermes" is the shared-workspace name used across the stack.
+# Set a DISTINCT value per environment so dev/prod never share governed memory.
+honcho_workspace_name = "hermes"
+
+# aaf-0013: Key Vault firewall defaults to Deny (secure-by-default). With public
+# access on and no private endpoint, add your Terraform-runner egress IP so
+# apply/secret-pull is not locked out (example uses an RFC-5737 documentation IP):
+# key_vault_allowed_ip_ranges = ["203.0.113.0/32"]
+# key_vault_allowed_subnet_ids = []   # or allowlist the app subnet id
+
+# aaf-0014: hermes storage-account firewall also defaults to Deny. The
+# AzureServices/Logging/Metrics bypass covers the ACA SMB mount by default
+# (empty allowlist is fine there); add your runner egress IP only if
+# `terraform apply` gets locked out managing the storage account/share:
+# storage_allowed_ip_ranges = ["203.0.113.0/32"]
+# storage_allowed_subnet_ids = []   # or allowlist the app subnet id

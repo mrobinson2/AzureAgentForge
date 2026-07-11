@@ -33,3 +33,6 @@ infrastructure/modules/cloudflare-tunnel/.terraform.lock.hcl
 # agent worktrees + generated terraform lock/state
 .claude/worktrees/
 **/.terraform.lock.hcl
+
+# Security scan artifacts — never publish
+.triage/

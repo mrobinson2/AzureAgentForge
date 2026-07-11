@@ -118,6 +118,16 @@ resource "azurerm_container_app" "hermes" {
     identity            = azurerm_user_assigned_identity.hermes.id
   }
 
+  # aaf-0005: shared bearer the router sidecar requires on every /v1/* call
+  # (fail-closed — see services/model-router/main.py). Same KV secret is
+  # referenced by every in-mesh caller (memory-governor, Paperclip's Hermes
+  # adapter) so they all present the value the router was provisioned with.
+  secret {
+    name                = "router-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/router-api-key"
+    identity            = azurerm_user_assigned_identity.hermes.id
+  }
+
   # Google Workspace CLI credentials — never stored in image or plain env vars
   secret {
     name                = "gws-credentials"
@@ -174,8 +184,11 @@ resource "azurerm_container_app" "hermes" {
         value = "http://localhost:8080/v1"
       }
       env {
-        name  = "OPENAI_API_KEY"
-        value = "router-internal"
+        # aaf-0005: must match the router sidecar's ROUTER_API_KEY (same KV
+        # secret, below) — the router now fails closed (503) on a mismatched
+        # or missing bearer instead of accepting the old hardcoded literal.
+        name        = "OPENAI_API_KEY"
+        secret_name = "router-api-key"
       }
       env {
         # Router tier key. Tiers register under their Foundry deployment
@@ -322,6 +335,13 @@ resource "azurerm_container_app" "hermes" {
       image  = "${var.container_registry_login_server}/router:${var.router_image_tag}"
       cpu    = 0.25
       memory = "0.5Gi"
+
+      # aaf-0005: the router 503s every request when this is unset. Must be
+      # the same KV secret every in-mesh caller sends as its bearer token.
+      env {
+        name        = "ROUTER_API_KEY"
+        secret_name = "router-api-key"
+      }
 
       # ── GPT-4o-mini (primary default tier) ──
       env {

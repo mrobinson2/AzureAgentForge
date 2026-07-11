@@ -17,6 +17,39 @@ resource "azurerm_storage_account" "hermes" {
   account_replication_type = "LRS"
   min_tls_version          = "TLS1_2"
 
+  # aaf-0014 (AZU-0061): double-encrypt data at rest (infrastructure encryption).
+  # ⚠️ FORCE-REPLACE / ForceNew: this is a create-time-only property. Toggling it
+  # on an EXISTING account replaces the account and DESTROYS the SMB share data
+  # (hermes-data / watchdog-state). Apply ONLY during a deliberate rebuild /
+  # data-migration window (e.g. the standby rebuild) — never on a live account.
+  infrastructure_encryption_enabled = true
+
+  # aaf-0014 (AZU-0012): default-Deny network rules instead of open access.
+  # AzureServices + Logging/Metrics bypass keeps diagnostics/logging working;
+  # the operator scopes who else may reach it via the storage_allowed_* vars.
+  # ⚠️ This ACA environment mounts the file share over the Azure backbone (SMB),
+  # NOT the app subnet — after enabling default-Deny, verify the hermes-data /
+  # watchdog-state mounts still attach and add the ACA outbound IP(s) to
+  # storage_allowed_ip_ranges if they do not.
+  network_rules {
+    default_action             = "Deny"
+    bypass                     = ["AzureServices", "Logging", "Metrics"]
+    ip_rules                   = var.storage_allowed_ip_ranges
+    virtual_network_subnet_ids = var.storage_allowed_subnet_ids
+  }
+
+  # aaf-0014 (AZU-0057): enable Storage Analytics logging for the blob service so
+  # successful/failed requests are auditable.
+  queue_properties {
+    logging {
+      delete                = true
+      read                  = true
+      write                 = true
+      version               = "1.0"
+      retention_policy_days = 7
+    }
+  }
+
   tags = var.tags
 }
 

@@ -44,3 +44,18 @@ CREATE INDEX IF NOT EXISTS idx_memory_records_vector
 CREATE TRIGGER trg_memory_records_updated
     BEFORE UPDATE ON memory_records
     FOR EACH ROW EXECUTE FUNCTION update_timestamp();
+
+-- ─── Row-Level Security backstop (aaf-0018) ─────────────────────────────────
+-- Defense-in-depth beneath the memory-store's token-derived tenant scoping
+-- (aaf-0002). Even if a query is ever built without a tenant predicate (the old
+-- `1=1` search bug), the database refuses to return another tenant's rows. The
+-- service sets the active tenant per request/transaction:
+--     SET LOCAL app.tenant_id = '<tenant_id>';
+-- `current_setting('app.tenant_id', true)` returns NULL when unset, so an
+-- un-scoped connection sees NO rows (fail closed) rather than every tenant's.
+-- tenant_id is TEXT here, so the GUC compares as text (no ::uuid cast).
+ALTER TABLE memory_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE memory_records FORCE ROW LEVEL SECURITY;
+CREATE POLICY memory_records_tenant_isolation ON memory_records
+    USING (tenant_id = current_setting('app.tenant_id', true))
+    WITH CHECK (tenant_id = current_setting('app.tenant_id', true));

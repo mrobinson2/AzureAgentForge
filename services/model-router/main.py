@@ -13,6 +13,7 @@ instantly available — no router code changes needed.
 
 import asyncio
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -39,23 +40,31 @@ if _log_level == "debug":
 app = FastAPI(title="Model Router", version="1.3.0")
 
 # ─── Security: API Key Authentication ────────────────────────────────────────
-# When ROUTER_API_KEY is set, all /v1/* endpoints require a matching Bearer token.
-# Internal ACA services pass the key; unauthenticated requests are rejected.
+# All /v1/* endpoints require a matching Bearer token. FAIL CLOSED (aaf-0005): if
+# ROUTER_API_KEY is unset the router refuses every request (503) rather than
+# silently serving unauthenticated traffic. Internal services pass the key.
+# ⚠️ DEPLOY ORDER: provision ROUTER_API_KEY (and align every in-mesh caller to
+# send it) BEFORE rolling out this build, or live model calls will 503. Treat the
+# cutover like a key rotation.
 _ROUTER_API_KEY = os.environ.get("ROUTER_API_KEY", "")
 
 
 def _verify_auth(request: Request) -> None:
-    """Verify Bearer token if ROUTER_API_KEY is configured."""
+    """Require a valid Bearer token. Fail closed when unconfigured (aaf-0005)."""
     if not _ROUTER_API_KEY:
-        return  # No auth configured — internal-only mode
+        # Fail CLOSED — an unset key must mean "down", never "open".
+        raise HTTPException(
+            status_code=503,
+            detail="Router authentication not configured (ROUTER_API_KEY unset)",
+        )
     auth = request.headers.get("authorization", "")
     if not auth.lower().startswith("bearer "):
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     token = auth[7:].strip()
-    # Constant-time comparison to prevent timing attacks
+    # Constant-time comparison over fixed-length digests to prevent timing attacks.
     expected = hashlib.sha256(_ROUTER_API_KEY.encode()).digest()
     provided = hashlib.sha256(token.encode()).digest()
-    if expected != provided:
+    if not hmac.compare_digest(expected, provided):
         raise HTTPException(status_code=403, detail="Invalid API key")
 
 
@@ -1239,7 +1248,8 @@ async def _stream_anthropic_messages_sse(
         log.info("messages_stream_ok tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
     except Exception as e:
         log.warning("messages_stream_failed tier=%s error=%s", tier, e)
-        err_payload = {"type": "error", "error": {"type": "api_error", "message": str(e)}}
+        # aaf-0016: generic client-facing message; real error stays in the log.
+        err_payload = {"type": "error", "error": {"type": "api_error", "message": "upstream provider error"}}
         yield f"event: error\ndata: {json.dumps(err_payload)}\n\n"
 
 
@@ -1352,6 +1362,11 @@ async def _call_model(tier: str, body: dict) -> dict:
     """Call model with retry for transient failures (cold-start, 429 bursts)."""
     is_anthropic = _is_anthropic_tier(tier)
     kwargs = None if is_anthropic else _build_completion_kwargs(tier, body, stream=False)
+    # aaf-0005: per-caller cost attribution. The endpoint stashes the resolved
+    # caller id under a private body key (mirrors __router_extra_headers__) so the
+    # ledger accrues without changing this signature (keeps monkeypatched fakes
+    # working). record_cost no-ops the caller ledger when this is None.
+    caller = body.get("__router_caller__")
     last_err: Exception | None = None
 
     for attempt in range(_MAX_RETRIES + 1):
@@ -1368,6 +1383,7 @@ async def _call_model(tier: str, body: dict) -> dict:
                 record_cost(
                     tier, _estimate_anthropic_cost(_model, _in, _out),
                     model=_model, input_tokens=_in, output_tokens=_out,
+                    caller=caller,
                 )
             else:
                 response = await litellm.acompletion(**kwargs)
@@ -1376,6 +1392,7 @@ async def _call_model(tier: str, body: dict) -> dict:
                 record_cost(
                     tier, response._hidden_params.get("response_cost") or 0.0,
                     model=_model, input_tokens=_in, output_tokens=_out,
+                    caller=caller,
                 )
 
             for choice in result.get("choices", []):
@@ -1452,7 +1469,8 @@ async def _iter_stream(stream_iter, tier: str):
     except Exception as e:
         log.warning("stream_failed tier=%s error=%s", tier, e)
         log.debug("stream_failed_traceback tier=%s\n%s", tier, traceback.format_exc())
-        yield f"data: {json.dumps({'error': str(e), 'tier': tier})}\n\n"
+        # aaf-0016: generic client-facing error; the real exception is logged above.
+        yield f"data: {json.dumps({'error': 'upstream provider error', 'tier': tier})}\n\n"
         yield "data: [DONE]\n\n"
 
 
@@ -1464,6 +1482,18 @@ async def chat_completions(request: Request):
     t_start = time.monotonic()
     body = await request.json()
     _validate_request(body)
+
+    # aaf-0005: wire the per-caller cost ledger into the request path. Resolve the
+    # caller (agent/tenant) id, reject over-budget callers (429) BEFORE spending on
+    # platform credentials, and stash the id so _call_model -> record_cost accrues
+    # it. Fails open when PER_CALLER_DAILY_USD is unset or the request is
+    # unattributed (is_over_caller_budget returns False), so this can never block
+    # traffic when cost governance is not configured.
+    caller = resolve_caller_id(request.headers)
+    if is_over_caller_budget(caller):
+        raise HTTPException(status_code=429, detail="Per-caller daily budget exceeded")
+    if caller:
+        body["__router_caller__"] = caller
 
     tier = select_tier(body)
     stream = bool(body.get("stream", False))
@@ -1534,9 +1564,11 @@ async def chat_completions(request: Request):
                     traceback.format_exc(),
                 )
 
+        # aaf-0016: don't echo the raw last_error string to the client; it's logged
+        # per-tier above.
         raise HTTPException(
             status_code=502,
-            detail=f"All tiers failed to initialise stream: {last_error}",
+            detail="All tiers failed to initialise stream",
         )
 
     # Non-streaming path
@@ -1587,6 +1619,10 @@ async def messages(request: Request):
     if body.get("max_tokens") is None:
         raise HTTPException(status_code=400, detail="Request must include max_tokens")
 
+    # aaf-0005: same per-caller budget gate as /v1/chat/completions.
+    if is_over_caller_budget(resolve_caller_id(request.headers)):
+        raise HTTPException(status_code=429, detail="Per-caller daily budget exceeded")
+
     tier = _select_anthropic_tier_for_model(body)
     if not _is_anthropic_tier(tier):
         # _select_anthropic_tier_for_model already raises 400 for non-Anthropic
@@ -1635,9 +1671,12 @@ async def messages(request: Request):
         # transport can parse the payload the same way it parses upstream
         # errors. status_code may not always be on the exception — default 502.
         status = getattr(e, "status_code", 502) or 502
+        # aaf-0016: preserve the Anthropic-shaped error envelope callers parse, but
+        # return a generic message instead of the raw exception string (which can
+        # carry endpoint/internal detail). The real error is logged above.
         err_body = {
             "type": "error",
-            "error": {"type": "api_error", "message": str(e)},
+            "error": {"type": "api_error", "message": "upstream provider error"},
         }
         return JSONResponse(status_code=status, content=err_body)
 
@@ -1692,8 +1731,10 @@ async def embeddings(request: Request):
             timeout=_EMBED_TIMEOUT_S,
         )
     except Exception as exc:  # noqa: BLE001
+        # aaf-0016: log the real upstream error, return a generic message so the
+        # provider's exception text (endpoint, key hints, internals) isn't echoed.
         log.warning("embeddings call failed: %s", exc)
-        raise HTTPException(status_code=502, detail=f"embedding provider error: {exc}")
+        raise HTTPException(status_code=502, detail="embedding provider error")
     try:
         payload = resp.model_dump()
     except AttributeError:
@@ -1712,18 +1753,17 @@ async def embeddings(request: Request):
 
 @app.get("/health")
 async def health():
+    # aaf-0016: /health is unauthenticated (liveness/readiness probe), so it must
+    # not leak per-tier dollar spend or configured budgets — those disclose usage
+    # volume and cost posture to anyone who can reach the endpoint. Report only a
+    # per-tier over_budget boolean (what a probe actually needs). The authoritative
+    # spend figures stay on the in-process ledger (daily_cost_rollup / record_cost),
+    # reachable only in-process, not over HTTP.
     _reset_if_new_day()
     return {
         "status": "ok",
         "date": _budget_date,
-        "budgets": {
-            t: {
-                "spent": _spend.get(t, 0.0),
-                "limit": MODELS[t]["daily_budget"],
-                "over_budget": is_over_budget(t),
-            }
-            for t in MODELS
-        },
+        "tiers": {t: {"over_budget": is_over_budget(t)} for t in MODELS},
     }
 
 

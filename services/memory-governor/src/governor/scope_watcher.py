@@ -102,7 +102,7 @@ async def watch_once() -> int:
 
     p = await db.pool()
     rows = await p.fetch(
-        """SELECT DISTINCT memory_scope_id FROM documents
+        """SELECT DISTINCT memory_scope_id, workspace_name FROM documents
            WHERE memory_class = 'task_scoped'
              AND memory_scope_kind = 'task'
              AND expires_at IS NULL
@@ -117,17 +117,22 @@ async def watch_once() -> int:
     async with httpx.AsyncClient(timeout=10) as client:
         for r in rows:
             scope_id = r["memory_scope_id"]
+            workspace = r["workspace_name"]
             status = await _issue_status(client, token, scope_id)
             if status in CLOSED_STATUSES or status == "missing":
+                # aaf-0023: bind workspace_name so two workspaces that ever share
+                # a memory_scope_id can't expire each other's task-scoped docs.
                 await p.execute(
                     """UPDATE documents
                        SET expires_at = now() + make_interval(days => $2)
                        WHERE memory_class = 'task_scoped'
                          AND memory_scope_kind = 'task'
                          AND memory_scope_id = $1
+                         AND workspace_name = $3
                          AND expires_at IS NULL""",
                     scope_id,
                     TASK_SCOPE_GRACE_DAYS,
+                    workspace,
                 )
                 await db.emit_event(
                     "memory_expire",

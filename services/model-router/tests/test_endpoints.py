@@ -13,10 +13,12 @@ class TestInfoRoutes:
         assert r.status_code == 200
         body = r.json()
         assert body["status"] == "ok"
-        # Budgets reported per registered tier.
-        assert "gpt4o-mini" in body["budgets"]
-        assert "phi4" in body["budgets"]
-        assert set(body["budgets"]["gpt4o-mini"]) == {"spent", "limit", "over_budget"}
+        # aaf-0016: /health reports only a per-tier over_budget boolean — no dollar
+        # spend or configured budget figures leak from this unauthenticated probe.
+        assert "gpt4o-mini" in body["tiers"]
+        assert "phi4" in body["tiers"]
+        assert set(body["tiers"]["gpt4o-mini"]) == {"over_budget"}
+        assert "budgets" not in body
 
     def test_list_models(self, client):
         r = client.get("/v1/models")

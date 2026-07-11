@@ -55,8 +55,19 @@ async def upsert_memory(record: schemas.MemoryRecordRequest) -> schemas.MemoryRe
             "status": record.status,
             "metadata": record.metadata,
         },
+        # aaf-0018: scope this transaction to the verified caller's tenant so
+        # the memory_records RLS policy admits the write. record.tenant_id is
+        # always the token-derived value by the time it reaches here (the
+        # route overrides/validates it — see main.py), never client input.
+        tenant_id=record.tenant_id,
     )
-    return schemas.MemoryRecordResponse(**dict(row))
+    # RETURNING * comes back with content_vector as pgvector's Vector type
+    # (registered on the connection so INSERT can bind a python list to it);
+    # the response schema declares list[float], so normalize before validating.
+    data = dict(row)
+    if data.get("content_vector") is not None:
+        data["content_vector"] = data["content_vector"].to_list()
+    return schemas.MemoryRecordResponse(**data)
 
 
 async def delete_memory(tenant_id: str, record_id: str) -> bool:
@@ -65,20 +76,26 @@ async def delete_memory(tenant_id: str, record_id: str) -> bool:
     WHERE tenant_id = %(tenant_id)s AND record_id = %(record_id)s
     RETURNING id;
     """
-    row = await async_execute_one(query, {"tenant_id": tenant_id, "record_id": record_id})
+    # aaf-0018: RLS-scope this transaction to tenant_id (verified, from the
+    # route's require_tenant dependency — see main.py).
+    row = await async_execute_one(
+        query, {"tenant_id": tenant_id, "record_id": record_id}, tenant_id=tenant_id
+    )
     return row is not None
 
 
 async def search_memory(payload: schemas.SearchRequest) -> list[schemas.SearchResult]:
-    filters: list[str] = ["1=1"]
+    # aaf-0002 defense-in-depth: refuse an unscoped search. The route derives
+    # tenant_id from the verified token, but the service must also never build a
+    # cross-tenant (1=1) query if a tenant scope is ever missing.
+    if not payload.tenant_id:
+        raise ValueError("search_memory requires a tenant_id (refusing unscoped query)")
+    filters: list[str] = ["tenant_id = %(tenant_id)s"]
     params: dict[str, Any] = {
         "query_vector": payload.query_vector,
         "limit": payload.limit,
+        "tenant_id": payload.tenant_id,
     }
-
-    if payload.tenant_id:
-        filters.append("tenant_id = %(tenant_id)s")
-        params["tenant_id"] = payload.tenant_id
 
     if payload.record_types:
         filters.append("record_type = ANY(%(record_types)s)")
@@ -114,7 +131,10 @@ async def search_memory(payload: schemas.SearchRequest) -> list[schemas.SearchRe
     LIMIT %(limit)s;
     """
 
-    rows = await async_execute(query, params)
+    # aaf-0018: RLS-scope this transaction to the verified tenant too — the
+    # application-level filter above and the RLS policy are independent
+    # layers; either one holding is enough to keep this cross-tenant-safe.
+    rows = await async_execute(query, params, tenant_id=payload.tenant_id)
     results: list[schemas.SearchResult] = []
     for row in rows or []:
         score = float(row[-1])

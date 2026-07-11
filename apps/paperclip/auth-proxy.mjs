@@ -138,7 +138,13 @@ function verifyJwt(token, secret) {
   const payload = JSON.parse(base64UrlDecode(payloadB64).toString("utf-8"));
   const now = Math.floor(Date.now() / 1000);
 
-  if (payload.exp && payload.exp < now) {
+  // aaf-0017: require exp. A token minted without an exp claim was previously
+  // accepted forever (non-expiring automation credential). Any legacy no-exp
+  // token must be re-minted (the token issuer already sets exp).
+  if (typeof payload.exp !== "number") {
+    throw new Error("Token missing required exp claim");
+  }
+  if (payload.exp < now) {
     throw new Error(`Token expired at ${new Date(payload.exp * 1000).toISOString()}`);
   }
   if (payload.nbf && payload.nbf > now) {
@@ -280,6 +286,7 @@ const SCOPE_MAP = {
   "PUT:/api/skills/*": "skills:write",
   "DELETE:/api/skills/*": "skills:write",
   "POST:/api/skills": "skills:write",
+  "PUT:/api/skills-agents": "skills:write",
 
   // Memory governor admin surface (operator CLI via auth-proxy passthrough)
   "GET:/api/memory": "memory:admin",
@@ -351,11 +358,15 @@ function fenceUntrustedContent(text, source = "external") {
 // cloudflared traffic — but rewriting Origin UNCONDITIONALLY also launders a
 // cross-site attacker's Origin into a trusted value, defeating CSRF protection.
 // Validate the INCOMING Origin against the public host + PAPERCLIP_ALLOWED_HOSTNAMES
-// before any rewrite. A missing Origin (same-origin or non-browser client) is
-// allowed; a present-but-mismatched or malformed Origin is rejected. With no
-// allow-list configured, only the public host passes — fail closed.
-function isOriginAllowed(origin, { publicUrl, allowedHostnames }) {
-  if (!origin) return true;
+// before any rewrite. A present-but-mismatched or malformed Origin is rejected.
+// With no allow-list configured, only the public host passes — fail closed.
+// aaf-0027: a MISSING Origin is a failed check on state-changing routes (callers
+// pass allowMissing:false there) — a forged cross-site POST can simply omit the
+// header, so accepting "no Origin" on a mutation re-opens the CSRF hole the
+// rewrite below would otherwise launder shut. Non-mutating callers keep the
+// permissive default.
+function isOriginAllowed(origin, { publicUrl, allowedHostnames, allowMissing = true }) {
+  if (!origin) return allowMissing;
   let host;
   try { host = new URL(origin).hostname.toLowerCase(); } catch { return false; }
   const allowed = new Set();
@@ -372,7 +383,7 @@ function proxyPassThrough(clientReq, clientRes) {
   // the public URL (issue #21) — otherwise the rewrite would hand PaperClip's
   // CSRF guard a forged-but-trusted Origin.
   if (STATE_CHANGING_METHODS.has(clientReq.method) &&
-      !isOriginAllowed(clientReq.headers.origin, { publicUrl: PUBLIC_URL, allowedHostnames: ALLOWED_HOSTNAMES })) {
+      !isOriginAllowed(clientReq.headers.origin, { publicUrl: PUBLIC_URL, allowedHostnames: ALLOWED_HOSTNAMES, allowMissing: false })) {
     console.warn(`[auth-proxy] CSRF: rejected ${clientReq.method} ${clientReq.url} from origin '${clientReq.headers.origin}'`);
     clientRes.writeHead(403, { "Content-Type": "application/json" });
     clientRes.end(JSON.stringify({
@@ -646,20 +657,25 @@ async function validateSessionCookie(cookieHeader) {
 
 /**
  * Check if the request is authenticated for skills access.
- * Returns true if the request has a valid JWT or valid PaperClip session.
+ * Returns the auth context so the caller can enforce scope (aaf-0003):
+ *   { ok, via: "jwt"|"session", claims }  — claims is null for a session (the
+ *   human operator, who is not scope-limited).
  */
 async function isSkillsAuthenticated(req) {
   // Option 1: Valid JWT bearer token
   const authHeader = req.headers["authorization"];
   if (authHeader && authHeader.startsWith("Bearer ") && JWT_SECRET) {
     try {
-      verifyJwt(authHeader.slice(7), JWT_SECRET);
-      return true;
+      const claims = verifyJwt(authHeader.slice(7), JWT_SECRET);
+      return { ok: true, via: "jwt", claims };
     } catch { /* invalid JWT, try session */ }
   }
 
-  // Option 2: Valid PaperClip session cookie
-  return validateSessionCookie(req.headers["cookie"]);
+  // Option 2: Valid PaperClip session cookie (the human operator).
+  if (await validateSessionCookie(req.headers["cookie"])) {
+    return { ok: true, via: "session", claims: null };
+  }
+  return { ok: false, via: null, claims: null };
 }
 
 // ── Skills API Route Handler ────────────────────────────────────────────────
@@ -1547,7 +1563,8 @@ async function handleRequest(clientReq, clientRes) {
                         clientReq.url === "/admin/skills/" ||
                         clientReq.url.startsWith("/api/skills");
   if (isSkillsRoute) {
-    if (!await isSkillsAuthenticated(clientReq)) {
+    const skillsAuth = await isSkillsAuthenticated(clientReq);
+    if (!skillsAuth.ok) {
       if (clientReq.url.startsWith("/api/")) {
         clientRes.writeHead(401, { "Content-Type": "application/json" });
         clientRes.end(JSON.stringify({ error: "Authentication required" }));
@@ -1557,6 +1574,28 @@ async function handleRequest(clientReq, clientRes) {
         clientRes.end();
       }
       return;
+    }
+
+    // aaf-0003: enforce skills:write scope on mutating skills routes for TOKEN
+    // callers. Previously these routes short-circuited here and never reached the
+    // checkScope path, so any signature-valid JWT (regardless of scope) could
+    // create/overwrite/delete SKILL.md files — which feed agent prompts and ship
+    // agent-run scripts (BFLA -> stored agent-script injection). Browser sessions
+    // are the human operator and pass; scoped automation/agent JWTs must carry
+    // skills:write.
+    const _m = clientReq.method;
+    const _isMutating = _m === "POST" || _m === "PUT" || _m === "DELETE";
+    if (_isMutating && clientReq.url.startsWith("/api/") && skillsAuth.via === "jwt") {
+      const scopeList = skillsAuth.claims.role === "admin" ? null : (skillsAuth.claims.scope || []);
+      const cleanSkillsPath = clientReq.url.split("?")[0];
+      if (!checkScope(_m, cleanSkillsPath, scopeList)) {
+        clientRes.writeHead(403, { "Content-Type": "application/json" });
+        clientRes.end(JSON.stringify({
+          error: "Forbidden",
+          message: `Insufficient scope (skills:write required) for ${_m} ${clientReq.url}`,
+        }));
+        return;
+      }
     }
 
     // Authenticated — serve skills UI

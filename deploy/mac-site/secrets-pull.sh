@@ -43,6 +43,11 @@ pull platform-paperclip-admin-password          PAPERCLIP_ADMIN_PASSWORD
 pull platform-paperclip-auth-secret             BETTER_AUTH_SECRET
 pull platform-memory-governor-api-key           GOVERNOR_API_KEY
 pull platform-openai-key                         EMBEDDING_API_KEY
+# aaf-0005: model-router fails closed (503) without this. paperclip and
+# skill-curator reuse the same pulled value as OPENAI_API_KEY (see
+# docker-compose.yml) so every in-mesh caller presents the bearer the
+# router is configured with.
+pull platform-router-api-key                     ROUTER_API_KEY
 # Router tiers: primary (gpt4o) + budget fallback (phi4).
 pull platform-gpt4o-api-key                      GPT4O_API_KEY
 pull platform-phi4-uri-target                    PHI_BASE_URL
