@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tenant Console (DEMO) — AzureAgentForge</title>
+<style>
+  /* Palette + typography lifted from installer/static/index.html so this demo
+     reads as the same product surface. Dark-only, matching the installer. */
+  :root {
+    --bg: #0d1117; --panel: #161b22; --panel2: #1c2330; --border: #2d3646;
+    --text: #e6edf3; --dim: #8b97a8; --accent: #58a6ff; --accent2: #7c5cff;
+    --ok: #3fb950; --warn: #d29922; --err: #f85149;
+    --mono: ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { max-width: 100%; overflow-x: hidden; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 15px/1.5 -apple-system, "Segoe UI", Roboto, sans-serif; }
+
+  header { display: flex; align-items: center; gap: 14px; padding: 18px 28px;
+           border-bottom: 1px solid var(--border);
+           background: linear-gradient(135deg, #131a2a 0%, #0d1117 70%); flex-wrap: wrap; }
+  header .flame { font-size: 26px; }
+  header h1 { font-size: 19px; margin: 0; font-weight: 650; letter-spacing: .2px; }
+  header h1 span.a { color: var(--accent); }
+  header .sub { color: var(--dim); font-size: 13px; margin-left: auto; }
+  .pill { font-size: 11px; padding: 1px 8px; border-radius: 20px;
+          border: 1px solid var(--border); color: var(--dim); white-space: nowrap; }
+  .pill.demo { border-color: var(--warn); color: var(--warn); font-weight: 700;
+               letter-spacing: .3px; }
+
+  /* Loud, honest DEMO banner. */
+  .demobar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+             padding: 9px 28px; font-size: 12.5px; color: #f0d8a8;
+             background: rgba(210,153,34,.10); border-bottom: 1px solid var(--border); }
+  .demobar b { color: var(--warn); }
+
+  .toolbar { display: flex; align-items: center; gap: 8px; padding: 12px 28px;
+             border-bottom: 1px solid var(--border); flex-wrap: wrap; }
+  .tab { border: 1px solid var(--border); background: var(--panel); color: var(--dim);
+         padding: 7px 15px; border-radius: 8px; cursor: pointer; font-size: 13.5px;
+         font-weight: 600; }
+  .tab.active { background: var(--panel2); color: var(--text); border-color: var(--accent); }
+  .toolbar .spacer { margin-left: auto; }
+
+  button { border: 0; border-radius: 8px; padding: 8px 14px; font-size: 13.5px;
+           font-weight: 600; cursor: pointer; background: var(--accent); color: #06121f; }
+  button.secondary { background: var(--panel2); color: var(--text); border: 1px solid var(--border); }
+  button.danger { background: var(--err); color: #fff; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+
+  main { padding: 22px 28px 60px; }
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h2.section { font-size: 15px; margin: 0 0 4px; font-weight: 650; }
+  p.hint { color: var(--dim); font-size: 12.5px; margin: 0 0 16px; }
+
+  /* Tenant table — wrapped so wide content scrolls inside its own container,
+     never the page body. */
+  .tablewrap { border: 1px solid var(--border); border-radius: 12px;
+               overflow-x: auto; background: var(--panel); }
+  table { border-collapse: collapse; width: 100%; min-width: 720px; font-size: 13.5px; }
+  thead th { text-align: left; padding: 11px 14px; color: var(--dim); font-weight: 600;
+             font-size: 12px; text-transform: uppercase; letter-spacing: .4px;
+             border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody td { padding: 12px 14px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  tbody tr { cursor: pointer; }
+  tbody tr:last-child td { border-bottom: 0; }
+  tbody tr:hover { background: var(--panel2); }
+  tbody tr.selected { background: var(--panel2); box-shadow: inset 3px 0 0 var(--accent); }
+  .tname { font-weight: 650; color: var(--text); }
+  .tsub { color: var(--dim); font-size: 12px; }
+
+  .badge { font-size: 11px; padding: 2px 9px; border-radius: 20px; white-space: nowrap;
+           border: 1px solid var(--border); color: var(--dim); }
+  .badge.active { color: var(--ok); border-color: rgba(63,185,80,.4); background: rgba(63,185,80,.08); }
+  .badge.provisioning { color: var(--warn); border-color: rgba(210,153,34,.4); background: rgba(210,153,34,.08); }
+  .badge.paused { color: var(--dim); }
+  .badge.decommissioned { color: var(--err); border-color: rgba(248,81,73,.4); background: rgba(248,81,73,.08); }
+
+  .packtag { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 6px;
+             border: 1px solid var(--border); color: var(--accent); background: rgba(88,166,255,.07);
+             margin: 1px 3px 1px 0; white-space: nowrap; }
+  .packtag.none { color: var(--dim); border-style: dashed; background: none; }
+
+  /* Budget bar */
+  .bar { height: 8px; border-radius: 6px; background: var(--panel2);
+         border: 1px solid var(--border); overflow: hidden; min-width: 90px; }
+  .bar > span { display: block; height: 100%; background: var(--accent); }
+  .bar > span.warn { background: var(--warn); }
+  .bar > span.err { background: var(--err); }
+  .budgetcell { display: flex; flex-direction: column; gap: 4px; min-width: 120px; }
+  .budgetcell .nums { font-size: 12px; color: var(--dim); font-family: var(--mono); }
+
+  /* Pack cards */
+  .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; }
+  .card { border: 1px solid var(--border); border-radius: 12px; background: var(--panel);
+          padding: 16px 16px 14px; }
+  .card h3 { margin: 0 0 2px; font-size: 15px; }
+  .card .vert { color: var(--dim); font-size: 12px; margin-bottom: 10px; }
+  .card .meta { font-size: 12.5px; color: var(--dim); margin: 3px 0; }
+  .card .meta b { color: var(--text); font-weight: 600; }
+  .card .assigned { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); }
+
+  /* Detail drawer */
+  #scrim { position: fixed; inset: 0; background: rgba(0,0,0,.5); display: none; z-index: 40; }
+  #scrim.open { display: block; }
+  aside#drawer { position: fixed; top: 0; right: 0; height: 100vh; width: 440px; max-width: 92vw;
+                 background: var(--panel); border-left: 1px solid var(--border); z-index: 50;
+                 transform: translateX(100%); transition: transform .18s ease; overflow-y: auto; }
+  aside#drawer.open { transform: translateX(0); }
+  .drawer-head { display: flex; align-items: flex-start; gap: 10px; padding: 20px 20px 14px;
+                 border-bottom: 1px solid var(--border);
+                 background: linear-gradient(135deg, #131a2a 0%, #161b22 80%); }
+  .drawer-head h2 { font-size: 18px; margin: 0 0 3px; }
+  .drawer-head .x { margin-left: auto; background: var(--panel2); color: var(--dim);
+                    border: 1px solid var(--border); border-radius: 8px; padding: 4px 10px;
+                    font-size: 15px; line-height: 1; }
+  .drawer-body { padding: 18px 20px 40px; }
+  .block { margin-bottom: 22px; }
+  .block > .lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .5px;
+                  color: var(--dim); margin-bottom: 9px; font-weight: 700; }
+
+  .kv { display: flex; justify-content: space-between; gap: 12px; font-size: 13px;
+        padding: 5px 0; border-bottom: 1px dashed var(--border); }
+  .kv:last-child { border-bottom: 0; }
+  .kv .k { color: var(--dim); }
+  .kv .v { color: var(--text); font-family: var(--mono); font-size: 12.5px; text-align: right; }
+
+  /* read-only flag rows */
+  .flag { display: flex; align-items: center; gap: 10px; padding: 8px 0;
+          border-bottom: 1px dashed var(--border); }
+  .flag:last-child { border-bottom: 0; }
+  .flag .fname { font-size: 13px; }
+  .flag .fdesc { font-size: 11.5px; color: var(--dim); }
+  .flag .switch { margin-left: auto; width: 34px; height: 19px; border-radius: 20px;
+                  background: var(--panel2); border: 1px solid var(--border); position: relative;
+                  flex: none; }
+  .flag .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 13px;
+                         height: 13px; border-radius: 50%; background: var(--dim); }
+  .flag .offlabel { font-size: 10px; color: var(--dim); margin-left: 8px; letter-spacing: .5px; }
+
+  .roster-item { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 5px 0; }
+  .roster-item .band { font-size: 10.5px; color: var(--dim); border: 1px solid var(--border);
+                       border-radius: 5px; padding: 1px 6px; }
+  .roster-item .role { font-weight: 600; }
+  .roster-item .agent { color: var(--dim); }
+
+  .policy { display: flex; gap: 8px; align-items: baseline; font-size: 12.5px; padding: 4px 0; }
+  .policy .dot { width: 9px; height: 9px; border-radius: 50%; flex: none; margin-top: 4px; }
+  .policy .dot.green { background: var(--ok); }
+  .policy .dot.yellow { background: var(--warn); }
+  .policy .dot.red { background: var(--err); }
+  .policy .act { font-family: var(--mono); font-size: 12px; }
+  .policy .pn { color: var(--dim); }
+
+  .note { font-size: 12px; color: var(--dim); margin-top: 10px; line-height: 1.5; }
+  .note b { color: var(--warn); }
+
+  .drawer-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+
+  /* toast */
+  #toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(20px);
+           background: var(--panel2); color: var(--text); border: 1px solid var(--border);
+           border-radius: 10px; padding: 11px 18px; font-size: 13px; z-index: 60;
+           opacity: 0; pointer-events: none; transition: opacity .2s, transform .2s;
+           max-width: 90vw; box-shadow: 0 8px 30px rgba(0,0,0,.4); }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast b { color: var(--warn); }
+
+  @media (max-width: 560px) {
+    header, .demobar, .toolbar, main { padding-left: 16px; padding-right: 16px; }
+    .drawer-body { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <div class="flame">🏢</div>
+  <h1>Tenant <span class="a">Console</span> <span class="pill">AzureAgentForge</span></h1>
+  <span class="pill demo">● DEMO</span>
+  <div class="sub">sample data · read-only</div>
+</header>
+
+<div class="demobar">
+  <span>⚠️</span>
+  <span><b>DEMO — sample data, read-only, no live tenants.</b>
+        Every tenant, pack, budget, and flag on this page is fictional.
+        Feature flags are all shown <b>OFF</b>. Buttons are visual-only and touch nothing real.</span>
+</div>
+
+<div class="toolbar">
+  <button class="tab active" id="tab-tenants" onclick="showView('tenants')">Tenants</button>
+  <button class="tab" id="tab-packs" onclick="showView('packs')">Playbook Packs</button>
+  <span class="spacer"></span>
+  <button class="secondary" onclick="demoAction('Provision tenant')">+ Provision tenant</button>
+</div>
+
+<main>
+  <!-- ===================== TENANTS VIEW ===================== -->
+  <section class="view active" id="view-tenants">
+    <h2 class="section">Tenants</h2>
+    <p class="hint">Fictional demo tenants on a shared stack. Click a row for the detail drawer
+      (packs, feature flags, budget). Nothing here is a live customer.</p>
+    <div class="tablewrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tenant</th><th>Vertical</th><th>Status</th><th>Packs</th>
+            <th>Monthly budget</th><th>Spend-to-date</th><th>Used</th>
+          </tr>
+        </thead>
+        <tbody id="tenantRows"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ===================== PACKS VIEW ===================== -->
+  <section class="view" id="view-packs">
+    <h2 class="section">Playbook Packs</h2>
+    <p class="hint">A pack = a per-vertical bundle (agent roster template, intake skill, seed
+      memories, smoke fixture, autonomy policy). Assigning a pack is what turns a blank tenant
+      into a working trade deployment. All packs and assignments below are fictional.</p>
+    <div class="cards" id="packCards"></div>
+  </section>
+</main>
+
+<!-- ===================== DETAIL DRAWER ===================== -->
+<div id="scrim" onclick="closeDrawer()"></div>
+<aside id="drawer" aria-hidden="true">
+  <div class="drawer-head">
+    <div>
+      <h2 id="dTitle">Tenant</h2>
+      <div class="tsub" id="dSub"></div>
+    </div>
+    <button class="x" onclick="closeDrawer()" aria-label="Close">✕</button>
+  </div>
+  <div class="drawer-body" id="dBody"></div>
+</aside>
+
+<div id="toast"></div>
+
+<script>
+/* ============================================================
+   FIXTURES — inline so this renders straight from file:// with
+   no server and no network. ALL DATA IS FICTIONAL. Feature flags
+   are all `false` by design: this is a read-only demo.
+   Concepts (tenant contract, pack manifest, per-tenant budget +
+   flags, green/yellow/red autonomy policy) are modeled after the
+   AAF / MRTek tenant-console design — sanitized, no real client.
+   ============================================================ */
+const FIXTURES = {
+  // Per-tenant feature flags shown in the drawer. Demo => every value OFF.
+  flagCatalog: [
+    { key: "governed_memory",        label: "Governed memory partition",  desc: "Per-tenant workspace isolation for agent memory" },
+    { key: "track_record_routing",   label: "Track-record routing",       desc: "Route by measured per-agent success history" },
+    { key: "per_run_cost_envelope",  label: "Per-run cost envelope",      desc: "Hard per-run spend cap on every agent turn" },
+    { key: "presend_approval_gate",  label: "Pre-send approval gate",     desc: "Human approves drafted outbound before it sends" },
+    { key: "outbound_sms_10dlc",     label: "Outbound SMS (10DLC)",       desc: "Registered A2P SMS sending surface" },
+    { key: "semantic_retrieval",     label: "Semantic retrieval",         desc: "Vector recall instead of trigram-only" },
+    { key: "reflection_pass",        label: "Reflection pass",            desc: "Post-task self-review + memory consolidation" },
+    { key: "daily_digest",           label: "Daily digest",               desc: "Scheduled owner summary of tenant activity" }
+  ],
+
+  packs: [
+    { id: "septic",     name: "Septic Pack",            vertical: "Septic services",     skills: 1, agents: 2,
+      policyCounts: { green: 4, yellow: 3, red: 5 } },
+    { id: "plumbing",   name: "Plumbing Pack",          vertical: "Plumbing services",   skills: 1, agents: 2,
+      policyCounts: { green: 4, yellow: 3, red: 5 } },
+    { id: "hvac",       name: "HVAC Pack",              vertical: "HVAC services",       skills: 1, agents: 2,
+      policyCounts: { green: 4, yellow: 3, red: 5 } },
+    { id: "dental",     name: "Dental Front-Desk Pack", vertical: "Dental front office", skills: 1, agents: 2,
+      policyCounts: { green: 3, yellow: 3, red: 6 } },
+    { id: "grooming",   name: "Dog-Grooming Pack",      vertical: "Pet grooming",        skills: 1, agents: 2,
+      policyCounts: { green: 4, yellow: 2, red: 4 } },
+    { id: "electrical", name: "Electrical Pack",        vertical: "Electrical services", skills: 1, agents: 2,
+      policyCounts: { green: 3, yellow: 3, red: 6 } }
+  ],
+
+  // Roster template every pack instantiates (Band-1 intake + Band-2 coordinator).
+  roster: [
+    { role: "intake",      band: 1, agent: "intake agent (customer-facing)" },
+    { role: "coordinator", band: 2, agent: "coordinator agent (dispatch/triage)" }
+  ],
+
+  // Representative autonomy policy (green = agent acts, yellow = human approves,
+  // red = never automated). Fail-closed: anything unlisted is RED.
+  policy: {
+    green:  ["answer-assessment-questions", "appointment-reminder-send", "after-hours-message-capture", "route-off-lane-to-human"],
+    yellow: ["assessment-followup-draft", "reschedule-request-response", "new-lead-callback-text"],
+    red:    ["price-quote-or-estimate", "emergency-dispatch", "complaint-response", "refunds-or-billing-changes", "regulatory-advice"]
+  },
+
+  tenants: [
+    { slug: "rivertown-plumbing", name: "Rivertown Plumbing", vertical: "Plumbing", pack: "plumbing",
+      status: "active", monthly: 150, spend: 63.40, daily_cap: 5.00, per_run_cap: 0.50,
+      workspace: "tenant-rivertown-plumbing", intake: "Sadie", coordinator: "Dispatch Desk",
+      service_area: "sample metro area", channels: ["voice intake webhook"] },
+    { slug: "cascade-hvac", name: "Cascade HVAC", vertical: "HVAC", pack: "hvac",
+      status: "active", monthly: 200, spend: 141.20, daily_cap: 7.00, per_run_cap: 0.60,
+      workspace: "tenant-cascade-hvac", intake: "Robin", coordinator: "Service Desk",
+      service_area: "sample metro area", channels: ["voice intake webhook", "chat widget"] },
+    { slug: "northwind-septic", name: "Northwind Septic", vertical: "Septic", pack: "septic",
+      status: "active", monthly: 120, spend: 28.90, daily_cap: 4.00, per_run_cap: 0.50,
+      workspace: "tenant-northwind-septic", intake: "Sadie", coordinator: "Dispatch Desk",
+      service_area: "sample rural county", channels: ["voice intake webhook"] },
+    { slug: "bluebird-dental", name: "Bluebird Dental", vertical: "Dental", pack: "dental",
+      status: "provisioning", monthly: 180, spend: 4.10, daily_cap: 6.00, per_run_cap: 0.50,
+      workspace: "tenant-bluebird-dental", intake: "Front Desk", coordinator: "Office Coordinator",
+      service_area: "sample suburb", channels: ["chat widget"] },
+    { slug: "summit-dog-grooming", name: "Summit Dog Grooming", vertical: "Grooming", pack: "grooming",
+      status: "active", monthly: 90, spend: 77.50, daily_cap: 3.00, per_run_cap: 0.40,
+      workspace: "tenant-summit-dog-grooming", intake: "Willow", coordinator: "Booking Desk",
+      service_area: "sample city", channels: ["chat widget"] },
+    { slug: "meadowlark-electric", name: "Meadowlark Electric", vertical: "Electrical", pack: null,
+      status: "paused", monthly: 130, spend: 0.00, daily_cap: 5.00, per_run_cap: 0.50,
+      workspace: "tenant-meadowlark-electric", intake: "—", coordinator: "—",
+      service_area: "sample metro area", channels: [] }
+  ]
+};
+
+/* ============================================================ */
+const $ = (id) => document.getElementById(id);
+const money = (n) => "$" + Number(n).toFixed(2);
+const packName = (id) => (FIXTURES.packs.find((p) => p.id === id) || {}).name || null;
+
+function pctUsed(t) {
+  if (!t.monthly) return 0;
+  return Math.min(100, Math.round((t.spend / t.monthly) * 100));
+}
+function barClass(pct) { return pct >= 90 ? "err" : pct >= 70 ? "warn" : ""; }
+
+/* ---------- Tenants table ---------- */
+function renderTenants() {
+  const rows = FIXTURES.tenants.map((t) => {
+    const pct = pctUsed(t);
+    const pack = t.pack
+      ? '<span class="packtag">' + packName(t.pack) + "</span>"
+      : '<span class="packtag none">no pack</span>';
+    return (
+      '<tr data-slug="' + t.slug + '" onclick="openDrawer(\'' + t.slug + '\')">' +
+        '<td><div class="tname">' + t.name + '</div><div class="tsub">' + t.slug + "</div></td>" +
+        "<td>" + t.vertical + "</td>" +
+        '<td><span class="badge ' + t.status + '">' + t.status + "</span></td>" +
+        "<td>" + pack + "</td>" +
+        "<td>" + money(t.monthly) + '<div class="tsub">/ month cap</div></td>' +
+        "<td>" + money(t.spend) + '<div class="tsub">month-to-date</div></td>' +
+        '<td><div class="budgetcell">' +
+          '<div class="bar"><span class="' + barClass(pct) + '" style="width:' + pct + '%"></span></div>' +
+          '<div class="nums">' + pct + "%</div>" +
+        "</div></td>" +
+      "</tr>"
+    );
+  });
+  $("tenantRows").innerHTML = rows.join("");
+}
+
+/* ---------- Packs cards ---------- */
+function renderPacks() {
+  const cards = FIXTURES.packs.map((p) => {
+    const assigned = FIXTURES.tenants.filter((t) => t.pack === p.id);
+    const tags = assigned.length
+      ? assigned.map((t) => '<span class="packtag">' + t.name + "</span>").join("")
+      : '<span class="packtag none">no tenants assigned</span>';
+    return (
+      '<div class="card">' +
+        "<h3>" + p.name + "</h3>" +
+        '<div class="vert">' + p.vertical + "</div>" +
+        '<div class="meta"><b>' + p.agents + "</b> agent roster · <b>" + p.skills + "</b> intake skill</div>" +
+        '<div class="meta">autonomy policy: ' +
+          '<b style="color:var(--ok)">' + p.policyCounts.green + " green</b> · " +
+          '<b style="color:var(--warn)">' + p.policyCounts.yellow + " yellow</b> · " +
+          '<b style="color:var(--err)">' + p.policyCounts.red + " red</b></div>" +
+        '<div class="assigned">' +
+          '<div class="meta" style="margin-bottom:6px">Assigned to</div>' + tags +
+        "</div>" +
+      "</div>"
+    );
+  });
+  $("packCards").innerHTML = cards.join("");
+}
+
+/* ---------- Detail drawer ---------- */
+function openDrawer(slug) {
+  const t = FIXTURES.tenants.find((x) => x.slug === slug);
+  if (!t) return;
+
+  document.querySelectorAll("#tenantRows tr").forEach((r) =>
+    r.classList.toggle("selected", r.getAttribute("data-slug") === slug));
+
+  $("dTitle").textContent = t.name;
+  $("dSub").innerHTML =
+    t.vertical + " · <span class='badge " + t.status + "'>" + t.status + "</span> · " + t.slug;
+
+  const pct = pctUsed(t);
+  const pack = t.pack ? packName(t.pack) : null;
+
+  // Feature flags — every one rendered OFF + read-only (demo invariant).
+  const flags = FIXTURES.flagCatalog.map((f) =>
+    '<div class="flag">' +
+      "<div><div class='fname'>" + f.label + "</div><div class='fdesc'>" + f.desc + "</div></div>" +
+      "<div class='switch' title='OFF (read-only demo)'></div>" +
+      "<span class='offlabel'>OFF</span>" +
+    "</div>"
+  ).join("");
+
+  // Roster (only when a pack is assigned)
+  const roster = t.pack
+    ? FIXTURES.roster.map((r) => {
+        const name = r.role === "intake" ? t.intake : r.role === "coordinator" ? t.coordinator : "—";
+        return "<div class='roster-item'><span class='band'>Band " + r.band + "</span>" +
+          "<span class='role'>" + r.role + "</span><span class='agent'>— " + name + "</span></div>";
+      }).join("")
+    : "<div class='note'>No pack assigned yet — this tenant has no agent roster.</div>";
+
+  // Representative autonomy policy
+  const pol = (bucket, cls) =>
+    FIXTURES.policy[bucket].map((a) =>
+      "<div class='policy'><span class='dot " + cls + "'></span><span class='act'>" + a + "</span></div>"
+    ).join("");
+
+  $("dBody").innerHTML =
+    // ----- assigned pack -----
+    "<div class='block'><div class='lbl'>Assigned playbook pack</div>" +
+      (pack
+        ? "<span class='packtag'>" + pack + "</span> <span class='note' style='margin:0'>(" + t.vertical + " vertical)</span>"
+        : "<span class='packtag none'>no pack assigned</span>") +
+    "</div>" +
+
+    // ----- budget / cost -----
+    "<div class='block'><div class='lbl'>Budget &amp; cost</div>" +
+      "<div class='bar' style='margin-bottom:10px'><span class='" + barClass(pct) +
+        "' style='width:" + pct + "%'></span></div>" +
+      "<div class='kv'><span class='k'>Monthly budget cap</span><span class='v'>" + money(t.monthly) + "</span></div>" +
+      "<div class='kv'><span class='k'>Spend month-to-date</span><span class='v'>" + money(t.spend) + "</span></div>" +
+      "<div class='kv'><span class='k'>Used</span><span class='v'>" + pct + "%</span></div>" +
+      "<div class='kv'><span class='k'>Daily cap</span><span class='v'>" + money(t.daily_cap) + "</span></div>" +
+      "<div class='kv'><span class='k'>Per-run cap</span><span class='v'>" + money(t.per_run_cap) + "</span></div>" +
+    "</div>" +
+
+    // ----- feature flags -----
+    "<div class='block'><div class='lbl'>Feature flags — read-only</div>" + flags +
+      "<div class='note'><b>All flags OFF.</b> This is a demo surface; toggles do not write anything.</div>" +
+    "</div>" +
+
+    // ----- roster -----
+    "<div class='block'><div class='lbl'>Agent roster</div>" + roster + "</div>" +
+
+    // ----- contract details -----
+    "<div class='block'><div class='lbl'>Contract</div>" +
+      "<div class='kv'><span class='k'>Workspace partition</span><span class='v'>" + t.workspace + "</span></div>" +
+      "<div class='kv'><span class='k'>Service area</span><span class='v'>" + t.service_area + "</span></div>" +
+      "<div class='kv'><span class='k'>Channels</span><span class='v'>" +
+        (t.channels.length ? t.channels.join(", ") : "none") + "</span></div>" +
+    "</div>" +
+
+    // ----- autonomy policy -----
+    "<div class='block'><div class='lbl'>Autonomy policy (representative)</div>" +
+      pol("green", "green") + pol("yellow", "yellow") + pol("red", "red") +
+      "<div class='note'>green = agent acts · yellow = human approves · red = never automated. " +
+        "Fail-closed: any action not listed is treated as red.</div>" +
+    "</div>" +
+
+    // ----- actions (visual only) -----
+    "<div class='block'><div class='lbl'>Actions</div>" +
+      "<div class='drawer-actions'>" +
+        "<button class='secondary' onclick=\"demoAction('Assign pack')\">Assign pack</button>" +
+        "<button class='secondary' onclick=\"demoAction('Edit budget')\">Edit budget</button>" +
+        "<button class='danger' onclick=\"demoAction('Decommission tenant')\">Decommission</button>" +
+      "</div>" +
+      "<div class='note'>Buttons are visual-only in this demo — they call nothing and change nothing.</div>" +
+    "</div>";
+
+  $("scrim").classList.add("open");
+  $("drawer").classList.add("open");
+  $("drawer").setAttribute("aria-hidden", "false");
+}
+
+function closeDrawer() {
+  $("scrim").classList.remove("open");
+  $("drawer").classList.remove("open");
+  $("drawer").setAttribute("aria-hidden", "true");
+  document.querySelectorAll("#tenantRows tr.selected").forEach((r) => r.classList.remove("selected"));
+}
+
+/* ---------- View tabs ---------- */
+function showView(name) {
+  document.querySelectorAll(".view").forEach((v) => v.classList.remove("active"));
+  document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
+  $("view-" + name).classList.add("active");
+  $("tab-" + name).classList.add("active");
+}
+
+/* ---------- No-op demo action + toast ---------- */
+let toastTimer = null;
+function demoAction(label) {
+  const el = $("toast");
+  el.innerHTML = "<b>DEMO</b> — “" + label + "” does nothing here. No live tenants, no writes.";
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+/* ---------- boot ---------- */
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrawer(); });
+renderTenants();
+renderPacks();
+</script>
+</body>
+</html>

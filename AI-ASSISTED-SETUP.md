@@ -52,6 +52,78 @@ Start by analyzing the repository structure and then guide me through deployment
 * Keep instructions practical and sequential.
 * After each major step, tell me how to verify success.
 
+## Preconditions checklist (confirm before Phase 1)
+
+Do not start Phase 5 (Azure execution) until every **Required** item is true.
+Tick these off with me first; treat an unchecked required item as a stop.
+
+Required for local setup:
+
+* [ ] Docker (or a compatible runtime) installed and its daemon running
+* [ ] A copy of `.env` created from `.env.example`
+* [ ] Ports 8080 (model-router) and 5432 (Postgres) free
+
+Required for Azure infrastructure deployment:
+
+* [ ] Azure CLI installed and `az login` completed
+* [ ] Terraform installed (matching the version the repo pins, if any)
+* [ ] A target Azure subscription chosen, and you have Contributor on it
+* [ ] Your Azure AD object ID captured for Key Vault admin
+  (`az ad signed-in-user show --query id -o tsv`)
+* [ ] A region and a short lowercase environment name chosen (e.g. `dev`)
+
+Required for full service deployment:
+
+* [ ] Container images built and pushed, and the image tag noted (Phase 6)
+* [ ] Key Vault seeded with the required secrets (Phase 7)
+
+Optional integrations (only if you plan to enable them): Telegram / Discord
+tokens, an Azure AI Foundry endpoint + deployment name, Application Insights.
+
+> Tip: the Forge Console ships an offline preflight that reports these
+> prerequisites and the operator gates below in one shot: `./forge --check`.
+
+## Operator gates / human sign-off required
+
+These are the points where you (the human operator) must explicitly approve
+before anything irreversible or billable happens. Stop and wait for my typed
+sign-off at each one; never wave one through on my behalf.
+
+1. **Subscription / billing gate** — confirm the exact subscription before any
+   `apply`. Apply creates real, billable Azure resources.
+2. **Secrets-in-Key-Vault gate** — I seed provider keys and Postgres connection
+   strings into Key Vault myself (via `scripts/bootstrap.sh` and
+   `scripts/seed-keyvault.sh`). Never ask me to paste secrets into chat, and
+   never write a secret into a file.
+3. **Terraform plan-review gate** — show me `terraform plan` output and let me
+   read it before proposing `apply`.
+4. **Environment-name confirmation gate** — before `apply` or `destroy`, have me
+   re-state the environment name as an explicit confirmation.
+5. **Destroy-approval gate** — if a plan would delete or replace any resource,
+   call it out loudly and get a second, distinct approval before applying. This
+   mirrors the console's `approve-destroy` gate and the CI destroy detector
+   (`installer/detect_destroy.py`).
+6. **CI/CD scaffold gate** — the one-time pipeline setup mutates Azure
+   identity/RBAC and GitHub config; treat its `--apply` as a distinct approval
+   (`scaffold-apply`), separate from a normal deploy.
+
+## Per-phase verification signals ("how to know this step worked")
+
+Use these as the concrete success checks when you close out each phase:
+
+* **Phase 3 (local):** `docker compose ps` shows the working slice up; the
+  model-router answers on `:8080`; Postgres accepts a connection on `:5432`.
+* **Phase 4/5 (Azure):** `terraform validate` passes; `terraform plan` shows the
+  expected resources and **no unexpected deletes**; after `apply`, `terraform
+  output` returns endpoints and the Key Vault name.
+* **Phase 6 (images):** each pushed tag is listed by
+  `az acr repository show-tags`, and the tag matches what tfvars references.
+* **Phase 7 (secrets):** each required secret is present via
+  `az keyvault secret list` (names only — never print values).
+* **Phase 10 (validation):** Container Apps report `provisioningState=Succeeded`;
+  a model call returns a completion; logs appear in Log Analytics. The reference
+  smoke verdict (`installer/smoke.py`) encodes exactly these pass/fail rules.
+
 ## Phase 1 — Repository discovery
 
 First, inspect the repository and produce a concise repo map.
