@@ -125,7 +125,7 @@ Semantics:
 
 ## Security
 
-- **Bearer auth**: set `ROUTER_API_KEY` to require a matching `Authorization: Bearer <key>` header on all `/v1/*` requests.
+- **API-key auth**: set `ROUTER_API_KEY` to require a matching credential on all `/v1/*` requests — either `Authorization: Bearer <key>` (OpenAI-style clients) or `x-api-key: <key>` (Anthropic-native clients; the Anthropic SDK sends x-api-key for any custom base_url, which is how Hermes's `anthropic_messages` transport reaches `/v1/messages`). Fails closed (503) when unset.
 - **Rate limiting**: `RATE_LIMIT_RPM` (default: 60) enforces a per-IP sliding-window limit.
 - **Input validation**: message count capped at `MAX_MESSAGES` (default: 200); total tokens at `MAX_BODY_TOKENS` (default: 200 000).
 

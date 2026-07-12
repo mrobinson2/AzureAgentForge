@@ -46,6 +46,37 @@ class TestVerifyAuth:
         req = make_request(headers={"authorization": "bearer   s3cret  "})
         assert router._verify_auth(req) is None
 
+    def test_x_api_key_passes(self, router, monkeypatch, make_request):
+        """Anthropic-native clients (Hermes anthropic_messages transport) send
+        x-api-key instead of Authorization — same key, alternate header."""
+        monkeypatch.setattr(router, "_ROUTER_API_KEY", "s3cret")
+        req = make_request(headers={"x-api-key": "s3cret"})
+        assert router._verify_auth(req) is None
+
+    def test_x_api_key_wrong_403(self, router, monkeypatch, make_request):
+        monkeypatch.setattr(router, "_ROUTER_API_KEY", "s3cret")
+        with pytest.raises(HTTPException) as exc:
+            router._verify_auth(make_request(headers={"x-api-key": "wrong"}))
+        assert exc.value.status_code == 403
+
+    def test_bearer_wins_over_x_api_key(self, router, monkeypatch, make_request):
+        """When both headers are present the Bearer token is authoritative — a
+        wrong Bearer is rejected even if x-api-key is correct (no fallback that
+        would mask a misconfigured primary credential)."""
+        monkeypatch.setattr(router, "_ROUTER_API_KEY", "s3cret")
+        with pytest.raises(HTTPException) as exc:
+            router._verify_auth(
+                make_request(headers={"authorization": "Bearer wrong", "x-api-key": "s3cret"})
+            )
+        assert exc.value.status_code == 403
+
+    def test_x_api_key_fails_closed_when_unconfigured(self, router, monkeypatch, make_request):
+        # aaf-0005 also holds for the x-api-key scheme.
+        monkeypatch.setattr(router, "_ROUTER_API_KEY", "")
+        with pytest.raises(HTTPException) as exc:
+            router._verify_auth(make_request(headers={"x-api-key": "anything"}))
+        assert exc.value.status_code == 503
+
     def test_endpoint_rejects_unauthenticated(self, unauth_client, router, monkeypatch):
         """End-to-end: a protected endpoint 401s when the key is set and no
         header is sent (exercises the guard through the real ASGI Request)."""

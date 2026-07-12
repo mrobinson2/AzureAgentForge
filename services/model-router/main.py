@@ -54,7 +54,20 @@ _ROUTER_API_KEY = os.environ.get("ROUTER_API_KEY", "")
 
 
 def _verify_auth(request: Request) -> None:
-    """Require a valid Bearer token. Fail closed when unconfigured (aaf-0005)."""
+    """Require a valid Bearer token OR x-api-key. Fail closed when unconfigured
+    (aaf-0005).
+
+    Two header schemes carry the same single ROUTER_API_KEY:
+      - `Authorization: Bearer <key>` — OpenAI-style clients (LiteLLM, the
+        OpenAI SDK, in-mesh services).
+      - `x-api-key: <key>` — Anthropic-native clients. The Anthropic SDK sends
+        x-api-key (not Authorization) for any non-anthropic.com base_url, so
+        Hermes's `api_mode: anthropic_messages` transport hits /v1/messages with
+        x-api-key only. Before this was accepted, every agent model call on the
+        cache-friendly Messages path died with 401 while /health stayed green —
+        exactly the silent stack-shape breakage the agent-loop canary smoke
+        (scripts/smoke-canary.sh) exists to catch.
+    """
     if not _ROUTER_API_KEY:
         # Fail CLOSED — an unset key must mean "down", never "open".
         raise HTTPException(
@@ -62,9 +75,15 @@ def _verify_auth(request: Request) -> None:
             detail="Router authentication not configured (ROUTER_API_KEY unset)",
         )
     auth = request.headers.get("authorization", "")
-    if not auth.lower().startswith("bearer "):
-        raise HTTPException(status_code=401, detail="Missing Authorization header")
-    token = auth[7:].strip()
+    if auth.lower().startswith("bearer "):
+        token = auth[7:].strip()
+    else:
+        token = (request.headers.get("x-api-key") or "").strip()
+        if not token:
+            raise HTTPException(
+                status_code=401,
+                detail="Missing Authorization header (Bearer) or x-api-key",
+            )
     # Constant-time comparison over fixed-length digests to prevent timing attacks.
     expected = hashlib.sha256(_ROUTER_API_KEY.encode()).digest()
     provided = hashlib.sha256(token.encode()).digest()
