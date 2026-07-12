@@ -123,5 +123,7 @@ jobs:
           pytest -q tests/memory-governor
       - name: watchdog
         run: pytest -q services/watchdog/tests
+      - name: skill helpers (canonical user-peer threading, A5)
+        run: pytest -q tests/skills
       - name: compileall
         run: python -m compileall services installer

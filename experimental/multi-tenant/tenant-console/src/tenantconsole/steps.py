@@ -27,6 +27,7 @@ instantly and offline.
 
 from __future__ import annotations
 
+import os
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
@@ -432,7 +433,11 @@ class Provisioner:
                 "content": content,
                 "workspace_name": ws,
                 "observer": "operator",
-                "observed": "user",
+                # A5: seeds are ABOUT the tenant's principal user — resolve the
+                # canonical user peer (same deploy-time input as the governor
+                # default and the pc-* helpers) instead of a hardcoded literal,
+                # so seeded facts land on the peer readers actually query.
+                "observed": (os.environ.get("HONCHO_USER_PEER_ID") or "").strip() or "user",
                 "created_by_peer": "operator",
                 "memory_class": seed["memory_class"],
                 "scope_kind": "workspace",

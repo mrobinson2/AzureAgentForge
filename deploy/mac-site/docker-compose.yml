@@ -124,6 +124,11 @@ services:
       DATABASE_URL: "postgresql+psycopg://${POSTGRES_USER:-dbadmin}:${POSTGRES_PASSWORD_URLENC:?run secrets-pull.sh}@${AZURE_PG_HOST:?set in .env}:5432/honcho?sslmode=require"
       ROUTER_BASE_URL: "http://model-router:8080/v1"
       HONCHO_BASE_URL: "http://honcho:8000"
+      # A5: canonical user peer — /admit defaults `observed` to this when a
+      # writer omits it. Same input + same "user" fallback as paperclip below;
+      # a site that overrides it does so ONCE in .env for every service.
+      # docs/design/memory-system.md §18.
+      HONCHO_USER_PEER_ID: "${HONCHO_USER_PEER_ID:-user}"
 
   # ── PaperClip (auth-proxy + UI/API + agent runtime) ────────────────────────
   paperclip:
@@ -144,6 +149,10 @@ services:
       OPENAI_API_KEY: "${ROUTER_API_KEY:?run secrets-pull.sh}"
       GOVERNOR_BASE_URL: "http://memory-governor:8090"
       HONCHO_BASE_URL: "http://honcho:8000"
+      # A5: canonical user peer — the pc-memory/pc-honcho helpers agents run in
+      # this container write and query it. Must equal the governor's value
+      # above; both resolve the same ${HONCHO_USER_PEER_ID} from .env.
+      HONCHO_USER_PEER_ID: "${HONCHO_USER_PEER_ID:-user}"
       # Agents run inside this container and authenticate with a local agent JWT
       # that only the backend on :3099 validates; the auth-proxy on :3100 accepts
       # only automation tokens. Point in-container agent calls at the backend so

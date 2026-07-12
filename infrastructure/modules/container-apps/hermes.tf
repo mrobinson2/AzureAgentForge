@@ -230,6 +230,16 @@ resource "azurerm_container_app" "hermes" {
         name  = "HONCHO_APP_ID"
         value = "hermes-${var.environment}"
       }
+      # A5: canonical user peer. The gateway is where user identity ENTERS the
+      # platform — left unpinned, gateways tend to auto-derive peer names from
+      # channel session ids (one peer per chat surface), which fragments a
+      # single human across peers no reader queries. Thread the same
+      # var.honcho_user_peer_id every other component gets so writes from this
+      # container land on the canonical peer. docs/design/memory-system.md §18.
+      env {
+        name  = "HONCHO_USER_PEER_ID"
+        value = var.honcho_user_peer_id
+      }
       env {
         name  = "AZURE_CLIENT_ID"
         value = azurerm_user_assigned_identity.hermes.client_id

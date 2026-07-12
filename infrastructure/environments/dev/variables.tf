@@ -313,6 +313,12 @@ variable "honcho_workspace_name" {
   type        = string
 }
 
+variable "honcho_user_peer_id" {
+  description = "A5: canonical user peer — the ONE peer id representing the human principal, threaded into hermes, paperclip, and the memory-governor alike. Default \"user\" matches every component's code-level fallback; override in tfvars only if this environment's memory history lives under a different peer (discover with `pc-honcho list-peers`)."
+  type        = string
+  default     = "user"
+}
+
 variable "observability_enabled" {
   description = "Emit GenAI-semconv spans from the model-router to App Insights. Off by default; flip to true in dev.auto.tfvars to activate."
   type        = bool

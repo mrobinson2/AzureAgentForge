@@ -347,10 +347,12 @@ resource "azurerm_container_app" "paperclip" {
         # a per-env split is needed in the future.
         value = var.honcho_workspace_name
       }
-      # Peer ID Orchestrator queries when answering "what do you know about Operator" —
-      # must match the peer the Telegram bot writes to. Discover the right value
-      # by running `pc-honcho list-peers` in the container, then re-applying with
-      # -var="honcho_user_peer_id=<id>".
+      # A5: canonical user peer — the pc-memory/pc-honcho helpers in this
+      # container write and query it, and it must match the peer the gateway
+      # writes to and the governor defaults `observed` to (all three thread the
+      # same var). If an existing deployment used a different id, discover it
+      # with `pc-honcho list-peers` in the container, then set
+      # honcho_user_peer_id in tfvars — one input, every component.
       env {
         name  = "HONCHO_USER_PEER_ID"
         value = var.honcho_user_peer_id

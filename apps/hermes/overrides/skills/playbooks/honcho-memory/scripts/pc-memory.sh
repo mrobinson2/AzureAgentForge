@@ -30,6 +30,8 @@
 #   GOVERNOR_API_KEY  — shared key (KV: memory-governor-api-key)
 #   GOVERNOR_WORKSPACE — workspace name (defaults to HONCHO_APP_ID or hermes-dev)
 #   PAPERCLIP_AGENT_SLUG — used as observer/created_by identity
+#   HONCHO_USER_PEER_ID — canonical user peer `record` writes facts about
+#     (defaults to "user"; see docs/design/memory-system.md §18)
 
 set -e
 
@@ -37,6 +39,12 @@ BASE="${GOVERNOR_BASE_URL:-http://ca-memory-governor-dev}"
 KEY="${GOVERNOR_API_KEY:-}"
 WORKSPACE="${GOVERNOR_WORKSPACE:-${HONCHO_APP_ID:-hermes-dev}}"
 AGENT="${PAPERCLIP_AGENT_SLUG:-${GOVERNOR_AGENT_SLUG:-operator}}"
+# A5: canonical user peer. `record` sends `observed` EXPLICITLY instead of
+# leaning on the governor's server-side default — an omitted field is how
+# writes fragment across peers when any component's default drifts. The same
+# deploy-time input (HONCHO_USER_PEER_ID) feeds compose, Terraform, and the
+# governor, so writer and reader always name the same peer.
+OBSERVED="${HONCHO_USER_PEER_ID:-user}"
 
 jpost() {
   curl -sS -X POST "$BASE$1" \
@@ -84,7 +92,7 @@ case "$CMD" in
       esac
     done
     [ -z "$CONTENT" ] && { echo "ERROR: --content required" >&2; exit 2; }
-    BODY="{\"content\":\"$(jstr "$CONTENT")\",\"workspace_name\":\"$WORKSPACE\",\"observer\":\"$AGENT\",\"created_by_peer\":\"$AGENT\",\"pin_request\":$PIN"
+    BODY="{\"content\":\"$(jstr "$CONTENT")\",\"workspace_name\":\"$WORKSPACE\",\"observer\":\"$AGENT\",\"observed\":\"$(jstr "$OBSERVED")\",\"created_by_peer\":\"$AGENT\",\"pin_request\":$PIN"
     [ -n "$CLASS" ]      && BODY="$BODY,\"memory_class\":\"$CLASS\""
     [ -n "$SCOPE_KIND" ] && BODY="$BODY,\"scope_kind\":\"$SCOPE_KIND\""
     [ -n "$SCOPE_ID" ]   && BODY="$BODY,\"scope_id\":\"$(jstr "$SCOPE_ID")\""

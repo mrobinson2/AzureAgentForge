@@ -45,7 +45,10 @@ class AdmitRequest:
     content: str
     workspace_name: str
     observer: str  # peer that holds the memory (usually the agent slug)
-    observed: str  # peer the memory is about (usually 'user' or the agent)
+    # Peer the memory is about. For user-scoped facts this MUST be the canonical
+    # user peer (config.user_peer_id(), i.e. HONCHO_USER_PEER_ID) — main.py's
+    # AdmitBody defaults it there. Agent self-lessons use the agent slug instead.
+    observed: str
     created_by_peer: str
     session_id: str | None = None
     issue_id: str | None = None

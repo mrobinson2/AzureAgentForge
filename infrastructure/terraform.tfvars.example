@@ -11,6 +11,15 @@ discord_enabled  = false
 # Set a DISTINCT value per environment so dev/prod never share governed memory.
 honcho_workspace_name = "hermes"
 
+# A5: canonical user peer — ONE deploy-time id for the human principal's memory
+# peer, threaded into hermes, paperclip, and the memory-governor alike (env
+# HONCHO_USER_PEER_ID). Defaults to "user" everywhere; only set this if the
+# environment's memory history was built under a different peer id (discover
+# with `pc-honcho list-peers` in the paperclip container). NEVER point
+# individual components at different peers — that fragments one human across
+# peers and recall silently misses. docs/design/memory-system.md §18.
+# honcho_user_peer_id = "user"
+
 # aaf-0013: Key Vault firewall defaults to Deny (secure-by-default). With public
 # access on and no private endpoint, add your Terraform-runner egress IP so
 # apply/secret-pull is not locked out (example uses an RFC-5737 documentation IP):
