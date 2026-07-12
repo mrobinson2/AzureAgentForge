@@ -1,5 +1,7 @@
 # foundry-chat-proxy — minimal AI Foundry chat backend
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 A small, single-purpose **Azure Functions (v4 programming model, Node 24)** HTTP
 proxy that fronts an **Azure AI Foundry** chat deployment with a **grounded
 persona**. It exists to be the private backend for a website chat widget (or any

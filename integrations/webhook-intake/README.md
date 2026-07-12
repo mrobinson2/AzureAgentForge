@@ -7,6 +7,8 @@
 
 # Inbound Intake Webhook (reference pattern)
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 > 🚧 **Reference template — not deployed.** This directory documents a generic
 > integration pattern and ships a self-contained, unit-tested reference handler.
 > It is **not** wired into the compose stack or the Terraform environment — adopt

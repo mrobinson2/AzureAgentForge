@@ -1,5 +1,7 @@
 # Obsidian Memory Interface Implementation Plan
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use a subagent-driven development workflow (recommended) or a plan-execution workflow to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A two-way `memory ↔ Obsidian vault` CLI: `export` projects governed-memory entries into a local Obsidian-compatible Markdown+frontmatter vault, and `sync` applies operator edits back to the governor (delete → rm, confirm/pin/dispute/demote via frontmatter) with conflict reporting. Read (export) ships first and is a prerequisite for write-back.

@@ -1,5 +1,7 @@
 # B3 — GenAI-semconv Observability Implementation Plan
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use a subagent-driven development workflow (recommended) or a plan-execution workflow to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Every model call through AAF's `services/model-router` emits one OpenTelemetry GenAI-semconv span (model, tokens, cost, latency) to Application Insights — behind `OBSERVABILITY_ENABLED` (default off), content-redacted — and the previously-untracked Anthropic path becomes cost-tracked + observable.

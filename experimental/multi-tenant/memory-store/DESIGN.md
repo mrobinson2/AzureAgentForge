@@ -7,6 +7,8 @@
 
 # Memory Store Architecture (pgvector)
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../../docs/architecture.md).
+
 > 🚧 **Design target — not deployed.** This is reference scaffolding for the multi-tenant memory store. The single-tenant stack in this repository is what actually deploys and what CI validates. Treat this as a roadmap, not a shipped feature.
 
 This document describes the PostgreSQL-based memory system that can replace Azure AI Search in dev/test, while keeping a clean migration path back to Azure Search later.

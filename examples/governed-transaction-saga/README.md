@@ -1,5 +1,7 @@
 # Governed Transaction Saga
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 A compact, dependency-free **event-sourced governance core**. It shows the
 minimum machinery that makes an autonomous action *governable*: you can always
 say what happened, in what order, why, and whether every action that needed

@@ -1,5 +1,7 @@
 # Vendoring & Buildability — Design Spec
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 **Date:** 2026-06-18 (rev 2 — incorporates review feedback + repo/license findings)
 **Status:** Approved (design); ready for implementation planning
 **Sub-project:** #1 of 5 in the "make AAF deployment super easy for an external adopter" track

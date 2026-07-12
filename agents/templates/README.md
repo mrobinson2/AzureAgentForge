@@ -1,5 +1,7 @@
 # Agent Templates
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 Starting points for building a new agent role. Where [`../profiles/`](../profiles/) holds the **validated, shipped role instances**, this directory holds the **reusable templates** you adapt when you need a role the profiles don't already cover — or when you want to understand the house pattern before editing a profile.
 
 Every file here is generic and sanitized: no persona names, no tenant names, no real hostnames or secrets. Fill the placeholders, keep the load-bearing patterns, and you get a role prompt that behaves like the ones already in `../profiles/`.

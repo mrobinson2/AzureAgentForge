@@ -1,5 +1,7 @@
 # Monitoring module
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../../docs/architecture.md).
+
 Log Analytics workspace + Application Insights, plus an **opt-in** observability
 layer: alert rules and an Azure Monitor workbook over the platform's Container
 Apps console logs.

@@ -1,5 +1,7 @@
 # Turnkey scaffold-3 — Forge Console CI/CD-Setup Page Implementation Plan
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use a subagent-driven development workflow (recommended) or a plan-execution workflow to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a "CI/CD Setup" page to the Forge Console that runs the existing `scripts/scaffold-cicd.sh` (OIDC app + state backend + GitHub vars/secrets/deploy-destroy env) as a one-click, live-streamed operation — preview-first, with provider secrets passed via the subprocess environment (never the command line), and an explicit typed confirmation before `--apply`.

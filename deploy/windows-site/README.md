@@ -1,5 +1,7 @@
 # Windows PRIMARY site (WSL2 + Task Scheduler)
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 The Windows equivalent of [`deploy/mac-site/`](../mac-site/). It runs the **same
 platform stack** — a Docker Compose set of Linux containers (paperclip, honcho,
 model-router, memory-governor, cloudflared) talking to the **shared** public

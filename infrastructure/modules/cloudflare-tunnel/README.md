@@ -1,5 +1,7 @@
 # cloudflare-tunnel
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../../docs/architecture.md).
+
 Manages the Cloudflare side of public ingress so the `cloudflared` container app
 (`infrastructure/modules/container-apps/cloudflared.tf`) doesn't depend on
 hand-clicking the Cloudflare dashboard. It creates:

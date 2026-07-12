@@ -7,6 +7,8 @@
 
 # Infrastructure Cost Profiles
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 Three `.tfvars` files are provided so you can apply a consistent cost/security
 posture without editing individual variable files each time.
 

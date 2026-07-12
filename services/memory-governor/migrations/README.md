@@ -1,5 +1,7 @@
 # Governed-memory migrations
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../../docs/architecture.md).
+
 The memory-governor shares **Honcho's Postgres** — it does not own a database.
 Honcho's own migrations create `documents`/`collections` (+ 1536-dim embeddings);
 these files add the **governed-memory overlay** on top: extra columns the governor

@@ -1,5 +1,7 @@
 # B2 — ACA Sandboxes Seam (port) Implementation Plan
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use a subagent-driven development workflow (recommended) or a plan-execution workflow to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add a provider-pluggable sandbox execution seam to AAF's paperclip — the contract plus a `local` adapter and a fail-closed provider factory — flag-off and unwired, with full unit tests, as the public mirror of the internally-shipped B2-1.

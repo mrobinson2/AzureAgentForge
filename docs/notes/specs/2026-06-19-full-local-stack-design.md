@@ -1,5 +1,7 @@
 # One-Command Full Local Stack — Design Spec
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 **Date:** 2026-06-19
 **Status:** Approved (brainstorming) → ready for implementation plan
 **Branch:** `feat/full-local-stack` (builds on `feat/vendoring-buildability` / PR #17)

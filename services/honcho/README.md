@@ -1,5 +1,7 @@
 # Honcho memory service
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 Vendored build of [plastic-labs/honcho](https://github.com/plastic-labs/honcho)
 (AGPL-3.0), pinned as a git submodule at `apps/honcho/src`.
 

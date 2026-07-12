@@ -7,6 +7,8 @@
 
 # Vendored-config schema guard (A3)
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../architecture.md).
+
 ![status](https://img.shields.io/badge/status-shipped%20%E2%80%94%20CI%20enforcing-brightgreen)
 
 > **One sentence.** A CI job (`validate-vendored-config`) that validates every

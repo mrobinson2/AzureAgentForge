@@ -7,6 +7,8 @@
 
 # Memory Store Service
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../../docs/architecture.md).
+
 > 🚧 **Design target — not deployed.** This is reference scaffolding for the multi-tenant memory store. The single-tenant stack in this repository is what actually deploys and what CI validates. Treat this as a roadmap, not a shipped feature.
 
 Lightweight FastAPI service that exposes a thin HTTP interface on top of PostgreSQL + pgvector. It provides a cost-effective memory backend compatible with a future Azure AI Search re-index.

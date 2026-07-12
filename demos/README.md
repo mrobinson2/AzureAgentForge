@@ -1,5 +1,7 @@
 # Demos
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../README.md) or [Architecture](../docs/architecture.md).
+
 Reproducible, version-controlled sources for the governance/safety GIFs and
 screenshot shown in the project README. Everything renders deterministically
 from these sources — no manual screen recording.

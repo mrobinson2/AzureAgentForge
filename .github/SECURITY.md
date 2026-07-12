@@ -7,6 +7,8 @@
 
 # Security Policy
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../README.md) or [Architecture](../docs/architecture.md).
+
 ## Supported versions
 
 This is a reference platform released under the `v1.x` line. Security fixes land on `main` and ship in the next tag. There is no long-term support branch — run a recent tag.
@@ -33,4 +35,4 @@ This repository is **validated to plan, not deployed for you**. It ships infrast
 
 - `.env.example` and `terraform.tfvars.example` contain **placeholders only** — never real secrets. Real secrets are expected to live in Azure Key Vault and be mounted at runtime.
 - CI runs `gitleaks` and `terraform validate` on every push; see `.github/workflows/ci.yml`.
-- For the platform's security posture and hardening options, see [docs/security.md](docs/security.md).
+- For the platform's security posture and hardening options, see [docs/security.md](../docs/security.md).

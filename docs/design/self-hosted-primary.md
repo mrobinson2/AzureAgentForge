@@ -7,6 +7,8 @@
 
 # Self-hosted-primary, cloud warm standby — architecture reference
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../architecture.md).
+
 ![status](https://img.shields.io/badge/reference-architecture-blue)
 
 > **Status — read first.** This document describes a deployment topology and the

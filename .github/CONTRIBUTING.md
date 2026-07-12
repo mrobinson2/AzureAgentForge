@@ -7,6 +7,8 @@
 
 # Contributing
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../README.md) or [Architecture](../docs/architecture.md).
+
 ## Proposing changes
 
 Open an issue before starting non-trivial work. Describe what you want to change and why. This avoids duplicate effort and keeps infrastructure changes from conflicting.

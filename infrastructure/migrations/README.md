@@ -1,5 +1,7 @@
 # Database migrations
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 Plain `.sql` migrations for the governed-memory layer. They run against the
 Postgres database that backs Honcho — the memory governor reads and writes the
 same database, so there is no separate store to provision.

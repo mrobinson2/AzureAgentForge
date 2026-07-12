@@ -7,6 +7,8 @@
 
 # Roadmap
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../README.md) or [Architecture](../docs/architecture.md).
+
 This directory holds design-target reference material that is intentionally **NOT deployed** and **NOT part of the runnable stack**.
 
 Nothing here is wired into `docker-compose.yml`, the Terraform environment modules under `infrastructure/`, or any service under `services/`. CI does not validate this directory as a deployable artifact.

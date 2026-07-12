@@ -7,6 +7,8 @@
 
 # Telegram Integration
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 ## Overview
 
 The Telegram integration enables users to interact with the agent platform through a Telegram bot.
