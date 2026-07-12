@@ -230,6 +230,22 @@ resource "azurerm_container_app" "memory_governor" {
         name  = "GPT4O_DAILY_BUDGET_USD"
         value = var.memory_classifier_daily_budget_usd
       }
+      # ── A6 acting budget enforcement (same contract as the hermes-pod
+      # router). The embeddings cap protects the governor's vector-retrieval
+      # spend; there is no downgrade target for embeddings (vector-space pin),
+      # so downgrade degrades to warn on that path and block 429s.
+      env {
+        name  = "BUDGET_ENFORCE_MODE"
+        value = var.budget_enforce_mode
+      }
+      env {
+        name  = "BUDGET_FALLBACK_TIER"
+        value = var.budget_fallback_tier
+      }
+      env {
+        name  = "EMBEDDING_DAILY_BUDGET_USD"
+        value = var.embedding_daily_budget_usd
+      }
     }
   }
 

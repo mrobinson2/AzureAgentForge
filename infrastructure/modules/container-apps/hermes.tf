@@ -461,6 +461,18 @@ resource "azurerm_container_app" "hermes" {
         value = "4096"
       }
 
+      # ── A6 acting budget enforcement ──
+      # warn (default; observe-only) | downgrade (serve the fallback tier +
+      # X-Router-Budget-Downgrade header) | block (429 budget_exceeded).
+      env {
+        name  = "BUDGET_ENFORCE_MODE"
+        value = var.budget_enforce_mode
+      }
+      env {
+        name  = "BUDGET_FALLBACK_TIER"
+        value = var.budget_fallback_tier
+      }
+
       env {
         name  = "LOG_LEVEL"
         value = "info" # was "debug" — excessive log volume in deployed environments

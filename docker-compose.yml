@@ -67,6 +67,12 @@ services:
       EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
       EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
       EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
+      EMBEDDING_DAILY_BUDGET_USD: ${EMBEDDING_DAILY_BUDGET_USD:-1.00}
+      # A6 acting budget enforcement: warn (default; pre-A6 behavior) |
+      # downgrade (serve BUDGET_FALLBACK_TIER + X-Router-Budget-Downgrade
+      # header) | block (429 budget_exceeded). Invalid values fail open to warn.
+      BUDGET_ENFORCE_MODE: ${BUDGET_ENFORCE_MODE:-warn}
+      BUDGET_FALLBACK_TIER: ${BUDGET_FALLBACK_TIER:-gpt4o-mini}
     ports: ["${ROUTER_PORT:-8080}:8080"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)\""]
