@@ -1,0 +1,33 @@
+# Vendored-config schema guard — Hermes manifest (A3).
+#
+# The guard derives the accepted config.yaml key tree by AST-parsing the
+# vendored parser (apps/hermes/src/hermes_cli/config.py: DEFAULT_CONFIG +
+# _KNOWN_ROOT_KEYS). This manifest only covers what that parse CANNOT see:
+# sections whose vendored default is a scalar (polymorphic), where the dict
+# form's accepted subkeys exist only as scattered runtime reads.
+#
+# pinned_commit MUST equal the apps/hermes/src submodule gitlink. On a vendor
+# bump the guard fails until someone re-validates the sections below against
+# the new source and updates this pin — deliberately loud, that's the guard's
+# whole point. Re-validate with:
+#   git -C apps/hermes/src grep -n 'model_cfg.get\|_model_cfg.get'
+pinned_commit: a91a57fa5a13d516c38b07a141a9ce8a3daabeb0  # v2026.5.16 (v0.14.0)
+
+polymorphic_sections:
+  # DEFAULT_CONFIG has `model: ""` (string), but the runtime equally accepts a
+  # dict form. Accepted subkeys, curated from the pinned source:
+  #   hermes_cli/runtime_provider.py (resolve_requested_provider,
+  #   _get_model_config consumers), hermes_cli/config.py
+  #   (get_custom_provider_context_length), run_agent.py (_model_cfg reads).
+  model:
+    - provider
+    - model
+    - default
+    - base_url
+    - api_key
+    - api_mode
+    - max_tokens
+    - context_length
+    - ollama_num_ctx
+    - name
+    - openai_runtime

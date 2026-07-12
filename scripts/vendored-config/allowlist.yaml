@@ -1,0 +1,36 @@
+# Vendored-config schema guard — allowlist (A3).
+#
+# Suppressions for keys the guard flags that are legitimately shipped anyway.
+# EVERY entry requires a non-empty `reason` — the guard fails on reason-less
+# entries. An entry here is a reviewed decision with git history; if you are
+# tempted to add one to silence a finding, first check whether the finding is
+# the incident (a key the vendored app really no longer reads).
+allow:
+  # ── Platform env consumed by the container runtime / SDKs, not by the
+  #    vendored app's own config surface ─────────────────────────────────────
+  - app: honcho
+    key: AZURE_CLIENT_ID
+    reason: consumed by azure-identity (user-assigned managed identity selection), not by Honcho's settings model
+  - app: honcho
+    key: APPLICATIONINSIGHTS_CONNECTION_STRING
+    reason: consumed by the Application Insights exporter/agent, not by Honcho's settings model
+  - app: hermes
+    key: AZURE_CLIENT_ID
+    reason: consumed by azure-identity (user-assigned managed identity selection), not by Hermes
+  - app: hermes
+    key: APPLICATIONINSIGHTS_CONNECTION_STRING
+    reason: consumed by the Application Insights exporter/agent, not by Hermes
+  - app: paperclip
+    key: AZURE_CLIENT_ID
+    reason: consumed by azure-identity (user-assigned managed identity selection), not by PaperClip
+  - app: paperclip
+    key: APPLICATIONINSIGHTS_CONNECTION_STRING
+    reason: consumed by the Application Insights exporter/agent, not by PaperClip
+
+  # ── Env consumed by a non-Python binary the scanners cannot see ───────────
+  - app: hermes
+    key: GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE
+    reason: read by the external gws CLI binary the google-workspace skill shells out to (the skill's google_api.py propagates it into the subprocess env); not an os.getenv read the scanner can detect
+  - app: paperclip
+    key: GOOGLE_WORKSPACE_CLI_CREDENTIALS_FILE
+    reason: same gws CLI binary, bundled in the paperclip image for Hermes skills

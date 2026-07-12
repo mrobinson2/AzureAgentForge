@@ -129,3 +129,30 @@ jobs:
         run: pytest -q tests/skills
       - name: compileall
         run: python -m compileall services installer
+
+  # A3 — vendored-config schema guard. Every config key AAF ships to a
+  # vendored app (compose/Terraform env blocks, the generated Hermes
+  # config.yaml) must be read by the PINNED vendored source; keys the app
+  # silently drops (the Honcho 3.0.7 flat-key removal class) fail here
+  # instead of silently degrading a deployment.
+  # docs/design/vendored-config-schema-guard.md
+  validate-vendored-config:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The accepted-key universes are derived from the pinned vendored
+          # source (honcho pydantic settings, hermes config parser), so the
+          # submodules must be checked out — same as build-context.
+          submodules: recursive
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: install guard deps
+        run: pip install -r scripts/vendored-config/requirements.txt pytest
+      - name: self-test (prove the guard detects seeded drift before trusting a pass)
+        run: python scripts/validate_vendored_config.py --self-test
+      - name: schema guard (shipped config vs pinned vendored schemas)
+        run: python scripts/validate_vendored_config.py
+      - name: validator unit tests
+        run: pytest -q tests/vendored-config

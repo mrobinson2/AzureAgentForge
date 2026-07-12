@@ -98,42 +98,49 @@ resource "azurerm_container_app" "honcho" {
         value = var.app_insights_connection_string
       }
 
-      # Summary: override Google default
+      # Per-specialist model config — Honcho >= 3.0.7 nested MODEL_CONFIG shape.
+      # The pre-3.0.7 flat keys (SUMMARY_PROVIDER, SUMMARY_MODEL, …) were
+      # REMOVED upstream and are silently ignored (pydantic-settings
+      # extra="ignore"): shipping them makes every specialist fall back to
+      # direct-OpenAI gpt-5.4-mini. See services/honcho/README.md; drift here
+      # is caught by CI (scripts/validate_vendored_config.py).
       env {
-        name  = "SUMMARY_PROVIDER"
+        name  = "SUMMARY_MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
 
       env {
-        name  = "SUMMARY_MODEL"
+        name  = "SUMMARY_MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
 
-      # Deriver: override Google default
       env {
-        name  = "DERIVER_PROVIDER"
+        name  = "DERIVER_MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
 
       env {
-        name  = "DERIVER_MODEL"
+        name  = "DERIVER_MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
 
-      # Dialectic: override all 5 levels (required by _validate_all_levels_present).
-      # DialecticSettings uses env_prefix="DIALECTIC_" + env_nested_delimiter="__",
-      # so the correct path is DIALECTIC_LEVELS__<level>__<FIELD>.
-      # The old DIALECTIC_MINIMAL_PROVIDER style is silently ignored by pydantic-settings.
+      # Dialectic: pin all 5 reasoning levels to the same small model. Nested
+      # path is env_prefix DIALECTIC_ + "__" delimiter + the MODEL_CONFIG
+      # sub-model: DIALECTIC_LEVELS__<level>__MODEL_CONFIG__<field>.
+      # MAX_TOOL_ITERATIONS survived 3.0.7 and stays a per-level field (NOT
+      # under MODEL_CONFIG). 3.0.11 fills omitted levels from built-in
+      # defaults (openai/gpt-5.4-mini), so pinning all five keeps the model
+      # choice ours rather than upstream's.
       env {
-        name  = "DIALECTIC_LEVELS__minimal__PROVIDER"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__minimal__MODEL"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__minimal__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -142,15 +149,15 @@ resource "azurerm_container_app" "honcho" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__low__PROVIDER"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__low__MODEL"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__low__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -159,15 +166,15 @@ resource "azurerm_container_app" "honcho" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__medium__PROVIDER"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__medium__MODEL"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__medium__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -176,15 +183,15 @@ resource "azurerm_container_app" "honcho" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__high__PROVIDER"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__high__MODEL"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__high__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -193,15 +200,15 @@ resource "azurerm_container_app" "honcho" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__max__PROVIDER"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__max__MODEL"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__max__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -336,12 +343,12 @@ resource "azurerm_container_app" "honcho_deriver" {
       }
 
       env {
-        name  = "DERIVER_PROVIDER"
+        name  = "DERIVER_MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
 
       env {
-        name  = "DERIVER_MODEL"
+        name  = "DERIVER_MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
 
@@ -361,27 +368,28 @@ resource "azurerm_container_app" "honcho_deriver" {
 
       # Summary is also used by the deriver worker
       env {
-        name  = "SUMMARY_PROVIDER"
+        name  = "SUMMARY_MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
 
       env {
-        name  = "SUMMARY_MODEL"
+        name  = "SUMMARY_MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
 
-      # Dialectic: all 5 levels must be configured (same fix as API app).
-      # Deriver itself doesn't run Dialectic, but shared config init validates all levels.
+      # Dialectic: same nested MODEL_CONFIG shape as the API app (the flat
+      # pre-3.0.7 keys are removed upstream and silently ignored). Deriver
+      # itself doesn't run Dialectic, but shared config init resolves all levels.
       env {
-        name  = "DIALECTIC_LEVELS__minimal__PROVIDER"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__minimal__MODEL"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__minimal__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -390,15 +398,15 @@ resource "azurerm_container_app" "honcho_deriver" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__low__PROVIDER"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__low__MODEL"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__low__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -407,15 +415,15 @@ resource "azurerm_container_app" "honcho_deriver" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__medium__PROVIDER"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__medium__MODEL"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__medium__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -424,15 +432,15 @@ resource "azurerm_container_app" "honcho_deriver" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__high__PROVIDER"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__high__MODEL"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__high__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -441,15 +449,15 @@ resource "azurerm_container_app" "honcho_deriver" {
       }
 
       env {
-        name  = "DIALECTIC_LEVELS__max__PROVIDER"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__max__MODEL"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__max__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -544,11 +552,11 @@ resource "azurerm_container_app_job" "honcho_deriver" {
         value = var.app_insights_connection_string
       }
       env {
-        name  = "DERIVER_PROVIDER"
+        name  = "DERIVER_MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DERIVER_MODEL"
+        name  = "DERIVER_MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
@@ -560,23 +568,23 @@ resource "azurerm_container_app_job" "honcho_deriver" {
         value = "1"
       }
       env {
-        name  = "SUMMARY_PROVIDER"
+        name  = "SUMMARY_MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "SUMMARY_MODEL"
+        name  = "SUMMARY_MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__minimal__PROVIDER"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__minimal__MODEL"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__minimal__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__minimal__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -584,15 +592,15 @@ resource "azurerm_container_app_job" "honcho_deriver" {
         value = "1"
       }
       env {
-        name  = "DIALECTIC_LEVELS__low__PROVIDER"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__low__MODEL"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__low__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__low__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -600,15 +608,15 @@ resource "azurerm_container_app_job" "honcho_deriver" {
         value = "5"
       }
       env {
-        name  = "DIALECTIC_LEVELS__medium__PROVIDER"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__medium__MODEL"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__medium__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__medium__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -616,15 +624,15 @@ resource "azurerm_container_app_job" "honcho_deriver" {
         value = "2"
       }
       env {
-        name  = "DIALECTIC_LEVELS__high__PROVIDER"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__high__MODEL"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__high__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__high__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {
@@ -632,15 +640,15 @@ resource "azurerm_container_app_job" "honcho_deriver" {
         value = "4"
       }
       env {
-        name  = "DIALECTIC_LEVELS__max__PROVIDER"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__TRANSPORT"
         value = "openai"
       }
       env {
-        name  = "DIALECTIC_LEVELS__max__MODEL"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL"
         value = "gpt-4o-mini"
       }
       env {
-        name  = "DIALECTIC_LEVELS__max__THINKING_BUDGET_TOKENS"
+        name  = "DIALECTIC_LEVELS__max__MODEL_CONFIG__THINKING_BUDGET_TOKENS"
         value = "0"
       }
       env {

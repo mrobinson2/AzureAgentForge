@@ -1,0 +1,7 @@
+# Deps for scripts/validate_vendored_config.py (A3 vendored-config schema guard).
+# pydantic + pydantic-settings are needed to LOAD the vendored Honcho settings
+# model (apps/honcho/src/src/config.py); python-dotenv is imported by it.
+PyYAML>=6.0
+pydantic>=2.7
+pydantic-settings>=2.3
+python-dotenv>=1.0

@@ -1,0 +1,33 @@
+# Vendored-config schema guard — PaperClip manifest (A3).
+#
+# PaperClip source is NOT in-tree (services/paperclip/Dockerfile clones the
+# pinned release tag at image build), so its env surface cannot be derived by
+# parsing — this curated manifest carries ONLY the keys the upstream server /
+# agent runtime consume. Keys read by in-tree code (the AAF entrypoint,
+# auth-proxy.mjs, the adapter patches, and the vendored Hermes CLI bundled in
+# the same image) are derived by scanning that source and must NOT be listed
+# here.
+#
+# pinned_version MUST equal the PAPERCLIP_VERSION default in BOTH
+# services/paperclip/Dockerfile (ARG) and docker-compose.yml. On a version
+# bump the guard fails until someone re-validates this list against the new
+# release and updates the pin — deliberately loud.
+pinned_version: v2026.707.0
+
+accepted_env:
+  - key: DATABASE_URL
+    consumer: upstream server — Postgres connection (drizzle)
+  - key: HOST
+    consumer: upstream server — bind address
+  - key: SERVE_UI
+    consumer: upstream server — serve the built UI from the server process
+  - key: BETTER_AUTH_SECRET
+    consumer: upstream server — better-auth signing secret
+  - key: BETTER_AUTH_URL
+    consumer: upstream server — better-auth base URL
+  - key: PAPERCLIP_AGENT_JWT_SECRET
+    consumer: upstream server — agent-JWT mint/validation secret
+  - key: PAPERCLIP_API_URL
+    consumer: upstream agent runtime — API base URL for in-container agents
+  - key: LOG_LEVEL
+    consumer: upstream server — logger level
