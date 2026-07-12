@@ -207,7 +207,15 @@ RUN mkdir -p /tmp/tsx-pkg && cd /tmp/tsx-pkg \
 # ── Stage 2c: Hermes CLI (Python) ─────────────────────────────────────────────
 # Build Hermes Agent from the local source (not PyPI).
 # Installs into /opt/hermes so it's independent of a specific Python venv path.
-FROM python:3.14-slim AS hermes-cli
+# MUST match the production stage's runtime python. The production base is
+# node:lts-trixie-slim (Debian trixie → python3 = 3.13) and PYTHONPATH below
+# hard-codes /opt/hermes/lib/python3.13/site-packages. Building this stage on
+# python:3.14 installed the Hermes deps under python3.14/ with cp314 binary
+# wheels — so the runtime python3.13 found an EMPTY site-packages and every
+# `hermes` spawn died instantly with ModuleNotFoundError (adapter_failed →
+# run recovery → issue blocked). The stack's health checks stayed green the
+# whole time; the agent-loop canary (scripts/smoke-canary.sh) caught it.
+FROM python:3.13-slim AS hermes-cli
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends gcc git \

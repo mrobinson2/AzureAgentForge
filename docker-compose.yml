@@ -205,7 +205,35 @@ services:
       HONCHO_USER_PEER_ID: ${HONCHO_USER_PEER_ID:-user}
       PAPERCLIP_AUTOMATION_JWT_SECRET: ${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-automation-secret-change-me}
       PAPERCLIP_AGENT_JWT_SECRET: ${PAPERCLIP_AGENT_JWT_SECRET:-localdev-agent-secret-change-me}
-      PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@localhost}
+      # Agents run INSIDE this container and authenticate with a local agent
+      # JWT (iss "paperclip", agent secret) that ONLY the backend on :3099
+      # validates — the auth-proxy on :3100 accepts automation JWTs only. The
+      # hermes adapter's paperclipApiUrl default is http://127.0.0.1:3100/api
+      # (the proxy), so without this every agent-side API call (posting the
+      # result comment, marking the issue done) 401s with "Invalid token" while
+      # all health checks stay green. The agent-loop canary smoke
+      # (scripts/smoke-canary.sh) exists to catch exactly this class of gap.
+      PAPERCLIP_API_URL: http://127.0.0.1:3099/api
+      # Must be a VALID email shape: better-auth's sign-up validator rejects
+      # TLD-less addresses (admin@localhost → 400 "[body.email] Invalid email
+      # address"), so the previous admin@localhost default could never be
+      # registered and the auth-proxy's admin-session bootstrap was
+      # broken-by-default on a fresh stack — caught by scripts/smoke-canary.sh.
+      PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@example.com}
+      # better-auth derives its trusted origins from PAPERCLIP_ALLOWED_HOSTNAMES
+      # plus the backend's LISTEN port (3099 behind the auth-proxy), so the
+      # proxy's public origin http://localhost:3100 was NOT trusted and every
+      # sign-up/sign-in through the proxy 403'd "Invalid origin". Two settings
+      # are needed (both caught live by scripts/smoke-canary.sh):
+      #   - PAPERCLIP_PUBLIC_URL: what the auth-proxy rewrites Origin to (and
+      #     the entrypoint's config.json publicUrl). NOTE: PaperClip's server
+      #     rewrites a localhost base URL's port to its own LISTEN port
+      #     (rewriteLocalUrlPort), so this alone cannot whitelist the proxy
+      #     origin for better-auth.
+      #   - BETTER_AUTH_TRUSTED_ORIGINS: upstream's explicit escape hatch —
+      #     a comma list unioned verbatim into better-auth's trusted origins.
+      PAPERCLIP_PUBLIC_URL: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3100}}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-http://localhost:${PAPERCLIP_PORT:-3100}}
       PAPERCLIP_ADMIN_PASSWORD: ${PAPERCLIP_ADMIN_PASSWORD:-localdev-admin-change-me}
     ports: ["${PAPERCLIP_PORT:-3100}:3100"]
     volumes: ["paperclip-data:/paperclip"]

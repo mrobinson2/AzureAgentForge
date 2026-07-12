@@ -1,0 +1,44 @@
+# Agent-loop canary overlay — apply ON TOP of docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.canary.yml \
+#     --profile full up -d --build
+#   bash scripts/smoke-canary.sh
+#
+# Adds a scripted Anthropic-Messages stub model backend (no model credentials
+# needed) and registers it as the router's CLAUDE tier, so the e2e canary
+# (file issue → agent wakes → Hermes calls the router → agent posts a
+# disposition and closes) can run in CI. ONLY the LLM inference is stubbed —
+# see scripts/canary/anthropic_stub.py for the exact real-vs-stubbed line.
+#
+# This file is NOT part of the default stack; the base compose remains a
+# no-credentials health-gated slice. See docs/local-development.md.
+
+services:
+  canary-stub:
+    image: python:3.12-alpine
+    volumes: ["./scripts/canary:/canary:ro"]
+    command: ["python", "/canary/anthropic_stub.py"]
+    environment:
+      CANARY_STUB_PORT: "9785"
+      CANARY_STUB_API_KEY: ${CANARY_STUB_API_KEY:-canary-stub-key}
+    # Published so scripts/smoke-canary.sh can arm the stub with the filed
+    # issue's identifier and read its request counters. Loopback only.
+    ports: ["127.0.0.1:${CANARY_STUB_PORT:-9785}:9785"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:9785/health').status==200 else 1)\""]
+      interval: 3s
+      timeout: 5s
+      retries: 10
+
+  model-router:
+    environment:
+      # Register the stub as the CLAUDE tier (Anthropic Messages dispatch).
+      # Hermes's anthropic_messages transport → router /v1/messages →
+      # AsyncAnthropic against the stub. The tier name (CLAUDE_MODEL) must
+      # match the canary agent's adapterConfig.model in smoke-canary.sh.
+      CLAUDE_BASE_URL: http://canary-stub:9785
+      CLAUDE_API_KEY: ${CANARY_STUB_API_KEY:-canary-stub-key}
+      CLAUDE_MODEL: ${CANARY_MODEL:-claude-canary}
+    depends_on:
+      canary-stub:
+        condition: service_healthy

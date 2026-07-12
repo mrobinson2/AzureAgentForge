@@ -216,6 +216,16 @@ HERMES_EOF
 chown node:node "${HERMES_CONFIG}" 2>/dev/null || true
 echo "[entrypoint] Wrote Hermes config at ${HERMES_CONFIG} (provider=custom api_mode=chat_completions base_url=${HERMES_BASE_URL_DEFAULT})"
 
+# The Hermes home tree is created/written by ROOT during this entrypoint, but
+# the hermes CLI runs as `node` at agent spawn and must stat/read AND WRITE
+# inside it (its .env probe, sessions, logs). On Azure Files (SMB) permissions
+# surface as 0777 so this was invisible; on a real POSIX volume a root-owned
+# ~/.hermes killed EVERY agent spawn with
+#   PermissionError: [Errno 13] Permission denied: '/paperclip/.hermes/.env'
+# (surfacing only as an opaque `adapter_failed` recovery comment). Caught by
+# the agent-loop canary (scripts/smoke-canary.sh).
+chown -R node:node "${HERMES_CONFIG_DIR}" 2>/dev/null || true
+
 # ── JWT Auth Proxy for automation API access ─────────────────────────────────
 # When PAPERCLIP_AUTOMATION_JWT_SECRET is set, the auth proxy sits on port 3100
 # (the public port) and forwards to Paperclip on port 3099 (internal).

@@ -5,20 +5,26 @@ on:
   push:
     paths:
       - 'docker-compose.yml'
+      - 'docker-compose.canary.yml'
       - 'services/**'
       - 'apps/**'
       - 'infrastructure/migrations/**'
       - 'scripts/smoke-local.sh'
+      - 'scripts/smoke-canary.sh'
+      - 'scripts/canary/**'
       - 'scripts/local-stack.sh'
       - '.env.example'
       - '.github/workflows/local-stack-smoke.yml'
   pull_request:
     paths:
       - 'docker-compose.yml'
+      - 'docker-compose.canary.yml'
       - 'services/**'
       - 'apps/**'
       - 'infrastructure/migrations/**'
       - 'scripts/smoke-local.sh'
+      - 'scripts/smoke-canary.sh'
+      - 'scripts/canary/**'
       - 'scripts/local-stack.sh'
       - '.env.example'
       - '.github/workflows/local-stack-smoke.yml'
@@ -43,13 +49,35 @@ jobs:
             fi
             sleep 10
           done
-      - name: Smoke
+      - name: Smoke (health gate — no model creds)
         run: bash scripts/smoke-local.sh
+      # ── Agent-loop canary ─────────────────────────────────────────────────
+      # The health gate above proves containers are up; it does NOT prove an
+      # agent can complete work. The canary overlay adds a scripted stub model
+      # backend (only the LLM inference is stubbed) and the roundtrip files a
+      # real issue, waits for the agent to wake, drive the model-router, post
+      # a disposition comment, and close it. See scripts/smoke-canary.sh.
+      - name: Apply canary overlay (stub model tier)
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.canary.yml \
+            --profile full up -d --wait canary-stub model-router
+      # Fail fast with the REAL error if the bundled agent runtime can't even
+      # boot inside the paperclip container (import errors here previously
+      # surfaced only as an opaque one-line `adapter_failed` recovery comment).
+      # --user node is load-bearing: agents spawn as node, and a root-run
+      # probe would create root-owned files under ~/.hermes that then break
+      # the node-user spawns it is trying to validate.
+      - name: Probe agent runtime inside the paperclip container
+        run: |
+          docker compose -f docker-compose.yml -f docker-compose.canary.yml --profile full \
+            exec -T --user node paperclip sh -c 'python3 --version && hermes --version && echo "runtime probe OK"'
+      - name: Canary roundtrip (file issue → agent wakes → disposition → done)
+        run: CANARY_TIMEOUT_SECONDS=420 bash scripts/smoke-canary.sh
       - name: Logs on failure
         if: failure()
         run: |
-          docker compose --profile full ps -a
-          docker compose --profile full logs --no-color
+          docker compose -f docker-compose.yml -f docker-compose.canary.yml --profile full ps -a
+          docker compose -f docker-compose.yml -f docker-compose.canary.yml --profile full logs --no-color
       - name: Teardown
         if: always()
-        run: docker compose --profile full down -v
+        run: docker compose -f docker-compose.yml -f docker-compose.canary.yml --profile full down -v
