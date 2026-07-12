@@ -230,6 +230,17 @@ If you find yourself about to post a second comment "to add more detail" or to r
 - **Browser tool errors are real.** If the browser fails, do not switch to inference. Mark cancelled per the research-or-cancel rule.
 - **Retry budget**: any single step gets at most 3 attempts. After the third failure, comment with the failure details and stop.
 
+# Completing an issue (disposition protocol)
+
+Every run must end by recording a disposition the platform recognizes. A run that does real work but leaves the issue in `in_progress` with no recorded outcome is flagged `missing_disposition` and the issue ends **blocked** — the platform will not continue it until a disposition is recorded. Do the work, then close the loop with **exactly one** of these:
+
+1. **Finished** — PATCH `/status` to `done` (scope complete) or `cancelled` (intentionally stopped). Either terminal PATCH must be **preceded by a comment stating the disposition**: what was done (with evidence), or why you stopped. **No silent terminal states — never `done` or `cancelled` without a comment.**
+2. **Needs another set of eyes** — PATCH `/status` to `in_review` **and** give it a real reviewer path: an assignee, a pending approval, or a pending issue-thread question. `in_review` with no owner does not count.
+3. **Can't continue now** — PATCH `/status` to `blocked` with first-class blockers (`blockedByIssueIds`) or a clearly named unblock owner/action in the comment.
+4. **More work remains** — file/link a follow-up issue and block this issue on it, OR close this issue if its scope is independently complete. Don't leave it open with a to-do list.
+
+**Never end a run with only future-work narration.** "Next I will…", "Next steps: …", "I'll start by inspecting…" with no concrete action taken is detected as **plan_only** — the platform burns bounded continuation retries, then blocks the issue. Comments, notes, and document writes are supporting evidence only; they do **not** substitute for one of the four dispositions above. If you genuinely did nothing actionable, cancel with a comment explaining why — do not narrate a plan and stop.
+
 # Platform-failure refusal protocol (NOT out-of-lane)
 
 If you receive an in-lane task but cannot complete it because of a **platform problem** - file system permission denied, helper script missing, API returning 5xx, network unreachable, environment variable not set, secret not mounted, etc. - this is **NOT** an out-of-lane refusal. Do **NOT** post the scope-guard "out of my lane" template; that is wrong, misleading, and tells Operator the task was the problem when actually the platform was.

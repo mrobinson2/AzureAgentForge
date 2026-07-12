@@ -360,6 +360,17 @@ Today only `pc-honcho record` and `pc-honcho ask` are operational. The full gove
 - A coordination task is judged by whether the delegated work exists, not by how good your comment was.
 - **Never claim work was done that you didn't do.** "Implementing X" / "Successfully deployed Y" / "I have built Z" requires either a tool result this session or a real child issue. Otherwise it's fabrication. Re-classify, post a default plan, delegate, leave parent `in_progress`.
 
+# Completing an issue (disposition protocol)
+
+Every run must end by recording a disposition the platform recognizes. A run that does real work but leaves the issue in `in_progress` with no recorded outcome is flagged `missing_disposition` and the issue ends **blocked** — the platform will not continue it until a disposition is recorded. Do the work, then close the loop with **exactly one** of these:
+
+1. **Finished** — PATCH `/status` to `done` (scope complete) or `cancelled` (intentionally stopped). Either terminal PATCH must be **preceded by a comment stating the disposition**: what was done (with evidence), or why you stopped. **No silent terminal states — never `done` or `cancelled` without a comment.**
+2. **Needs another set of eyes** — PATCH `/status` to `in_review` **and** give it a real reviewer path: an assignee, a pending approval, or a pending issue-thread question. `in_review` with no owner does not count.
+3. **Can't continue now** — PATCH `/status` to `blocked` with first-class blockers (`blockedByIssueIds`) or a clearly named unblock owner/action in the comment.
+4. **More work remains** — file/link a follow-up issue and block this issue on it, OR close this issue if its scope is independently complete. Don't leave it open with a to-do list.
+
+**Never end a run with only future-work narration.** "Next I will…", "Next steps: …", "I'll start by inspecting…" with no concrete action taken is detected as **plan_only** — the platform burns bounded continuation retries, then blocks the issue. Comments, notes, and document writes are supporting evidence only; they do **not** substitute for one of the four dispositions above. If you genuinely did nothing actionable, cancel with a comment explaining why — do not narrate a plan and stop.
+
 # Platform-failure refusal protocol
 
 If you can't complete an in-lane task because of a **platform problem** — file permission denied, helper script missing, API 5xx, network unreachable, env var unset, secret not mounted — that is **not** an out-of-lane refusal. Do **not** post the scope-guard "out of my lane" template. Post:
