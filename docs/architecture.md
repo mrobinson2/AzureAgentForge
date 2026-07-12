@@ -7,6 +7,29 @@
 
 # Architecture
 
+## How to read this document
+
+This is the deep reference: every component, its exact Azure resource type, and its configuration knobs. If you want the two-minute version first, here it is.
+
+**In plain words:** a person's message comes in through a web UI (or Telegram/Discord/Teams). It's handed to a work-order system (PaperClip), which dispatches it to a worker (Hermes) that can call an AI model and use tools. Before and after, that worker reads and writes what it remembers about you through a filing cabinet (Honcho). Every call to the AI model passes through a spending gate (the Model Router) first, so a budget cap always applies. Everything runs inside one private network on your Azure subscription; secrets live in Key Vault, not in code.
+
+| Component | In plain words | Section below |
+|---|---|---|
+| **PaperClip** | The work-order system — the web UI, task board, and dispatcher agents receive work through | [PaperClip](#paperclip) |
+| **Hermes** | The worker — runs the actual agent loop: read task, call model, call tools, report back | [Agent runtime (Hermes)](#agent-runtime-hermes) |
+| **Model Router** | The spending gate — every model call passes through it so a budget cap and fallback plan apply | [Model Router](#model-router) |
+| **Honcho** | The filing cabinet — stores what agents remember about a session or user | [Honcho](#honcho) |
+| **Memory Governor** | An optional bouncer in front of the filing cabinet — decides what's worth remembering and how much to trust it. Off by default. | [Memory Governor](#memory-governor-optional-flag-gated-off) |
+| **Watchdog** | An optional janitor — notices repeated failures and turns them into lessons agents don't have to relearn. Off by default. | [Watchdog](#watchdog-optional-flag-gated-off) |
+| **PostgreSQL** | The one database everything above actually writes to | [PostgreSQL Flexible Server](#postgresql-flexible-server) |
+| **Key Vault** | Where every password and API key lives — never in code, never in a container image | [Key Vault](#key-vault) |
+| **Log Analytics** | Where logs and traces from every service end up, so you can see what happened without SSHing in | [Log Analytics + Application Insights](#log-analytics--application-insights) |
+| **Ingress** | The front door that terminates inbound web traffic | [Ingress](#ingress) |
+
+Everything below this point is the detailed reference — read the whole thing, or jump to the component you need from the table above. Unfamiliar term (VNet aside — Azure networking is assumed knowledge here)? Check the [glossary](GLOSSARY.md).
+
+---
+
 ## Overview
 
 AzureAgentForge runs on Azure Container Apps inside a single VNet. Four containerized services (PaperClip, Hermes, the Model Router, and Honcho) run alongside a private PostgreSQL Flexible Server. Traffic between them stays inside the VNet; LLM inference leaves only through the Model Router, bound for Azure AI Foundry or a fallback OpenAI-compatible endpoint. Users reach the platform through PaperClip's web UI, or optionally through Telegram and Discord bridges. Credentials live in Key Vault and are fetched at container startup. Logs go to a shared Log Analytics workspace.

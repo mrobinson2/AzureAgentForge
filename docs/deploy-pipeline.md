@@ -13,6 +13,8 @@ repo's own CI: the public repo holds no cloud credentials, so CI stays
 validate-only (`fmt`, `validate`, `compose config`, tests). This workflow is the
 piece you add when you fork and deploy for real.
 
+It authenticates to Azure via [OIDC](GLOSSARY.md#oidc), so no long-lived Azure credential is ever stored in GitHub.
+
 <p align="center">
   <img src="assets/diagrams/deploy-pipeline.svg" alt="AzureAgentForge deploy pipeline — build, seed, plan, destroy-aware approval gate, apply, smoke; shared by the Forge Console and the reference GitHub Actions workflow" width="900">
 </p>

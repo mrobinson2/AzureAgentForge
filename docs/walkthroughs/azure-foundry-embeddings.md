@@ -99,8 +99,9 @@ provider switch.
 ### `400 unknown_model` from Foundry
 
 This is the one that looks inexplicable — the deployment exists, the key is
-right, and Foundry still answers `unknown_model`. The cause is LiteLLM
-provider detection: when the `api_base` points at an **azure.com** host and
+right, and Foundry still answers `unknown_model`. The cause is
+[LiteLLM](../GLOSSARY.md#litellm) provider detection: when the `api_base`
+points at an **azure.com** host and
 the model string has no `provider/` prefix, LiteLLM flips to its AZURE
 provider, which authenticates with an `api-key` **header**. Foundry's
 OpenAI-compatible `/openai/v1` endpoint expects `Authorization: Bearer` and

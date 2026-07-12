@@ -7,6 +7,8 @@
 
 # Cost
 
+This is the per-service infrastructure cost breakdown. For the reasoning behind the trade-offs (why Container Apps, why Azure AI Foundry costs more than calling OpenAI directly), see [`docs/why-azure.md`](why-azure.md).
+
 > ✅ **Validated against a real deployment.** The figures below are grounded in Azure Cost Management data from a live deployment's resource group (`ActualCost`, May 2026, Central US), mapped to this repo's `cost-optimized` profile. They exclude components the live resource group carries but this repo does not provision (a CI build-agent VM, automation workflows, and a model subscription), plus Cloudflared, which this profile leaves off. Your bill will still vary with region, activity level, and especially Azure Files transaction volume. **LLM token usage is billed separately and is NOT included here.**
 
 Cost depends on your region, your activity level, and which profile you deploy. The table below is the `cost-optimized` default (`infrastructure/profiles/cost-optimized.tfvars`), showing what each line actually cost, per resource, in a live deployment for May 2026. Your own figures will vary, especially Container Apps (idle vs. busy workers) and Azure Files (billed per transaction).

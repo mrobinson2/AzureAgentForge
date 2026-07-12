@@ -12,6 +12,8 @@ model-router that normalises requests to your LLM endpoint, a Honcho memory
 layer, and a Paperclip orchestrator. You can run all four locally with Docker
 Compose or deploy them to Azure Container Apps with Terraform.
 
+New to these names? The [README's component table](../README.md#the-components) explains what each one is in plain words, and the [glossary](GLOSSARY.md) defines any unfamiliar term below.
+
 Pick a path:
 
 - **Path 0, Forge Console (recommended).** Run `./forge` from the repo root

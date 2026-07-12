@@ -7,7 +7,7 @@
 
 # Agent Roles
 
-AzureAgentForge uses a 14-role model. Each role is defined by a YAML profile in [`../agents/profiles/`](../agents/profiles/), validated against a JSON schema, and resolved to a concrete model deployment at runtime by the model router.
+An **[agent](GLOSSARY.md#agent)** here isn't one general-purpose assistant — it's a team of 14, each scoped to a job (coding, security review, cost watching, and so on) and each allowed only the tools that job needs. AzureAgentForge uses this 14-role model. Each role is defined by a YAML profile in [`../agents/profiles/`](../agents/profiles/), validated against a JSON schema, and resolved to a concrete model deployment at runtime by the [model router](GLOSSARY.md#model-router).
 
 ## Role hierarchy
 
