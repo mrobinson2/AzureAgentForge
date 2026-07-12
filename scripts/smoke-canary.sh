@@ -238,10 +238,10 @@ AGENT_ID="$(jget "$agents" "next((a['id'] for a in (d if isinstance(d, list) els
 if [ -n "$AGENT_ID" ]; then
   pass "agent '${AGENT_NAME}' exists (${AGENT_ID})"
 else
-  # provider "auto" is load-bearing: it stops the adapter inferring
-  # --provider anthropic from the claude-* model name, so the container's
-  # Hermes config.yaml (provider custom → router, api_mode
-  # anthropic_messages) controls routing.
+  # provider "auto" is defense-in-depth: the A1 build patch pins the
+  # adapter to --provider custom unconditionally (config.yaml → router),
+  # but on an unpatched image "auto" still prevents the adapter inferring
+  # --provider anthropic from the claude-* model name.
   agent_payload="$(python3 -c '
 import json, sys
 print(json.dumps({

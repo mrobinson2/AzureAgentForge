@@ -221,12 +221,19 @@ services:
       # broken-by-default on a fresh stack — caught by scripts/smoke-canary.sh.
       PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@example.com}
       # better-auth derives its trusted origins from PAPERCLIP_ALLOWED_HOSTNAMES
-      # plus the backend's LISTEN port (3099 behind the auth-proxy) — so the
+      # plus the backend's LISTEN port (3099 behind the auth-proxy), so the
       # proxy's public origin http://localhost:3100 was NOT trusted and every
-      # sign-up/sign-in through the proxy 403'd "Invalid origin". Setting the
-      # public URL switches better-auth to explicit base-URL mode and trusts
-      # this origin. Caught by scripts/smoke-canary.sh.
+      # sign-up/sign-in through the proxy 403'd "Invalid origin". Two settings
+      # are needed (both caught live by scripts/smoke-canary.sh):
+      #   - PAPERCLIP_PUBLIC_URL: what the auth-proxy rewrites Origin to (and
+      #     the entrypoint's config.json publicUrl). NOTE: PaperClip's server
+      #     rewrites a localhost base URL's port to its own LISTEN port
+      #     (rewriteLocalUrlPort), so this alone cannot whitelist the proxy
+      #     origin for better-auth.
+      #   - BETTER_AUTH_TRUSTED_ORIGINS: upstream's explicit escape hatch —
+      #     a comma list unioned verbatim into better-auth's trusted origins.
       PAPERCLIP_PUBLIC_URL: ${PAPERCLIP_PUBLIC_URL:-http://localhost:${PAPERCLIP_PORT:-3100}}
+      BETTER_AUTH_TRUSTED_ORIGINS: ${BETTER_AUTH_TRUSTED_ORIGINS:-http://localhost:${PAPERCLIP_PORT:-3100}}
       PAPERCLIP_ADMIN_PASSWORD: ${PAPERCLIP_ADMIN_PASSWORD:-localdev-admin-change-me}
     ports: ["${PAPERCLIP_PORT:-3100}:3100"]
     volumes: ["paperclip-data:/paperclip"]

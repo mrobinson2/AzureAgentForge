@@ -25,6 +25,8 @@ accepted_env:
     consumer: upstream server — better-auth signing secret
   - key: BETTER_AUTH_URL
     consumer: upstream server — better-auth base URL
+  - key: BETTER_AUTH_TRUSTED_ORIGINS
+    consumer: upstream server — comma list unioned into better-auth trusted origins (server/src/index.ts; needed because rewriteLocalUrlPort clobbers a localhost public URL's port, so the auth-proxy origin :3100 is otherwise untrusted)
   - key: PAPERCLIP_AGENT_JWT_SECRET
     consumer: upstream server — agent-JWT mint/validation secret
   - key: PAPERCLIP_API_URL
