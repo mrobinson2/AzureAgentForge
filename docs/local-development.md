@@ -95,6 +95,49 @@ Other wrapper commands: `scripts/local-stack.sh smoke` (re-run the health gate),
 
 ---
 
+## Agent-loop canary (the smoke that proves agents can work)
+
+The health gate above proves containers are **up**. It does not prove an agent
+can **complete work** — a stack can pass every health check while the
+wake → adapter → router → model → disposition path is dead (broken auth
+headers, dropped env wiring, a dead tier). The canary closes that gap:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.canary.yml \
+  --profile full up -d --build
+bash scripts/smoke-canary.sh
+```
+
+What the roundtrip actually exercises (all real production code paths):
+
+1. Files a canary issue via the auth-proxy (automation JWT → session
+   injection), assigned to a `hermes_local` agent it creates on first run.
+2. PaperClip's assignment wake fires; the hermes adapter spawns the real
+   Hermes runtime inside the paperclip container.
+3. Hermes calls the model-router's `/v1/messages` (real router auth + tier
+   dispatch) which forwards to the model backend.
+4. The model replies with a `terminal` tool call; the **real** Hermes runtime
+   executes it — authenticated `curl`s against the PaperClip API that post a
+   disposition comment and PATCH the issue to `done`.
+5. The script polls the issue and **fails loudly** when: the agent never
+   completes (timeout), the issue lands terminal-but-not-done, the issue is
+   done without a disposition comment, or the issue closed without the model
+   hop ever traversing the router.
+
+**What is stubbed:** only the LLM inference. `docker-compose.canary.yml`
+registers `scripts/canary/anthropic_stub.py` — a scripted
+Anthropic-Messages-compatible server — as the router's CLAUDE tier, so the
+canary needs **no model credentials** and runs in CI
+(`.github/workflows/local-stack-smoke.yml`). The stub always answers with the
+same two turns (tool call, then done); nothing about the agent loop itself is
+faked. To run the same roundtrip against a real Claude tier, skip the overlay
+and set `CLAUDE_BASE_URL` / `CLAUDE_API_KEY` / `CLAUDE_MODEL` plus
+`CANARY_MODEL=<your CLAUDE_MODEL>` instead.
+
+Offline checks without a stack: `bash scripts/smoke-canary.sh --self-check`.
+
+---
+
 ## Iterating on a service
 
 To rebuild a single service after editing its code:
