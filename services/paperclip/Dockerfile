@@ -179,15 +179,19 @@ RUN grep -q '"--save", "--ignore-scripts"' \
     /server-prod/dist/services/plugin-loader.js
 
 # Patch hermes-paperclip-adapter at build time.
-# Fixes: provider routing (gpt-4→auto), auth token injection (ctx.authToken),
-# and replaces the fragile prompt template with one that enforces real task
+# Fixes: provider routing (forces --provider custom in BOTH the npm dist and
+# the workspace adapter the server actually loads via tsx — fail-loud if
+# either anchor is missing), auth token injection (ctx.authToken), and
+# replaces the fragile prompt template with one that enforces real task
 # completion (no generic "success" comments, no marking done without output).
 COPY apps/paperclip/patch-adapter.mjs /tmp/patch-adapter.mjs
-# patch-adapter.mjs imports ./patch-adapter-router-env.mjs (§0.7 cost-envelope)
-# and ./patch-adapter-sandbox.mjs (sandbox seam), so both siblings must be
-# present in the same dir for the node run to resolve them.
+# patch-adapter.mjs imports ./patch-adapter-router-env.mjs (§0.7 cost-envelope),
+# ./patch-adapter-sandbox.mjs (sandbox seam), and ./patch-adapter-provider.mjs
+# (provider pin), so all three siblings must be present in the same dir for
+# the node run to resolve them.
 COPY apps/paperclip/patch-adapter-router-env.mjs /tmp/patch-adapter-router-env.mjs
 COPY apps/paperclip/patch-adapter-sandbox.mjs /tmp/patch-adapter-sandbox.mjs
+COPY apps/paperclip/patch-adapter-provider.mjs /tmp/patch-adapter-provider.mjs
 RUN node /tmp/patch-adapter.mjs
 
 # tsx is a devDependency but the upstream CMD uses it as a runtime loader
@@ -324,6 +328,13 @@ RUN mkdir -p /paperclip \
 
 COPY apps/paperclip/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
+# Hermes config.yaml template generator — invoked by the entrypoint at boot.
+# Standalone (not inlined in the entrypoint) so the router-compatible shape
+# (provider custom + api_mode chat_completions + Bearer api_key) is
+# unit-testable: tests/paperclip/hermes-config-template.test.mjs.
+COPY apps/paperclip/write-hermes-config.sh /usr/local/bin/write-hermes-config.sh
+RUN chmod +x /usr/local/bin/write-hermes-config.sh
 
 # JWT auth proxy for automation API access (automation scripts, CI/CD)
 COPY apps/paperclip/auth-proxy.mjs /app/auth-proxy.mjs

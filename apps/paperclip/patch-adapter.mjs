@@ -2,11 +2,15 @@
 /**
  * Patch hermes-paperclip-adapter at Docker build time.
  *
- * Fixes three upstream issues:
- *   1. gpt-4* model prefix maps to openai-codex (breaks custom endpoints)
+ * Fixes four upstream issues:
+ *   1. Name-based provider auto-resolution bypasses the router — patched to
+ *      force `--provider custom` in BOTH the npm dist and the workspace
+ *      adapter the server actually loads (see patch-adapter-provider.mjs)
  *   2. ctx.authToken is ignored (agents can't auth with Paperclip API)
  *   3. Prompt template lacks task-completion guardrails and uses fragile
  *      curl|python one-liners that gpt-4o-mini can't reproduce
+ *   4. Provider prefix hints route known model names to vendor CLIs — reset
+ *      to "auto" so they can't fight the forced custom provider
  *
  * Run this AFTER pnpm install / pnpm deploy so the adapter files exist.
  */
@@ -18,6 +22,9 @@ import { injectRouterRunEnv } from "./patch-adapter-router-env.mjs";
 
 // AzureAgentForge sandbox seam — guarded build-time wiring (pure, unit-tested).
 import { injectSandboxSeam } from "./patch-adapter-sandbox.mjs";
+
+// AzureAgentForge provider pin — force --provider custom (pure, unit-tested).
+import { forceProviderCustom } from "./patch-adapter-provider.mjs";
 
 // pnpm uses a content-addressable store — the REAL files live under .pnpm/,
 // not at the symlinked path. We must find the actual location at build time.
@@ -105,28 +112,83 @@ if (!execute.includes("if (ctx.runId)")) {
   }
 }
 
-// Force provider to "auto" — NEVER pass --provider to the CLI.
+// Force provider to "custom" — ALWAYS pass --provider custom to the CLI.
 // resolvedProvider is a const (can't reassign), so instead replace the
-// conditional that pushes --provider with one that always skips it.
-// This lets config.yaml's model.provider=custom take full effect in the CLI.
-// Use regex to handle any whitespace/indentation variation.
-const providerPushPattern = /if\s*\(resolvedProvider\s*!==\s*"auto"\)\s*\{[^}]*args\.push\(\s*"--provider"\s*,\s*resolvedProvider\s*\)\s*;[^}]*\}/s;
-if (providerPushPattern.test(execute)) {
-  execute = execute.replace(
-    providerPushPattern,
-    '/* [patched] --provider disabled — config.yaml controls routing */\n    // Original: if (resolvedProvider !== "auto") { args.push("--provider", resolvedProvider); }'
-  );
-  console.log("[patch-adapter] Disabled --provider CLI flag");
-} else {
-  // FATAL: if we can't remove --provider, the adapter will override config.yaml
-  console.error("[patch-adapter] FATAL: Could not find args.push('--provider') pattern in execute.js!");
-  console.error("[patch-adapter] Dumping lines containing 'resolvedProvider' or '--provider':");
-  execute.split("\n").forEach((line, i) => {
-    if (line.includes("resolvedProvider") || line.includes("--provider")) {
-      console.error(`  Line ${i + 1}: ${line.trimEnd()}`);
+// conditional that pushes --provider with an unconditional custom push.
+// Ported from upstream private deployment incident learnings: merely OMITTING
+// --provider (the previous patch) is not enough on hermes v0.18.x — its
+// name-based auto-resolution matches env-credential providers first (a known
+// vendor prefix routed a model to a direct vendor endpoint that rejects
+// hermes's `thinking` argument with HTTP 400 → zero-tool runs → plan_only →
+// blocked issues). An explicit --provider custom outranks auto-resolution and
+// pins every agent run to config.yaml's router (base_url + api_key) for ALL
+// models, restoring budget/fallback governance. Transform lives in
+// patch-adapter-provider.mjs (pure, unit-tested).
+{
+  const _pv = forceProviderCustom(execute);
+  if (_pv.applied) {
+    execute = _pv.src;
+    console.log("[patch-adapter] Forced --provider custom (router routing)");
+  } else if (_pv.alreadyPatched) {
+    console.log("[patch-adapter] --provider custom already forced (cached layer) — no-op");
+  } else {
+    // FATAL: if we can't pin --provider, the adapter will override config.yaml
+    console.error("[patch-adapter] FATAL: Could not find args.push('--provider') pattern in execute.js!");
+    console.error("[patch-adapter] Dumping lines containing 'resolvedProvider' or '--provider':");
+    execute.split("\n").forEach((line, i) => {
+      if (line.includes("resolvedProvider") || line.includes("--provider")) {
+        console.error(`  Line ${i + 1}: ${line.trimEnd()}`);
+      }
+    });
+    process.exit(1);
+  }
+}
+
+// ── Fix 1c: the WORKSPACE adapter is the one actually loaded at runtime ──────
+// PaperClip 2026.707.x's server loads @paperclipai/hermes-paperclip-adapter (a
+// workspace package whose TypeScript source runs through the tsx loader) — NOT
+// the npm hermes-paperclip-adapter dist patched above. Upstream private
+// deployment learning: patching only the dist left runs passing the
+// auto-resolved provider (direct vendor endpoint → thinking 400 → plan_only →
+// blocked), so the provider pin must land in the TS source too.
+// FAIL-LOUD: this repo pins PAPERCLIP_VERSION=v2026.707.0 (which ships the
+// workspace adapter), so a missing adapter or missing anchor is a build error
+// — exit non-zero rather than ship an image whose agent runs bypass the router.
+const WS_ADAPTER_CANDIDATES = [
+  "/server-prod/node_modules/@paperclipai/hermes-paperclip-adapter",
+  "/app/server/node_modules/@paperclipai/hermes-paperclip-adapter",
+];
+{
+  let wsHandled = false;
+  for (const wsSymlink of WS_ADAPTER_CANDIDATES) {
+    let wsRoot;
+    try { wsRoot = realpathSync(wsSymlink); } catch { continue; }
+    const wsExecutePath = `${wsRoot}/src/server/execute.ts`;
+    let wsExecute;
+    try { wsExecute = readFileSync(wsExecutePath, "utf-8"); } catch { continue; }
+    const _wpv = forceProviderCustom(wsExecute);
+    if (_wpv.alreadyPatched) {
+      console.log(`[patch-adapter] Workspace adapter already patched (cached layer): ${wsExecutePath}`);
+      wsHandled = true;
+      break;
     }
-  });
-  process.exit(1);
+    if (!_wpv.applied) {
+      console.error(`[patch-adapter] FATAL: provider push pattern not found in workspace adapter ${wsExecutePath}`);
+      process.exit(1);
+    }
+    writeFileSync(wsExecutePath, _wpv.src);
+    console.log(`[patch-adapter] Forced --provider custom in WORKSPACE adapter: ${wsExecutePath}`);
+    wsHandled = true;
+    break;
+  }
+  if (!wsHandled) {
+    console.error(
+      "[patch-adapter] FATAL: workspace adapter @paperclipai/hermes-paperclip-adapter not found — " +
+      "the vendored PaperClip (v2026.707.x) loads it at runtime; without this patch agent runs " +
+      "bypass the router. Checked: " + WS_ADAPTER_CANDIDATES.join(", ")
+    );
+    process.exit(1);
+  }
 }
 
 // ── Fix 3: Replace the default prompt template ─────────────────────────────
