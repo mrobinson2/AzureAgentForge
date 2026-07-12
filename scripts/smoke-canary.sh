@@ -191,10 +191,10 @@ dump_diagnostics() {
   fi
   if [ -n "${ISSUE_IDENT:-}" ]; then
     api GET "/api/issues/${ISSUE_IDENT}/runs"
-    echo "  runs: $(printf '%s' "$API_BODY" | head -c 2000)"
+    echo "  runs: $(printf '%s' "$API_BODY" | head -c 4000)"
     # Pull the newest run's log — it carries the adapter's full stderr (e.g.
     # the hermes traceback that the recovery comment truncates to one line).
-    local_run_id="$(jget "$API_BODY" "next((r.get('id') for r in (d if isinstance(d, list) else (d or {}).get('runs', [])) if isinstance(r, dict) and r.get('id')), '')")"
+    local_run_id="$(jget "$API_BODY" "next((r.get('runId') or r.get('id') for r in (d if isinstance(d, list) else (d or {}).get('runs', [])) if isinstance(r, dict) and (r.get('runId') or r.get('id'))), '')")"
     if [ -n "$local_run_id" ]; then
       api GET "/api/heartbeat-runs/${local_run_id}/log?limitBytes=6000"
       echo "  run ${local_run_id} log (tail):"
