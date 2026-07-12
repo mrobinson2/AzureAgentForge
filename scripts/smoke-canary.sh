@@ -189,9 +189,24 @@ dump_diagnostics() {
     api GET "/api/issues/${ISSUE_IDENT}/comments"
     echo "  comments: $(printf '%s' "$API_BODY" | head -c 2500)"
   fi
-  if [ -n "${COMPANY_ID:-}" ]; then
-    api GET "/api/companies/${COMPANY_ID}/runs?sinceMinutes=60&limit=10"
-    echo "  runs: $(printf '%s' "$API_BODY" | head -c 3000)"
+  if [ -n "${ISSUE_IDENT:-}" ]; then
+    api GET "/api/issues/${ISSUE_IDENT}/runs"
+    echo "  runs: $(printf '%s' "$API_BODY" | head -c 2000)"
+    # Pull the newest run's log — it carries the adapter's full stderr (e.g.
+    # the hermes traceback that the recovery comment truncates to one line).
+    local_run_id="$(jget "$API_BODY" "next((r.get('id') for r in (d if isinstance(d, list) else (d or {}).get('runs', [])) if isinstance(r, dict) and r.get('id')), '')")"
+    if [ -n "$local_run_id" ]; then
+      api GET "/api/heartbeat-runs/${local_run_id}/log?limitBytes=6000"
+      echo "  run ${local_run_id} log (tail):"
+      printf '%s' "$API_BODY" | python3 -c '
+import json,sys
+try:
+    d = json.loads(sys.stdin.read() or "{}")
+    log = d.get("log") or d.get("content") or d.get("data") or json.dumps(d)
+except Exception:
+    log = "<unparseable>"
+print("\n".join("    | " + l for l in str(log).splitlines()[-60:]))'
+    fi
   fi
   STUB_STATE="$(curl -s "${STUB}/canary-state" 2>/dev/null || echo '{}')"
   echo "  stub: ${STUB_STATE}"
