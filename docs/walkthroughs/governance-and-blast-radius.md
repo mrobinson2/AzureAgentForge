@@ -9,8 +9,9 @@
 
 This is an end-to-end walkthrough of what happens when a destructive request
 enters the platform. It traces one request, *"delete this resource group"*,
-through every control that sits between it and irreversible damage, and shows
-where each control stops it.
+through every control that sits between it and irreversible damage ("[blast
+radius](../GLOSSARY.md#blast-radius)" — how much damage a single action
+could cause), and shows where each control stops it.
 
 <p align="center">
   <img alt="An agent refuses a destructive task" src="../assets/governance-refusal.gif" width="760"><br>

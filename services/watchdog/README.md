@@ -1,5 +1,7 @@
 # Watchdog
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 Platform self-watch: detects failure signatures across run results +
 `agent_events`, files deduped issues with evidence, and (optionally) writes the
 failure as a governed memory lesson so the agent that keeps hitting it gets

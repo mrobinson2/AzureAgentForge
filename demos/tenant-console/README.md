@@ -1,5 +1,7 @@
 # Tenant Console — static DEMO
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 A sanitized, self-contained **demo** of a multi-tenant operator console for the
 AzureAgentForge (AAF) platform pattern. It is a single static HTML file with
 inline CSS, vanilla JS, and inline fixtures — **no server, no build step, no

@@ -7,6 +7,8 @@
 
 # Code of Conduct
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../README.md) or [Architecture](../docs/architecture.md).
+
 ## Our pledge
 
 We want participation in this project to be a harassment-free experience for everyone, regardless of age, body size, disability, ethnicity, gender identity and expression, level of experience, nationality, personal appearance, race, religion, or sexual identity and orientation.

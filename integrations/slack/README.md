@@ -1,5 +1,7 @@
 # Slack Integration
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 ## Overview
 
 The Slack integration lets users talk to the agent platform from a Slack

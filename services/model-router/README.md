@@ -7,6 +7,8 @@
 
 # Model Router
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 An OpenAI-compatible HTTP gateway (FastAPI, version 1.3.0) that routes chat-completion requests to Azure AI Foundry deployments. Callers speak the OpenAI Chat Completions API; the router selects the appropriate backend tier, enforces per-tier token-budget limits, and falls back to a cheaper tier if the primary is unavailable or the request exceeds its context window.
 
 ## Provider configuration

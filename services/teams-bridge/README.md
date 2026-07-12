@@ -1,5 +1,7 @@
 # Teams bridge
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 A small FastAPI service that bridges **Microsoft Teams** to the agent platform,
 at parity with the [Discord plugin](../../integrations/discord/) and the
 [Telegram gateway](../../integrations/telegram/): an inbound Teams message

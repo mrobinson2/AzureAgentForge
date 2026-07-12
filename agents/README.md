@@ -7,7 +7,7 @@
 
 # Agents
 
-This directory contains the agent role model in two layers:
+An **[agent](../docs/GLOSSARY.md#agent)** here isn't one general-purpose assistant — it's a team of 14, each scoped to a job (coding, security review, cost watching, and so on) and allowed only the tools that job needs. This directory contains the agent role model in two layers:
 
 - **YAML profiles** (`profiles/<role>.yaml`) — the machine-readable contract for each generic role: name, model tier, toolsets, and reporting line.
 - **System prompts** (`profiles/<role>.AGENTS.md`) — the full, self-contained prompt injected at the top of every task the role runs. This is where each role's lane, skills, guardrails, and escalation rules live.

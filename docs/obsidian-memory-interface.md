@@ -1,5 +1,7 @@
 # Obsidian memory interface
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../README.md) or [Architecture](architecture.md).
+
 A two-way interface between AzureAgentForge's **governed memory** and a local
 [Obsidian](https://obsidian.md) vault. The governed-memory six-class model maps
 1:1 onto Markdown notes with frontmatter, so an Obsidian vault *is* the UI; there

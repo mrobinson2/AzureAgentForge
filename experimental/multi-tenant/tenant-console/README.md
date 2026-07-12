@@ -7,6 +7,8 @@
 
 # Tenant Console
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../../docs/architecture.md).
+
 > 🚧 **Reference scaffolding — not deployed.** Part of the multi-tenant roadmap (see ../README.md). Not wired into the compose stack or Terraform.
 
 Playbook-driven tenant onboarding for a shared agent stack. One tenant = one row

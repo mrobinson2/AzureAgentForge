@@ -97,7 +97,7 @@ Other wrapper commands: `scripts/local-stack.sh smoke` (re-run the health gate),
 
 ## Agent-loop canary (the smoke that proves agents can work)
 
-The health gate above proves containers are **up**. It does not prove an agent
+A [canary](GLOSSARY.md#canary), here, is an automated test that exercises a real path end to end instead of just checking that a container started. The health gate above proves containers are **up**. It does not prove an agent
 can **complete work** — a stack can pass every health check while the
 wake → adapter → router → model → disposition path is dead (broken auth
 headers, dropped env wiring, a dead tier). The canary closes that gap:

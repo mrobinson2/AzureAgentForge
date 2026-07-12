@@ -1,5 +1,7 @@
 # Full Local Stack Implementation Plan
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use a subagent-driven development workflow (recommended) or a plan-execution workflow to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make `docker compose --profile full up` bring up the whole AzureAgentForge platform locally with no Azure account, verified by a no-creds smoke gate.

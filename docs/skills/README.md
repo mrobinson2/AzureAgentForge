@@ -1,5 +1,7 @@
 # Skills Library
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../architecture.md).
+
 A curated set of reusable **skill specs** for AzureAgentForge (AAF) agents. A
 skill is a markdown playbook an agent loads at task time: it captures a genuine
 methodology — the procedure, the guardrails, the failure handling — in a form an

@@ -1,5 +1,7 @@
 # Field-service inspection vertical playbook pack
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../../../README.md) or [Architecture](../../../../../docs/architecture.md).
+
 An example vertical playbook pack for the Tenant Console. This is a neutral,
 invented example (an equipment-inspection field service) — it demonstrates the
 pack mechanism, not a real business. A pack is everything the provisioning

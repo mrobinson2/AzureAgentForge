@@ -7,6 +7,8 @@
 
 # Discord Integration
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 ## Overview
 
 Discord text integration is provided by the PaperClip Discord plugin. The plugin bridges Discord

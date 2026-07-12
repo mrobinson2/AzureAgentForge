@@ -7,6 +7,8 @@
 
 # Golden replay fixtures
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 These fixtures are **executable contracts for the Orchestrator** — the single
 front door that classifies every inbound request and either answers it,
 delegates to a specialist, or refuses it. Each fixture describes one request

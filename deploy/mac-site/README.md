@@ -1,5 +1,7 @@
 # Self-hosted PRIMARY site (Linux/macOS host)
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 A docker-compose deployment of the platform that runs on an always-on machine you
 own as the **primary site**, with Azure Container Apps as a warm standby. The
 **database never moves**: both sites share the same managed PostgreSQL Flexible

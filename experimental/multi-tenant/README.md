@@ -7,6 +7,8 @@
 
 # Multi-Tenant Roadmap
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 > 🚧 **Design target — not deployed.** This is a reference architecture for multi-tenancy. The single-tenant stack in this repository is what actually deploys and what CI validates. The multi-tenant *design* is ~complete; the *implementation* is partial (~20–30%) and has never been deployed. Treat this as a roadmap, not a shipped feature.
 
 ## Maturity

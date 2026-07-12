@@ -7,6 +7,8 @@
 
 # Multi-Tenant Architecture (Reference / Roadmap)
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 > 🚧 **Design target — not deployed.** This is a reference architecture for multi-tenancy. The single-tenant stack in this repository is what actually deploys and what CI validates. The multi-tenant *design* is ~complete; the *implementation* is partial (~20–30%) and has never been deployed. Treat this as a roadmap, not a shipped feature.
 
 This document describes the intended multi-tenant design for AzureAgentForge — the path from a single-tenant deployment on Azure Container Apps to a fully isolated multi-tenant platform. It covers data-layer isolation via PostgreSQL RLS, per-tenant agent routing, Terraform module design, onboarding flow, cost modeling, and security controls. Use it as a reference architecture when planning the multi-tenant implementation.

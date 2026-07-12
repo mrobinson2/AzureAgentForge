@@ -62,6 +62,8 @@ Everything the console does maps to plain commands — see
 [docs/getting-started.md](../docs/getting-started.md) Path B. The console is
 a convenience layer, not a requirement.
 
+Unfamiliar term ([OIDC](../docs/GLOSSARY.md#oidc), [IaC](../docs/GLOSSARY.md#iac))? Check the [glossary](../docs/GLOSSARY.md).
+
 ## Development
 
 ```bash

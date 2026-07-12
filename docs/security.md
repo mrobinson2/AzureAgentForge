@@ -11,6 +11,8 @@ This document covers how secrets are handled, what the network looks like, what 
 
 Nothing here is a guarantee. It describes the controls the project provides. You are responsible for your deployment.
 
+For the story of how these controls stop a specific dangerous request end to end, see the [governance and blast-radius walkthrough](walkthroughs/governance-and-blast-radius.md). Unfamiliar term? Check the [glossary](GLOSSARY.md).
+
 ## Secrets
 
 All secrets go into Azure Key Vault. Container Apps mount them as environment variables at runtime via Key Vault references. Nothing sensitive belongs in source control.

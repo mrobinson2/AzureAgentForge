@@ -7,13 +7,19 @@
 
 # Roadmap
 
+**How to read this:** every release below opens with a plain-language *Why it matters* line, then the full engineering detail underneath — the detail stays technical on purpose, so you can verify exactly what shipped rather than take a summary's word for it. New to a term? Check the [glossary](docs/GLOSSARY.md). For a shorter, current-state snapshot instead of the full version history, see the [Roadmap section of the README](README.md#roadmap).
+
 ## v1.0: foundation (released)
+
+*Why it matters: this is the whole platform, not a slice of it — the same Terraform, model router, and agent roles that run this project's own production stack, with two cost profiles CI already plans clean.*
 
 This stack runs in production on Azure; v1.0 is its sanitized, reusable version. Architecture, decisions, and full Terraform IaC are in the repo. Two cost profiles, cost-optimized (targets under $150/month) and hardened (zone-redundant, private endpoints), and the repo's CI validates and plans both clean. The 13-role agent schema ships with tests. The model-router builds and runs locally: Azure AI Foundry as primary, any OpenAI-compatible endpoint as fallback. PaperClip, Honcho, and the agent-runtime ship as sanitized Dockerfiles and config. Telegram and Discord are each a single Terraform variable. Multi-tenant architecture is designed and partially scaffolded (see [`experimental/multi-tenant/`](experimental/multi-tenant/)).
 
 `docker compose up` runs the working slice: Postgres and the model-router.
 
 ## v1.1: shipped
+
+*Why it matters: a GUI installer replaces memorizing Terraform commands, and a destroy-approval gate means a routine deploy can no longer accidentally delete your database.*
 
 **Forge Console** (`./forge`) is a local web GUI installer that replaced the
 originally planned ANSI TUI: preflight checks, an Azure configuration wizard
@@ -45,6 +51,8 @@ auto-resolve) stays design-only.
 
 ## v1.2: shipped
 
+*Why it matters: this is what closes the gap between "infrastructure exists" and "the platform actually runs" — one command builds, pushes, seeds secrets, and smoke-tests the whole stack.*
+
 Closing the path from "infrastructure provisioned" to "fully running stack in one command".
 
 Shipped as the reference deploy pipeline, now validated end-to-end against a clean subscription (see [deploy-pipeline.md](docs/deploy-pipeline.md) and the [deployment walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console)):
@@ -65,6 +73,8 @@ Also in v1.2:
 
 ## v1.3: shipped
 
+*Why it matters: you can now see what each agent call cost and whether it succeeded, instead of reconstructing it from a bill at the end of the month.*
+
 Observability deepened and the agent surface widened. The main features, flag-gated where they touch runtime:
 
 - **GenAI-semconv observability.** Every model call through the [model-router](services/model-router/) emits one OpenTelemetry GenAI-semantic-convention span (model, tokens, cost) to Application Insights, behind `OBSERVABILITY_ENABLED` (default off), content-redacted. The port also **closes the Anthropic cost gap**: Claude-tier calls weren't cost-tracked (the SDK returns no billed cost), so they now carry a list-price estimate and are both tracked and observable. The span export was fixed after release and verified against a live Application Insights workspace. Wired onto the router sidecar in Terraform behind a default-false flag; spans and estimator are offline-tested.
@@ -81,6 +91,8 @@ Also in v1.3:
 
 ## v1.4: shipped
 
+*Why it matters: the first steps toward running more than one customer or team on a single deployment, plus a way to run the whole stack on hardware you already own instead of paying for idle cloud compute.*
+
 Multi-tenancy, a self-hosted topology, and two more surfaces.
 
 - **Multi-tenant tenant console (reference).** A playbook-driven onboarding control plane ([`experimental/multi-tenant/tenant-console/`](experimental/multi-tenant/tenant-console/)): one tenant contract renders an intake/coordinator agent pack, seeds per-tenant governed memory, provisions an isolated workspace, and enforces a per-tenant daily budget cap. Ships as a badged **reference** (not wired into the single-tenant stack), with a worked field-service example pack.
@@ -91,6 +103,8 @@ Multi-tenancy, a self-hosted topology, and two more surfaces.
 
 ## v1.5: shipped
 
+*Why it matters: the memory system stops being a black box — you can see whether it's serving from fast vector search or a slower fallback, and a human still has to enable it before it does anything.*
+
 Turning the flag-gated differentiators real and closing day-2 operational gaps. Everything is flag-gated / badged for honest maturity, and the default deploy footprint is unchanged.
 
 - **Governed memory, enable-able for real.** The memory-governor now self-provisions its full schema on startup: a `0002` overlay ([`services/memory-governor/migrations/`](services/memory-governor/migrations/)) completes the `documents` governance columns the retrieval planner reads and adds the governor-owned `session_memory` and `skill_candidates` tables, with column set, enum values, and constraint names reconciled to the canonical migrations (`documents.id` confirmed TEXT; `deleted_at`/`sync_state`/`last_sync_at` are Honcho-native). `memory_governor_enabled` is threaded through the deploy pipeline, a `showcase` profile ([`infrastructure/profiles/showcase.tfvars`](infrastructure/profiles/showcase.tfvars)) deploys it with an honest cost + go-live checklist, and every feature flag still seeds **off**. Previously a flag-flip 500'd on missing columns; enabling now still needs an operator-provisioned embedding key + a live validate, both documented.
@@ -100,6 +114,8 @@ Turning the flag-gated differentiators real and closing day-2 operational gaps. 
 - **Human-in-the-loop action approval.** A provider-pluggable action-approval seam ([`apps/paperclip/approval.mjs`](apps/paperclip/approval.mjs)) extends the v1.1 destroy-aware *infra* gate to runtime *actions* (an outbound message, a destructive tool call). Only kinds in `APPROVAL_REQUIRED_KINDS` are gated (default empty → inert); a gated action with no approver **fails closed**; a `webhook` provider delegates the decision to an external approver and fails closed on any error. Ships **unwired** (mirrors the sandbox seam); 15 offline tests.
 
 ## v1.7: shipped
+
+*Why it matters: the memory system stays useful under real load instead of silently timing out, you get a daily digest of what needs your attention, and roughly 27 security findings across the codebase got fixed in one pass.*
 
 Production feedback folded back into the governor: sweep performance + operator visibility.
 
@@ -119,6 +135,8 @@ Full grouped release notes: [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md)
 
 ## v1.8: unreleased, on `main`
 
+*Why it matters: every item here closes a way the platform could fail without telling you — including one where agents couldn't actually run inside the shipped image at all, while every health check stayed green the whole time.*
+
 Six merges, one theme: turn a way this platform — or an app it vendors — could fail silently into something that fails loud instead. Landed on `main`; **not yet tagged**.
 
 - **Agent-loop canary smoke.** `local-stack-smoke` checked containers and health endpoints but never proved an agent could finish a task. The new canary ([`scripts/canary/`](scripts/canary/), wired into [`local-stack-smoke.yml`](.github/workflows/local-stack-smoke.yml)) files a real issue, wakes it, spawns the real vendored Hermes runtime, routes a model call through the model-router (real auth + tier dispatch), executes a real terminal tool call, and checks for a disposition comment before the issue closes — only the LLM reply is stubbed. Building it found and fixed six previously invisible stack-shape defects, headlined by **Hermes never being able to boot inside the AAF PaperClip image at all**: the `hermes-cli` build stage installed on `python:3.14` against a `python3.13` runtime, so every agent spawn died `ModuleNotFoundError` and PaperClip's run-recovery quietly moved the issue to `blocked` — present since the file was first committed, with every health check green the whole time. [`docs/local-development.md`](docs/local-development.md#agent-loop-canary-the-smoke-that-proves-agents-can-work).
@@ -129,6 +147,8 @@ Six merges, one theme: turn a way this platform — or an app it vendors — cou
 - **Vendored incident-fix defaults.** Three fixes ported from the upstream private deployment's own incident history, so a fresh fork doesn't rediscover them: the generated Hermes config now defaults to the router-compatible `chat_completions` + `api_key` shape instead of one that 401s against the router's fail-closed auth; the adapter build patch pins `--provider custom` in both the npm dist and the workspace source PaperClip 707 actually loads at runtime; every agent template gets an explicit disposition protocol — exactly one terminal state per run, never a silent one.
 
 ## Post-1.7 horizon
+
+*In plain terms: tag the release, catch the agent runtime up to the latest upstream version, and close a few loose ends the last few releases created.*
 
 The near-term direction after v1.7, before the longer "Later" list below:
 
@@ -141,5 +161,7 @@ The near-term direction after v1.7, before the longer "Later" list below:
 - **A prompt-governance loop methodology doc.** Write up the govern → observe → fold-back loop the v1.7 governor features embody (inspector summary → review-queue digest → SLA audit) as a reusable methodology, not just an API surface.
 
 ## Later
+
+*In plain terms: the bigger, not-yet-scheduled bets — voice, a second agent runtime, full multi-tenant support, and more places agents can be reached from.*
 
 A second, alternative agent runtime. A voice track: shared infrastructure (streaming STT, low-latency TTS, VAD and barge-in, a persona overlay) that stays provider-agnostic across Microsoft Voice Live and other commercial STT/TTS providers, delivered over three surfaces (Discord voice, a web widget, and a Twilio phone line with a PIN gate, consent, and recording retention). Discord as a control plane: role-gated slash-command operations, in-channel delegation (plan → execute → result), and an audit feed. Complete multi-tenant implementation (the [`experimental/multi-tenant/`](experimental/multi-tenant/) design), including multiple human users per tenant with per-user identity and RBAC. Verifying and enabling the v1.4 `aca-job` sandbox provider against a live Azure Container Apps dynamic-sessions pool. Human-in-the-loop approval of agent actions and outputs, beyond the infrastructure destroy gate. User-defined scheduled agent routines. Synthetic dogfooding: scheduled canary conversations across channels that alert on repeated failure. A skills manager, plus artifacts and work products. More chat surfaces (WhatsApp, a web widget). The rest of the observability pipeline: correlation-id threading, per-agent metric counters, an SLO dashboard, SLO burn-rate alerts, and a `gen_ai.usage` cost metric, building on the v1.3 spans and the v1.2 alert rules and workbook. Private enterprise RAG with Azure AI Search, Microsoft Foundry Agent Service alignment, and Microsoft 365 / Agent 365 publishing.

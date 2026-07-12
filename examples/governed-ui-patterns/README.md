@@ -1,5 +1,7 @@
 # Governed-AI Interface Pattern Library
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../README.md) or [Architecture](../../docs/architecture.md).
+
 Nine reusable interface patterns for consumer-facing AI — the surfaces that keep an assistant
 honest, deferential, and auditable in front of real customers. Each is a small, dependency-free,
 themeable reference implementation. Open [`index.html`](./index.html) for the living version:

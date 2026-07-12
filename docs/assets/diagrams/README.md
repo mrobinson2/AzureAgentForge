@@ -1,5 +1,7 @@
 # Architecture diagrams
 
+> **Technical reference for contributors.** For the operational overview, start at [README](../../../README.md) or [Architecture](../../architecture.md).
+
 Editable, architect-grade diagrams of the AzureAgentForge platform. The
 `.drawio` files are the source of truth; the `.svg` files are rendered
 companions for embedding in Markdown.
