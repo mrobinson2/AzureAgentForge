@@ -44,6 +44,22 @@ EMBEDDING_TIMEOUT_S = float(os.environ.get("EMBEDDING_TIMEOUT_S", "10"))
 # docker-compose service name.
 HONCHO_BASE_URL = os.environ.get("HONCHO_BASE_URL", "http://honcho:8000")
 
+# Canonical user peer (A5). ONE deploy-time input names the peer that
+# represents the human principal; every component that writes or queries a
+# user-scoped memory resolves this SAME input (compose env, Terraform
+# var.honcho_user_peer_id, the pc-memory/pc-honcho helpers, and this service's
+# /admit default). Divergent per-component defaults are how one human fragments
+# across several peers and recall goes quiet — see
+# docs/design/memory-system.md §18 ("Identity: the canonical user peer").
+# Exposed as a function (read at call time, not import time) so the default in
+# AdmitBody tracks the environment without a module reload.
+DEFAULT_USER_PEER_ID = "user"
+
+
+def user_peer_id() -> str:
+    val = (os.environ.get("HONCHO_USER_PEER_ID") or "").strip()
+    return val or DEFAULT_USER_PEER_ID
+
 # Optional shared-secret for mutating endpoints (auth-proxy injects it).
 GOVERNOR_API_KEY = _secret("GOVERNOR_API_KEY", "memory-governor-api-key")
 

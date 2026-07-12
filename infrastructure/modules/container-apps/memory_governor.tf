@@ -157,6 +157,14 @@ resource "azurerm_container_app" "memory_governor" {
         value = "http://ca-honcho-${var.environment}"
       }
       env {
+        # A5: canonical user peer — /admit defaults `observed` to this when a
+        # writer omits it. Threads the SAME var.honcho_user_peer_id the gateway
+        # and paperclip receive, so the governor never invents a peer no
+        # reader queries. docs/design/memory-system.md §18.
+        name  = "HONCHO_USER_PEER_ID"
+        value = var.honcho_user_peer_id
+      }
+      env {
         # Planner canary allowlist. Empty = planner answers enabled=false for
         # every agent even with MEMORY_PLANNER_ENABLED on. Add slugs one at a time.
         name  = "PLANNER_AGENT_ALLOWLIST"

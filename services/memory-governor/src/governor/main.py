@@ -137,7 +137,14 @@ class AdmitBody(BaseModel):
     content: str = Field(min_length=1, max_length=65000)
     workspace_name: str
     observer: str
-    observed: str = "user"
+    # A5: when the caller omits `observed`, default to the CANONICAL user peer
+    # (HONCHO_USER_PEER_ID, fallback "user") — the same deploy-time input every
+    # other component resolves. A hardcoded literal here is exactly how identity
+    # fragments: a writer that omits the field lands on one peer while a
+    # differently-defaulted reader queries another, and recall silently misses.
+    # default_factory (not a literal) so the env var is read per request, not
+    # frozen at import. See docs/design/memory-system.md §18.
+    observed: str = Field(default_factory=config.user_peer_id)
     created_by_peer: str
     session_id: str | None = None
     issue_id: str | None = None

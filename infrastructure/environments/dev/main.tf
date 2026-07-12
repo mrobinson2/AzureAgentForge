@@ -178,6 +178,11 @@ module "container_apps" {
   # tfvars so dev/prod never silently share a governed-memory workspace.
   honcho_workspace_name = var.honcho_workspace_name
 
+  # A5: canonical user peer — one deploy-time input for the human principal's
+  # memory peer, threaded into hermes + paperclip + memory-governor so writers
+  # and readers always name the same peer. Default "user".
+  honcho_user_peer_id = var.honcho_user_peer_id
+
   # OTel tracing from the model-router sidecar → App Insights (B3 observability).
   # Off by default; flip observability_enabled=true in dev.auto.tfvars to activate.
   observability_enabled = var.observability_enabled

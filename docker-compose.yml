@@ -182,6 +182,12 @@ services:
       OPENAI_API_KEY: ${ROUTER_API_KEY:-localdev-router-key}
       HONCHO_BASE_URL: http://honcho:8000
       GOVERNOR_BASE_URL: http://memory-governor:8090
+      # A5: canonical user peer — the ONE deploy-time identity every writer and
+      # reader of user-scoped memory resolves (pc-memory/pc-honcho helpers in
+      # this container, the governor's /admit default, Terraform's
+      # honcho_user_peer_id). Keep the value identical across services or one
+      # human fragments across peers. docs/design/memory-system.md §18.
+      HONCHO_USER_PEER_ID: ${HONCHO_USER_PEER_ID:-user}
       PAPERCLIP_AUTOMATION_JWT_SECRET: ${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-automation-secret-change-me}
       PAPERCLIP_AGENT_JWT_SECRET: ${PAPERCLIP_AGENT_JWT_SECRET:-localdev-agent-secret-change-me}
       PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@localhost}
@@ -213,6 +219,11 @@ services:
       ROUTER_API_KEY: ${ROUTER_API_KEY:-localdev-router-key}
       HONCHO_BASE_URL: http://honcho:8000
       GOVERNOR_API_KEY: ${GOVERNOR_API_KEY:-localdev}
+      # A5: canonical user peer — /admit defaults `observed` to this when a
+      # writer omits it. Must equal the value the writers (paperclip above)
+      # resolve, hence the same ${HONCHO_USER_PEER_ID} input with the same
+      # "user" fallback. docs/design/memory-system.md §18.
+      HONCHO_USER_PEER_ID: ${HONCHO_USER_PEER_ID:-user}
     ports: ["${GOVERNOR_PORT:-8090}:8090"]
 
   # Self-improvement watchdog. A one-shot: it self-mints a JWT from the secret,

@@ -350,10 +350,25 @@ variable "honcho_workspace_name" {
   }
 }
 
+# A5: canonical user peer. The ONE deploy-time id for the human principal's
+# memory peer, threaded into every container that writes or queries user-scoped
+# memory (hermes gateway, paperclip helpers, memory-governor /admit default).
+# The default MUST equal the code-level fallback everywhere ("user" — governor
+# config.user_peer_id(), pc-memory/pc-honcho, compose) — the previous default
+# here was "operator", a divergent placeholder, which is exactly the
+# fragmentation trap: components defaulting to DIFFERENT peers means writes
+# land where no reader looks. If an existing deployment's memory was built
+# under another peer id, set it per environment in tfvars after discovering it
+# with `pc-honcho list-peers` in the running paperclip container.
+# See docs/design/memory-system.md §18.
 variable "honcho_user_peer_id" {
-  description = "Peer ID in Honcho for the principal user. Must match what the Telegram bot writes to. Discover by running `pc-honcho list-peers` in the running paperclip container. Default 'operator' is a placeholder — almost certainly wrong until verified."
+  description = "Canonical Honcho peer ID for the principal user — every component that writes or queries user-scoped memory resolves this single input. Keep aligned with HONCHO_USER_PEER_ID in the compose stacks; empty/placeholder values are rejected."
   type        = string
-  default     = "operator"
+  default     = "user"
+  validation {
+    condition     = length(trimspace(var.honcho_user_peer_id)) > 0 && !contains(["CHANGEME", "TODO"], var.honcho_user_peer_id)
+    error_message = "honcho_user_peer_id must be a real peer id (default \"user\"); empty or placeholder values fragment user identity across peers."
+  }
 }
 
 variable "honcho_deriver_job_timeout_seconds" {

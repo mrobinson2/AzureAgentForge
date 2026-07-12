@@ -655,6 +655,10 @@ Grounded in the absence of implementing code, not any doc's aspiration:
   (Plane A includes confirmed always-on candidates), but there is no automated
   promotion job — promotion to Plane A is operator `pin` or a manually-confirmed
   candidate.
+- **Identity map + peer re-consolidation sweep.** The canonical user peer is a
+  deploy-time input threaded everywhere (§18), but there is no alias table at
+  admission and no sweep that detects/merges unexpected peers — the production
+  backstop described in §18 is a separate enhancement.
 
 ---
 
@@ -735,3 +739,92 @@ sidecar (`EMBEDDING_API_KEY`); without it, Plane C stays trigram-only.
 Every step is reversible: set a flag back to `false` and the corresponding
 behavior stops on the next flag-cache cycle (≤60s); set `memory_governor_enabled
 = false` to remove the service entirely.
+
+---
+
+## 18. Identity: the canonical user peer
+
+### The failure mode: one human, four peers, zero recall
+
+Peer-scoped memory has a quiet failure mode that produces no errors, only
+silence. Every store keyed by peer id trusts its writers to agree on what the
+user is called — and writers drift:
+
+- a **chat gateway** auto-derives a peer name from the channel session id
+  (`user-<bot-id>-<channel>-<chat-id>`), minting a fresh peer per surface;
+- a **helper script** omits the `observed` field on writes and inherits
+  whatever the service happens to default to;
+- a **service default** points at a legacy alias (`operator`) that nothing
+  writes to anymore;
+- an **operator tool** seeds facts under a third spelling.
+
+Each component is locally reasonable. Globally, one human is now sharded
+across `user-agent-main-telegram-dm-<id>`, `user`, and `operator` — and the
+reader queries exactly one of them. Facts are stored, dutifully, under peers
+nobody asks about. The user experience is an agent that says "I don't have any
+information about that" moments after being told the fact, which reads as
+total memory failure even though every write succeeded. This is a distilled
+real incident, not a hypothetical: recall failed user-visibly while the store
+held the answer under a peer the reader never named.
+
+The trap generalizes: it is the workspace-scoping trap (aaf-0015,
+`honcho_workspace_name` in §17) one level down. Workspace answers *which
+memory universe*; peer answers *who inside it*. Both must be single,
+deploy-time, explicit inputs — a per-component default for either is a
+fragmentation bug waiting for its second component.
+
+### The fix: one deploy-time input, defaulted identically everywhere
+
+`HONCHO_USER_PEER_ID` names the canonical peer for the human principal. One
+value, set at deploy time, resolved by **every** component that writes or
+queries user-scoped memory — and every component falls back to the **same**
+default (`user`) when it is unset. The consistency of the fallback matters as
+much as the variable: two components with different fallbacks fragment a
+fresh deployment out of the box.
+
+Where it threads:
+
+| Surface | Component | How it resolves |
+|---|---|---|
+| Compose (local) | `docker-compose.yml` → `paperclip`, `memory-governor` | `${HONCHO_USER_PEER_ID:-user}` from `.env` |
+| Compose (self-hosted site) | `deploy/mac-site/docker-compose.yml` → same two services | same input, set once in the site `.env` |
+| Terraform (Azure) | `var.honcho_user_peer_id` → `hermes.tf`, `paperclip.tf`, `memory_governor.tf` | one tfvars input, default `user` |
+| Governor `/admit` | `AdmitBody.observed` default | `config.user_peer_id()` — env, fallback `user` |
+| Helper scripts | `pc-memory record` (`observed`), `pc-honcho ask`/`record` (`--peer` default) | `${HONCHO_USER_PEER_ID:-user}` |
+| Tenant console (experimental) | seed-memory `observed` | env, fallback `user` |
+
+Rules that keep it canonical:
+
+- **Writers send `observed` explicitly.** `pc-memory record` names the peer in
+  the request body rather than leaning on the server-side default; an omitted
+  field is one config drift away from a fragmenting write.
+- **Change it in one place or zero places.** If a deployment's memory history
+  already lives under a different peer (discover with `pc-honcho list-peers`),
+  set the input once — tfvars or the stack `.env` — never on an individual
+  component.
+- **Agent self-lessons are exempt.** The watchdog's failure/delegation lessons
+  set `observed` to the *agent's* slug deliberately (§10); the canonical peer
+  governs facts about the *human*. The rule is "no accidental peers," not "one
+  peer total."
+
+### Production backstop: identity map + re-consolidation sweep
+
+A canonical input keeps *configured* components aligned. It cannot stop a
+*new* writer — the next gateway, an imported history, a vendored tool with
+its own naming scheme — from minting peers before anyone thinks to thread the
+variable. The recommended production backstop, designed but not implemented
+here (§15), is:
+
+1. **Identity map at admission.** A small alias table (`peer_alias` →
+   canonical peer) consulted at the write choke point (`/admit`), so known
+   aliases — legacy names, per-channel session peers — are rewritten to the
+   canonical peer as they arrive instead of accumulating.
+2. **Periodic re-consolidation sweep.** A background job (the sweeper cadence
+   of §8 fits) that lists peers, diffs against the expected set (canonical
+   peer + agent slugs), flags unexpected peers for operator review, and — on
+   operator confirmation, never automatically (§16) — migrates their
+   documents to the canonical peer and records the alias in the map.
+
+Both belong to a separate enhancement. The deploy-time input is deliberately
+shippable without them: it fixes the drift that already happened once, and it
+makes the backstop's job boring.
