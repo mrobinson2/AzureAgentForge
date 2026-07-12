@@ -5,6 +5,7 @@ from jsonschema import Draft202012Validator
 AGENTS = pathlib.Path(__file__).resolve().parent.parent
 SCHEMA = AGENTS / "profile.schema.json"
 PROFILES = AGENTS / "profiles"
+TEMPLATES = AGENTS / "templates"
 
 def _schema():
     return json.loads(SCHEMA.read_text())
@@ -40,3 +41,43 @@ def test_validator_cli_passes_on_repo(tmp_path):
     r = subprocess.run([sys.executable, str(AGENTS / "validate_profiles.py")],
                        capture_output=True, text=True)
     assert r.returncode == 0, r.stdout + r.stderr
+
+# ── Disposition protocol lint ────────────────────────────────────────────────
+# Ported from upstream private deployment incident learnings: agents that end
+# a run without recording a platform-recognized disposition (done/cancelled
+# with a comment, in_review with a reviewer path, blocked with blockers)
+# get flagged missing_disposition/plan_only and their issues end blocked.
+# Every ISSUE-SCOPED prompt must carry the protocol section.
+
+DISPOSITION_HEADING = "# Completing an issue (disposition protocol)"
+# intake is conversation-scoped (no issue-status workflow), so it is exempt.
+DISPOSITION_EXEMPT = {"intake.AGENTS.template.md"}
+
+def _issue_scoped_prompt_files():
+    # "*AGENTS.template.md" (no leading dot) also matches the base
+    # AGENTS.template.md, not just the role-prefixed variants.
+    return sorted(PROFILES.glob("*.AGENTS.md")) + sorted(TEMPLATES.glob("*AGENTS.template.md"))
+
+def test_prompt_files_discovered():
+    files = _issue_scoped_prompt_files()
+    # 13 shipped profile prompts + 3 templates (generic, coordinator, intake).
+    assert len(files) == 16, f"expected 16 prompt files, found {len(files)}"
+
+def test_disposition_protocol_present_in_issue_scoped_prompts():
+    missing = [
+        f.name
+        for f in _issue_scoped_prompt_files()
+        if f.name not in DISPOSITION_EXEMPT
+        and DISPOSITION_HEADING not in f.read_text()
+    ]
+    assert missing == [], f"missing disposition-protocol section: {missing}"
+
+def test_disposition_protocol_forbids_silent_terminal_states():
+    for f in _issue_scoped_prompt_files():
+        if f.name in DISPOSITION_EXEMPT:
+            continue
+        text = f.read_text()
+        section = text.split(DISPOSITION_HEADING, 1)[1]
+        assert "No silent terminal states" in section, f.name
+        assert "plan_only" in section, f.name
+        assert "missing_disposition" in section, f.name
