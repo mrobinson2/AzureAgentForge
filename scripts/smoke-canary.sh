@@ -43,7 +43,10 @@ PAPERCLIP_AUTOMATION_JWT_SECRET="${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-aut
 # Must match the auth-proxy's verifyJwt defaults (apps/paperclip/auth-proxy.mjs).
 PAPERCLIP_AUTOMATION_JWT_ISSUER="${PAPERCLIP_AUTOMATION_JWT_ISSUER:-azureagentforge-automation}"
 PAPERCLIP_AUTOMATION_JWT_AUDIENCE="${PAPERCLIP_AUTOMATION_JWT_AUDIENCE:-paperclip-api}"
-PAPERCLIP_ADMIN_EMAIL="${PAPERCLIP_ADMIN_EMAIL:-admin@localhost}"
+# better-auth rejects TLD-less emails (admin@localhost), so the default must
+# be a real email shape and must match the paperclip container's
+# PAPERCLIP_ADMIN_EMAIL (the auth-proxy signs in with that account).
+PAPERCLIP_ADMIN_EMAIL="${PAPERCLIP_ADMIN_EMAIL:-admin@example.com}"
 PAPERCLIP_ADMIN_PASSWORD="${PAPERCLIP_ADMIN_PASSWORD:-localdev-admin-change-me}"
 # In-container URL agents use for their own API calls (backend, NOT the proxy).
 PAPERCLIP_INTERNAL_API_URL="${PAPERCLIP_INTERNAL_API_URL:-http://127.0.0.1:3099/api}"

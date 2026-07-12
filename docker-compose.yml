@@ -214,7 +214,12 @@ services:
       # all health checks stay green. The agent-loop canary smoke
       # (scripts/smoke-canary.sh) exists to catch exactly this class of gap.
       PAPERCLIP_API_URL: http://127.0.0.1:3099/api
-      PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@localhost}
+      # Must be a VALID email shape: better-auth's sign-up validator rejects
+      # TLD-less addresses (admin@localhost → 400 "[body.email] Invalid email
+      # address"), so the previous admin@localhost default could never be
+      # registered and the auth-proxy's admin-session bootstrap was
+      # broken-by-default on a fresh stack — caught by scripts/smoke-canary.sh.
+      PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@example.com}
       PAPERCLIP_ADMIN_PASSWORD: ${PAPERCLIP_ADMIN_PASSWORD:-localdev-admin-change-me}
     ports: ["${PAPERCLIP_PORT:-3100}:3100"]
     volumes: ["paperclip-data:/paperclip"]
