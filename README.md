@@ -80,6 +80,8 @@ Five pieces do the work. Everything else in this repo (Terraform modules, cost p
 
 An optional sixth piece, the **Memory Governor**, adds admission control and trust scoring on top of Honcho's memory — see [what it solves](#what-it-solves) below. It ships in the repo but is off until you turn it on.
 
+You bring the goals. The platform gives your agents a place to work, remember, call tools, stay within budget, talk to people, and leave an audit trail.
+
 For the full picture — how these five talk to each other, what Azure resource backs each one, and where secrets and logs flow — see [`docs/architecture.md`](docs/architecture.md), which opens with a "how to read this" guide and expands this table with configuration and maturity detail.
 
 ```text
