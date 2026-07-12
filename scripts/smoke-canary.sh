@@ -176,6 +176,28 @@ wait_http() { # url label deadline_s
   done
 }
 
+# On failure, pull everything the stack knows about the canary issue so the
+# CI log is self-diagnosing: the issue JSON (blocker attention / recovery
+# action), its comments (PaperClip's run-recovery comments carry the adapter
+# failure summary), the company's recent runs (error + errorCode), and the
+# stub counters.
+dump_diagnostics() {
+  echo "  ── canary diagnostics ──────────────────────────────────────────"
+  if [ -n "${ISSUE_IDENT:-}" ]; then
+    api GET "/api/issues/${ISSUE_IDENT}"
+    echo "  issue: $(printf '%s' "$API_BODY" | head -c 1500)"
+    api GET "/api/issues/${ISSUE_IDENT}/comments"
+    echo "  comments: $(printf '%s' "$API_BODY" | head -c 2500)"
+  fi
+  if [ -n "${COMPANY_ID:-}" ]; then
+    api GET "/api/companies/${COMPANY_ID}/runs?sinceMinutes=60&limit=10"
+    echo "  runs: $(printf '%s' "$API_BODY" | head -c 3000)"
+  fi
+  STUB_STATE="$(curl -s "${STUB}/canary-state" 2>/dev/null || echo '{}')"
+  echo "  stub: ${STUB_STATE}"
+  echo "  ────────────────────────────────────────────────────────────────"
+}
+
 # ── 0. Preconditions ─────────────────────────────────────────────────────────
 wait_http "${BASE}/api/auth/proxy-health" "paperclip auth-proxy" 120 || summary_and_exit
 wait_http "${STUB}/health" "canary stub" 60 || summary_and_exit
@@ -316,9 +338,12 @@ while :; do
   fi
   case "$STATUS" in
     done|cancelled) break ;;
+    blocked)
+      dump_diagnostics
+      die "issue moved to BLOCKED — PaperClip's run dispatch/recovery gave up on the assignee (see diagnostics above for the recovery comment + run error)" ;;
   esac
   if [ "$(date +%s)" -ge "$deadline" ]; then
-    STUB_STATE="$(curl -s "${STUB}/canary-state" 2>/dev/null || echo '{}')"
+    dump_diagnostics
     die "TIMEOUT after ${CANARY_TIMEOUT_SECONDS}s — agent never completed the canary issue (last status: ${STATUS:-unknown}). The wake→adapter→router→model→disposition path is broken."
   fi
   sleep "$CANARY_POLL_SECONDS"
@@ -330,6 +355,7 @@ STUB_STATE="$(curl -s "${STUB}/canary-state" 2>/dev/null || echo '{}')"
 if [ "$STATUS" = "done" ]; then
   pass "issue reached status=done"
 else
+  dump_diagnostics
   die "issue terminal but NOT done (status=${STATUS}) — the agent gave up or the issue was cancelled"
 fi
 
