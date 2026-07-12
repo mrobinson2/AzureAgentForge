@@ -205,6 +205,15 @@ services:
       HONCHO_USER_PEER_ID: ${HONCHO_USER_PEER_ID:-user}
       PAPERCLIP_AUTOMATION_JWT_SECRET: ${PAPERCLIP_AUTOMATION_JWT_SECRET:-localdev-automation-secret-change-me}
       PAPERCLIP_AGENT_JWT_SECRET: ${PAPERCLIP_AGENT_JWT_SECRET:-localdev-agent-secret-change-me}
+      # Agents run INSIDE this container and authenticate with a local agent
+      # JWT (iss "paperclip", agent secret) that ONLY the backend on :3099
+      # validates — the auth-proxy on :3100 accepts automation JWTs only. The
+      # hermes adapter's paperclipApiUrl default is http://127.0.0.1:3100/api
+      # (the proxy), so without this every agent-side API call (posting the
+      # result comment, marking the issue done) 401s with "Invalid token" while
+      # all health checks stay green. The agent-loop canary smoke
+      # (scripts/smoke-canary.sh) exists to catch exactly this class of gap.
+      PAPERCLIP_API_URL: http://127.0.0.1:3099/api
       PAPERCLIP_ADMIN_EMAIL: ${PAPERCLIP_ADMIN_EMAIL:-admin@localhost}
       PAPERCLIP_ADMIN_PASSWORD: ${PAPERCLIP_ADMIN_PASSWORD:-localdev-admin-change-me}
     ports: ["${PAPERCLIP_PORT:-3100}:3100"]
