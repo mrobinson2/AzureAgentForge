@@ -1693,13 +1693,43 @@ async def messages(request: Request):
 # The memory governor's Plane C vector retrieval embeds its query through here
 # so the "never call a provider directly" principle holds and the model is
 # pinned to match Honcho's document embeddings (same 1536-dim vector space).
-# Disabled (503) unless an embedding key is set. EMBEDDING_BASE_URL unset ->
-# OpenAI.com; set it to point at an Azure/Foundry deployment of the same model.
+# Disabled (503) unless an embedding key is set — fail LOUD, never degrade
+# silently. Provider-flexible: EMBEDDING_BASE_URL unset -> api.openai.com;
+# point it at any OpenAI-compatible deployment of the SAME model instead
+# (e.g. an Azure AI Foundry text-embedding-3-small deployment — see
+# docs/walkthroughs/azure-foundry-embeddings.md), so forks don't carry a hard
+# OpenAI-billing dependency.
 _EMBED_MODEL = os.environ.get("EMBEDDING_MODEL", "text-embedding-3-small")
 _EMBED_API_KEY = _tier_env("EMBEDDING_API_KEY") or _tier_env("OPENAI_API_KEY")
 _EMBED_API_BASE = os.environ.get("EMBEDDING_BASE_URL") or None
 _EMBED_TIMEOUT_S = int(os.environ.get("EMBEDDING_TIMEOUT_SECONDS", "20"))
 _EMBED_MAX_INPUTS = int(os.environ.get("EMBEDDING_MAX_INPUTS", "256"))
+
+
+def _pin_embedding_provider(model: str) -> str:
+    """Pin LiteLLM's provider detection to the OpenAI-compatible Bearer path.
+
+    LOAD-BEARING — ported from the upstream private deployment's incident
+    learnings. When EMBEDDING_BASE_URL points at an azure.com host and the
+    model string carries no ``provider/`` prefix, LiteLLM's provider detection
+    flips to its AZURE provider and authenticates with an ``api-key`` header.
+    Azure AI Foundry's OpenAI-compatible ``/openai/v1`` endpoint rejects that
+    request with ``400 unknown_model``. Prepending ``openai/`` pins detection
+    to the OpenAI-compatible provider, so auth stays ``Authorization: Bearer``
+    and the Foundry deployment resolves.
+
+    An explicit ``provider/`` prefix in EMBEDDING_MODEL is honored unchanged
+    (e.g. ``azure/<deployment>`` for a classic Azure OpenAI resource that
+    genuinely wants api-key-header auth).
+    """
+    if "/" in model:
+        return model
+    return f"openai/{model}"
+
+
+# What is actually handed to LiteLLM; _EMBED_MODEL stays the operator-facing
+# model name (and the `model` field reported back to callers).
+_EMBED_LITELLM_MODEL = _pin_embedding_provider(_EMBED_MODEL)
 
 
 @app.post("/v1/embeddings")
@@ -1723,8 +1753,10 @@ async def embeddings(request: Request):
     if isinstance(inp, list) and len(inp) > _EMBED_MAX_INPUTS:
         raise HTTPException(status_code=400, detail=f"too many inputs (max {_EMBED_MAX_INPUTS})")
     try:
+        # _EMBED_LITELLM_MODEL (not _EMBED_MODEL): the openai/ prefix pin is
+        # load-bearing against azure.com api_bases — see _pin_embedding_provider.
         resp = await litellm.aembedding(
-            model=_EMBED_MODEL,
+            model=_EMBED_LITELLM_MODEL,
             input=inp,
             api_key=_EMBED_API_KEY,
             api_base=_EMBED_API_BASE,
