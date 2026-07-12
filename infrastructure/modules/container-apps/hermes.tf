@@ -248,10 +248,9 @@ resource "azurerm_container_app" "hermes" {
         name  = "APPLICATIONINSIGHTS_CONNECTION_STRING"
         value = var.app_insights_connection_string
       }
-      env {
-        name  = "LOG_LEVEL"
-        value = "info" # was "debug" — excessive log volume in deployed environments
-      }
+      # NOTE: no LOG_LEVEL here — the pinned Hermes never reads it (verified
+      # against apps/hermes/src; enforced by scripts/validate_vendored_config.py).
+      # The model-router sidecar below DOES read LOG_LEVEL and keeps its own.
 
       # Tells Hermes where its persistent config/memory files live (Azure File Share).
       # The hermes-data share is mounted at /opt/data (see volume_mounts below).
@@ -260,19 +259,20 @@ resource "azurerm_container_app" "hermes" {
         value = "/opt/data"
       }
 
-      # Store state.db on the local container filesystem (/tmp) to avoid SQLite
-      # locking failures on Azure File Share (SMB/CIFS). Lost on redeploy, which
-      # is acceptable — Honcho holds the persistent memory layer.
-      env {
-        name  = "HERMES_DB_PATH"
-        value = "/tmp/hermes-state.db"
-      }
+      # NOTE: no HERMES_DB_PATH here — the pinned Hermes (v2026.5.16) has no
+      # such env override (hermes_state.py: DEFAULT_DB_PATH is always
+      # HERMES_HOME/state.db). The key used to be shipped as an SMB fix
+      # ("state.db on /tmp to avoid SQLite locking on the Azure File Share")
+      # and was SILENTLY IGNORED — state.db actually lives on the share.
+      # Removed by the vendored-config schema guard (A3); if SQLite locking on
+      # state.db bites, the fix must come from a vendor bump that supports a
+      # path override, not from shipping a key nothing reads.
 
-      # Same SMB fix for the kanban board DB. Without this, kanban.db resolves to
+      # SMB fix for the kanban board DB. Without this, kanban.db resolves to
       # HERMES_HOME (/opt/data, the Azure File Share) and `PRAGMA journal_mode=WAL`
       # fails on SMB as "database is locked", crashing the kanban dispatcher every
-      # tick. Pinning it to /tmp keeps WAL working. Ephemeral (lost on redeploy),
-      # consistent with HERMES_DB_PATH above.
+      # tick. Pinning it to /tmp keeps WAL working. Ephemeral (lost on redeploy).
+      # (Unlike HERMES_DB_PATH above, this one IS read: hermes_cli/kanban_db.py.)
       env {
         name  = "HERMES_KANBAN_DB"
         value = "/tmp/kanban.db"

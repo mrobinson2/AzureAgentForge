@@ -74,32 +74,38 @@ services:
       # Honcho builds an LLM client per specialist at import and raises on a
       # missing key; point summary/deriver at the OpenAI-compatible provider.
       LLM_OPENAI_API_KEY: "${EMBEDDING_API_KEY:?run secrets-pull.sh}"
-      SUMMARY_PROVIDER: "openai"
-      SUMMARY_MODEL: "gpt-4o-mini"
-      DERIVER_PROVIDER: "openai"
-      DERIVER_MODEL: "gpt-4o-mini"
-      # Honcho requires ALL FIVE dialectic reasoning levels; a missing level
-      # crash-loops the service on boot. Nested pydantic-settings path
-      # (env_prefix DIALECTIC_ + "__" delimiter); the flat form is ignored.
-      DIALECTIC_LEVELS__minimal__PROVIDER: "openai"
-      DIALECTIC_LEVELS__minimal__MODEL: "gpt-4o-mini"
-      DIALECTIC_LEVELS__minimal__THINKING_BUDGET_TOKENS: "0"
+      # Per-specialist model config — Honcho >= 3.0.7 nested MODEL_CONFIG shape.
+      # The pre-3.0.7 flat keys (SUMMARY_PROVIDER/SUMMARY_MODEL/...) are REMOVED
+      # upstream and silently ignored — shipping them makes every specialist
+      # fall back to direct-OpenAI gpt-5.4-mini (services/honcho/README.md).
+      # Drift here is caught by CI (scripts/validate_vendored_config.py).
+      SUMMARY_MODEL_CONFIG__TRANSPORT: "openai"
+      SUMMARY_MODEL_CONFIG__MODEL: "gpt-4o-mini"
+      DERIVER_MODEL_CONFIG__TRANSPORT: "openai"
+      DERIVER_MODEL_CONFIG__MODEL: "gpt-4o-mini"
+      # All five dialectic levels pinned to the same small model (3.0.11 fills
+      # omitted levels from built-in openai/gpt-5.4-mini defaults — pinning
+      # keeps the model choice ours). MAX_TOOL_ITERATIONS survived 3.0.7 and
+      # stays a per-level field, NOT under MODEL_CONFIG.
+      DIALECTIC_LEVELS__minimal__MODEL_CONFIG__TRANSPORT: "openai"
+      DIALECTIC_LEVELS__minimal__MODEL_CONFIG__MODEL: "gpt-4o-mini"
+      DIALECTIC_LEVELS__minimal__MODEL_CONFIG__THINKING_BUDGET_TOKENS: "0"
       DIALECTIC_LEVELS__minimal__MAX_TOOL_ITERATIONS: "1"
-      DIALECTIC_LEVELS__low__PROVIDER: "openai"
-      DIALECTIC_LEVELS__low__MODEL: "gpt-4o-mini"
-      DIALECTIC_LEVELS__low__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__low__MODEL_CONFIG__TRANSPORT: "openai"
+      DIALECTIC_LEVELS__low__MODEL_CONFIG__MODEL: "gpt-4o-mini"
+      DIALECTIC_LEVELS__low__MODEL_CONFIG__THINKING_BUDGET_TOKENS: "0"
       DIALECTIC_LEVELS__low__MAX_TOOL_ITERATIONS: "2"
-      DIALECTIC_LEVELS__medium__PROVIDER: "openai"
-      DIALECTIC_LEVELS__medium__MODEL: "gpt-4o-mini"
-      DIALECTIC_LEVELS__medium__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__medium__MODEL_CONFIG__TRANSPORT: "openai"
+      DIALECTIC_LEVELS__medium__MODEL_CONFIG__MODEL: "gpt-4o-mini"
+      DIALECTIC_LEVELS__medium__MODEL_CONFIG__THINKING_BUDGET_TOKENS: "0"
       DIALECTIC_LEVELS__medium__MAX_TOOL_ITERATIONS: "3"
-      DIALECTIC_LEVELS__high__PROVIDER: "openai"
-      DIALECTIC_LEVELS__high__MODEL: "gpt-4o-mini"
-      DIALECTIC_LEVELS__high__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__high__MODEL_CONFIG__TRANSPORT: "openai"
+      DIALECTIC_LEVELS__high__MODEL_CONFIG__MODEL: "gpt-4o-mini"
+      DIALECTIC_LEVELS__high__MODEL_CONFIG__THINKING_BUDGET_TOKENS: "0"
       DIALECTIC_LEVELS__high__MAX_TOOL_ITERATIONS: "4"
-      DIALECTIC_LEVELS__max__PROVIDER: "openai"
-      DIALECTIC_LEVELS__max__MODEL: "gpt-4o-mini"
-      DIALECTIC_LEVELS__max__THINKING_BUDGET_TOKENS: "0"
+      DIALECTIC_LEVELS__max__MODEL_CONFIG__TRANSPORT: "openai"
+      DIALECTIC_LEVELS__max__MODEL_CONFIG__MODEL: "gpt-4o-mini"
+      DIALECTIC_LEVELS__max__MODEL_CONFIG__THINKING_BUDGET_TOKENS: "0"
       DIALECTIC_LEVELS__max__MAX_TOOL_ITERATIONS: "5"
 
   # ── Model router (OpenAI-compatible tier router) ───────────────────────────
