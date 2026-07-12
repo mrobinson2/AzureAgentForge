@@ -132,8 +132,13 @@ print(f"{h}.{p}.{sig}")
 PY
 }
 
-# api METHOD PATH [JSON_BODY] → body on stdout; HTTP code in API_CODE
+# api METHOD PATH [JSON_BODY] → sets API_CODE (HTTP status) and API_BODY.
+# MUST be invoked directly — NEVER via command substitution: `$(api ...)`
+# runs it in a subshell, so neither variable would reach the caller (that
+# exact bug shipped in the first version of this script and made every
+# status-code check compare against an empty string).
 API_CODE=""
+API_BODY=""
 api() {
   local method="$1" path="$2" body="${3:-}"
   local args=(-sS -X "$method" "${BASE}${path}"
@@ -143,7 +148,7 @@ api() {
     -o /tmp/aaf_canary_resp -w '%{http_code}')
   [ -n "$body" ] && args+=(-d "$body")
   API_CODE="$(curl "${args[@]}" 2>/dev/null || echo 000)"
-  cat /tmp/aaf_canary_resp 2>/dev/null
+  API_BODY="$(cat /tmp/aaf_canary_resp 2>/dev/null || printf '')"
 }
 
 # jget JSON PYEXPR → evaluates PYEXPR with `d` bound to parsed JSON
@@ -199,11 +204,11 @@ esac
 
 # ── 2. Automation JWT works end-to-end through the proxy ────────────────────
 JWT="$(mint_jwt)"
-whoami_resp="$(api GET /api/auth/whoami)"
-if [ "$API_CODE" = "200" ] && printf '%s' "$whoami_resp" | grep -q '"jwt"'; then
+api GET /api/auth/whoami
+if [ "$API_CODE" = "200" ] && printf '%s' "$API_BODY" | grep -q '"jwt"'; then
   pass "automation JWT accepted by auth-proxy"
 else
-  die "automation JWT rejected (${API_CODE}): $(printf '%s' "$whoami_resp" | head -c 300)"
+  die "automation JWT rejected (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
 fi
 
 # ── 2b. Claim first instance admin (idempotent) ──────────────────────────────
@@ -211,30 +216,30 @@ fi
 # claims it via POST /api/bootstrap/claim (authenticated+private mode). The
 # JWT proxy path rides the bootstrapped admin session, so the claim lands on
 # our admin user. 409 = already claimed (fine on re-runs).
-claim="$(api POST /api/bootstrap/claim '{}')"
+api POST /api/bootstrap/claim '{}'
 case "$API_CODE" in
   200) pass "instance admin claimed" ;;
   409) pass "instance admin already claimed" ;;
-  *) die "instance-admin claim failed (${API_CODE}): $(printf '%s' "$claim" | head -c 300)" ;;
+  *) die "instance-admin claim failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)" ;;
 esac
 
 # ── 3. Find-or-create canary company ─────────────────────────────────────────
-companies="$(api GET /api/companies)"
-[ "$API_CODE" = "200" ] || die "list companies failed (${API_CODE}): $(printf '%s' "$companies" | head -c 300)"
-COMPANY_ID="$(jget "$companies" "next((c['id'] for c in (d if isinstance(d, list) else (d or {}).get('companies', d if isinstance(d, list) else [])) if isinstance(c, dict) and c.get('name') == '${COMPANY_NAME}'), '')")"
+api GET /api/companies
+[ "$API_CODE" = "200" ] || die "list companies failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
+COMPANY_ID="$(jget "$API_BODY" "next((c['id'] for c in (d if isinstance(d, list) else (d or {}).get('companies', d if isinstance(d, list) else [])) if isinstance(c, dict) and c.get('name') == '${COMPANY_NAME}'), '')")"
 if [ -n "$COMPANY_ID" ]; then
   pass "company '${COMPANY_NAME}' exists (${COMPANY_ID})"
 else
-  created="$(api POST /api/companies "{\"name\":\"${COMPANY_NAME}\",\"description\":\"Canary company for the e2e agent-loop smoke\"}")"
-  COMPANY_ID="$(jget "$created" "(d or {}).get('id') or ((d or {}).get('company') or {}).get('id')")"
-  [ -n "$COMPANY_ID" ] || die "create company failed (${API_CODE}): $(printf '%s' "$created" | head -c 300)"
+  api POST /api/companies "{\"name\":\"${COMPANY_NAME}\",\"description\":\"Canary company for the e2e agent-loop smoke\"}"
+  COMPANY_ID="$(jget "$API_BODY" "(d or {}).get('id') or ((d or {}).get('company') or {}).get('id')")"
+  [ -n "$COMPANY_ID" ] || die "create company failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
   pass "company created (${COMPANY_ID})"
 fi
 
 # ── 4. Find-or-create canary agent (hermes_local on the stub model tier) ────
-agents="$(api GET "/api/companies/${COMPANY_ID}/agents")"
-[ "$API_CODE" = "200" ] || die "list agents failed (${API_CODE}): $(printf '%s' "$agents" | head -c 300)"
-AGENT_ID="$(jget "$agents" "next((a['id'] for a in (d if isinstance(d, list) else (d or {}).get('agents', [])) if isinstance(a, dict) and a.get('name') == '${AGENT_NAME}'), '')")"
+api GET "/api/companies/${COMPANY_ID}/agents"
+[ "$API_CODE" = "200" ] || die "list agents failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
+AGENT_ID="$(jget "$API_BODY" "next((a['id'] for a in (d if isinstance(d, list) else (d or {}).get('agents', [])) if isinstance(a, dict) and a.get('name') == '${AGENT_NAME}'), '')")"
 if [ -n "$AGENT_ID" ]; then
   pass "agent '${AGENT_NAME}' exists (${AGENT_ID})"
 else
@@ -260,9 +265,9 @@ print(json.dumps({
     },
     "budgetMonthlyCents": 100,
 }))' "$AGENT_NAME" "$CANARY_MODEL")"
-  created="$(api POST "/api/companies/${COMPANY_ID}/agents" "$agent_payload")"
-  AGENT_ID="$(jget "$created" "(d or {}).get('id') or ((d or {}).get('agent') or {}).get('id')")"
-  [ -n "$AGENT_ID" ] || die "create agent failed (${API_CODE}): $(printf '%s' "$created" | head -c 300)"
+  api POST "/api/companies/${COMPANY_ID}/agents" "$agent_payload"
+  AGENT_ID="$(jget "$API_BODY" "(d or {}).get('id') or ((d or {}).get('agent') or {}).get('id')")"
+  [ -n "$AGENT_ID" ] || die "create agent failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
   pass "agent created (${AGENT_ID})"
 fi
 
@@ -282,10 +287,10 @@ print(json.dumps({
     "priority": "high",
     "assigneeAgentId": sys.argv[3],
 }))' "$MARKER" "$ts" "$AGENT_ID")"
-created="$(api POST "/api/companies/${COMPANY_ID}/issues" "$issue_payload")"
-ISSUE_ID="$(jget "$created" "(d or {}).get('id') or ((d or {}).get('issue') or {}).get('id')")"
-ISSUE_IDENT="$(jget "$created" "(d or {}).get('identifier') or ((d or {}).get('issue') or {}).get('identifier')")"
-[ -n "$ISSUE_ID" ] || die "create issue failed (${API_CODE}): $(printf '%s' "$created" | head -c 300)"
+api POST "/api/companies/${COMPANY_ID}/issues" "$issue_payload"
+ISSUE_ID="$(jget "$API_BODY" "(d or {}).get('id') or ((d or {}).get('issue') or {}).get('id')")"
+ISSUE_IDENT="$(jget "$API_BODY" "(d or {}).get('identifier') or ((d or {}).get('issue') or {}).get('identifier')")"
+[ -n "$ISSUE_ID" ] || die "create issue failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
 [ -n "$ISSUE_IDENT" ] || ISSUE_IDENT="$ISSUE_ID"
 pass "canary issue filed (${ISSUE_IDENT}, backlog)"
 
@@ -294,8 +299,8 @@ arm="$(curl -sS -X POST "${STUB}/canary-config" -H "Content-Type: application/js
 printf '%s' "$arm" | grep -q '"armed"' || die "failed to arm canary stub: ${arm:-<no response>}"
 pass "stub armed for ${ISSUE_IDENT}"
 
-release="$(api PATCH "/api/issues/${ISSUE_IDENT}" '{"status":"todo"}')"
-[ "$API_CODE" = "200" ] || die "release to todo failed (${API_CODE}): $(printf '%s' "$release" | head -c 300)"
+api PATCH "/api/issues/${ISSUE_IDENT}" '{"status":"todo"}'
+[ "$API_CODE" = "200" ] || die "release to todo failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
 pass "issue released to todo — assignment wake queued"
 
 # ── 6. Poll until terminal status or deadline ────────────────────────────────
@@ -303,8 +308,8 @@ deadline=$(( $(date +%s) + CANARY_TIMEOUT_SECONDS ))
 STATUS=""
 last_logged=""
 while :; do
-  issue="$(api GET "/api/issues/${ISSUE_IDENT}")"
-  STATUS="$(jget "$issue" "(d or {}).get('status') or ((d or {}).get('issue') or {}).get('status')")"
+  api GET "/api/issues/${ISSUE_IDENT}"
+  STATUS="$(jget "$API_BODY" "(d or {}).get('status') or ((d or {}).get('issue') or {}).get('status')")"
   if [ "$STATUS" != "$last_logged" ] && [ -n "$STATUS" ]; then
     echo "    status: ${STATUS} ($(( deadline - $(date +%s) ))s left)"
     last_logged="$STATUS"
@@ -328,9 +333,9 @@ else
   die "issue terminal but NOT done (status=${STATUS}) — the agent gave up or the issue was cancelled"
 fi
 
-comments="$(api GET "/api/issues/${ISSUE_IDENT}/comments")"
-[ "$API_CODE" = "200" ] || die "list comments failed (${API_CODE}): $(printf '%s' "$comments" | head -c 300)"
-disposition="$(jget "$comments" "next((c.get('body','') for c in (d if isinstance(d, list) else (d or {}).get('comments', [])) if isinstance(c, dict) and '${DISPOSITION_TAG}' in (c.get('body') or '')), '')")"
+api GET "/api/issues/${ISSUE_IDENT}/comments"
+[ "$API_CODE" = "200" ] || die "list comments failed (${API_CODE}): $(printf '%s' "$API_BODY" | head -c 300)"
+disposition="$(jget "$API_BODY" "next((c.get('body','') for c in (d if isinstance(d, list) else (d or {}).get('comments', [])) if isinstance(c, dict) and '${DISPOSITION_TAG}' in (c.get('body') or '')), '')")"
 if [ -n "$disposition" ]; then
   pass "disposition comment present"
   echo "    ${disposition}" | head -c 240; echo
