@@ -29,6 +29,10 @@ from anthropic import AsyncAnthropic
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 
+# Local module (same directory): pure decision logic for acting budget
+# enforcement (A6) — see the "Acting budget enforcement" section below.
+import budget_enforcement
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("router")
 
@@ -442,6 +446,94 @@ def daily_cost_rollup() -> dict[str, object]:
     }
 
 
+# ─── Acting budget enforcement (A6) ──────────────────────────────────────────
+# Per-tier DAILY budgets historically only WARNED (upstream evidence: a Claude
+# tier ran ~25× its daily budget with nothing but budget_exceeded WARN lines —
+# real money). BUDGET_ENFORCE_MODE upgrades that to an acting control:
+#   warn (default)  — pre-A6 behavior exactly (ship-dark safe): serve + WARN.
+#   downgrade       — serve BUDGET_FALLBACK_TIER instead; mark the response
+#                     with the X-Router-Budget-Downgrade header + a log line.
+#   block           — 429 with a machine-readable budget_exceeded body.
+# The decision logic lives in budget_enforcement.py — stdlib-only and
+# host-agnostic, vendored verbatim from the upstream private deployment.
+# Enforcement wraps select_tier() as its FINAL stage, so every path that
+# selects a tier there (the OpenAI-compat /v1/chat/completions path, including
+# the Anthropic direct-SDK dispatch inside _call_model, and ephemeral
+# passthrough tiers) is covered. Two paths bypass select_tier and get explicit
+# checks of their own: the native /v1/messages endpoint (the exact gap class
+# that let the upstream Claude tier overrun silently) and /v1/embeddings
+# (which has no tier at all — see the embeddings section for its dedicated
+# ledger bucket). This router has no selftest/probe traffic, so nothing needs
+# a spend exemption.
+_BUDGET_ENFORCE_MODE = budget_enforcement.resolve_mode(os.environ.get("BUDGET_ENFORCE_MODE"))
+_BUDGET_FALLBACK_TIER = os.environ.get("BUDGET_FALLBACK_TIER", "gpt4o-mini")
+log.info(
+    "budget_enforce mode=%s fallback_tier=%s",
+    _BUDGET_ENFORCE_MODE, _BUDGET_FALLBACK_TIER,
+)
+
+
+def _budget_decision(tier: str) -> budget_enforcement.BudgetDecision:
+    """The enforcement decision for serving `tier` right now (pure lookup)."""
+    return budget_enforcement.decide(
+        tier=tier,
+        over_budget=is_over_budget(tier),
+        mode=_BUDGET_ENFORCE_MODE,
+        fallback_tier=_BUDGET_FALLBACK_TIER,
+        registered_tiers=MODELS,
+        spent_usd=_spend.get(tier, 0.0),
+        limit_usd=MODELS[tier]["daily_budget"],
+    )
+
+
+def _apply_budget_enforcement(tier: str, body: dict) -> str:
+    """Acting per-tier daily-budget enforcement (A6) — final select_tier stage.
+
+    warn → serve the requested tier (+ WARN log, exactly the old behavior);
+    downgrade → serve the fallback tier and stash a marker in a private body
+    slot (same pattern as __router_extra_headers__) so the endpoint can add
+    the X-Router-Budget-Downgrade response header; block → raise 429 with the
+    machine-readable budget_exceeded detail.
+    """
+    decision = _budget_decision(tier)
+    if decision.action == budget_enforcement.ACTION_ALLOW:
+        return tier
+    if decision.action == budget_enforcement.ACTION_WARN:
+        log.warning("budget_enforce mode=%s tier=%s %s",
+                    _BUDGET_ENFORCE_MODE, tier, decision.reason)
+        return tier
+    if decision.action == budget_enforcement.ACTION_DOWNGRADE:
+        log.warning("budget_enforce_downgrade tier=%s→%s %s",
+                    tier, decision.serve_tier, decision.reason)
+        body["__budget_downgrade__"] = {"from": tier, "to": decision.serve_tier}
+        return decision.serve_tier
+    # ACTION_BLOCK — FastAPI wraps the dict detail as {"detail": {...}}.
+    log.warning("budget_enforce_block tier=%s %s", tier, decision.reason)
+    raise HTTPException(status_code=429, detail=budget_enforcement.block_detail(decision))
+
+
+def _budget_downgrade_headers(body: dict) -> dict[str, str]:
+    """Response headers marking a budget downgrade, if one happened for `body`."""
+    marker = body.get("__budget_downgrade__")
+    if not isinstance(marker, dict):
+        return {}
+    name, value = budget_enforcement.downgrade_header(
+        budget_enforcement.BudgetDecision(
+            budget_enforcement.ACTION_DOWNGRADE,
+            marker.get("from", ""), marker.get("to", ""), "",
+        )
+    )
+    return {name: value}
+
+
+def _budget_downgrade_meta(body: dict) -> dict:
+    """_router metadata marking a budget downgrade, if one happened for `body`."""
+    marker = body.get("__budget_downgrade__")
+    if not isinstance(marker, dict) or not marker.get("from"):
+        return {}
+    return {"budget_downgraded_from": marker["from"]}
+
+
 # ─── Observability (GenAI semconv) ────────────────────────────────────────────
 # One OTel span per model call with GenAI semantic-convention attributes, behind
 # OBSERVABILITY_ENABLED (default off), content-redacted (no prompt/response text).
@@ -694,6 +786,26 @@ def _usage_from_result(result: dict, *, fallback_tier: str) -> tuple[str, int, i
     return model, int(usage.get("prompt_tokens", 0) or 0), int(usage.get("completion_tokens", 0) or 0)
 
 
+def _record_anthropic_usage(tier: str, deployment: str, usage, caller: str | None = None) -> None:
+    """Record estimated cost from an Anthropic SDK usage object (best-effort).
+
+    A6: the native /v1/messages path calls the Anthropic SDK directly (it never
+    goes through _call_model), so before this its spend was invisible to the
+    daily ledger — budget enforcement on that path would have been inert.
+    Accepts anything with input_tokens/output_tokens attributes (the SDK usage
+    object, or a dict-backed shim from the SSE accumulator). Never raises."""
+    try:
+        input_tokens = getattr(usage, "input_tokens", 0) or 0
+        output_tokens = getattr(usage, "output_tokens", 0) or 0
+        record_cost(
+            tier, _estimate_anthropic_cost(deployment, input_tokens, output_tokens),
+            model=deployment, input_tokens=input_tokens, output_tokens=output_tokens,
+            caller=caller,
+        )
+    except Exception as e:  # never let cost accounting break a response
+        log.debug("anthropic_cost_estimate_failed tier=%s error=%s", tier, e)
+
+
 # ─── Routing ──────────────────────────────────────────────────────────────────
 # Map agent/persona names to model tiers. Populate via PERSONA_TIERS_JSON env
 # var at runtime (JSON object: {"my-agent": "gpt4o-mini", ...}), or extend
@@ -734,6 +846,14 @@ def _get_passthrough_config(model_name: str) -> dict[str, Any]:
 
 
 def select_tier(body: dict) -> str:
+    # A6 acting budget enforcement runs LAST so the finally-selected tier is
+    # always checked against its own daily budget (a pure pass-through in the
+    # default warn mode). The pre-existing gpt4o-mini→phi4 over-budget redirect
+    # inside _select_tier_base is unchanged — enforcement wraps it.
+    return _apply_budget_enforcement(_select_tier_base(body), body)
+
+
+def _select_tier_base(body: dict) -> str:
     tier = (body.get("tier") or body.get("metadata", {}).get("tier", "")).lower()
 
     if not tier or tier == "auto":
@@ -854,7 +974,10 @@ def _build_completion_kwargs(tier: str, body: dict, *, stream: bool) -> dict[str
 #   - computer-use, MCP tools, citations                                 ✗
 
 def _is_anthropic_tier(tier: str) -> bool:
-    return MODELS[tier]["litellm_model"].startswith("anthropic/")
+    # .get chain: callers pass ledger-bucket names too (e.g. the A6
+    # "embeddings" bucket via record_cost → _genai_system), which have no
+    # MODELS entry — treat unknown names as non-Anthropic, never KeyError.
+    return MODELS.get(tier, {}).get("litellm_model", "").startswith("anthropic/")
 
 
 # ─── Tool format translation ──────────────────────────────────────────────────
@@ -1223,7 +1346,8 @@ def _build_messages_passthrough_kwargs(cfg: dict, body: dict, request: Request) 
 
 
 async def _stream_anthropic_messages_sse(
-    client, kwargs: dict[str, Any], tier: str, t_start: float
+    client, kwargs: dict[str, Any], tier: str, t_start: float,
+    caller: str | None = None,
 ):
     """Yield raw Anthropic SSE events as the upstream stream produces them.
 
@@ -1236,6 +1360,9 @@ async def _stream_anthropic_messages_sse(
     # it as a separate parameter).
     kwargs = dict(kwargs)
     kwargs.pop("stream", None)
+    # A6 usage capture for cost recording: message_start carries the input
+    # token count, message_delta carries the (cumulative) output count.
+    usage_acc = {"input_tokens": 0, "output_tokens": 0}
     try:
         async for event in await client.messages.create(stream=True, **kwargs):
             event_type = getattr(event, "type", "message")
@@ -1244,7 +1371,22 @@ async def _stream_anthropic_messages_sse(
             except Exception:
                 # Older SDK style fallback
                 payload = getattr(event, "to_dict", lambda: {})() or {}
+            if event_type == "message_start":
+                u = (payload.get("message") or {}).get("usage") or {}
+                for k in usage_acc:
+                    usage_acc[k] = u.get(k) or usage_acc[k]
+            elif event_type == "message_delta":
+                u = payload.get("usage") or {}
+                usage_acc["output_tokens"] = u.get("output_tokens") or usage_acc["output_tokens"]
             yield f"event: {event_type}\ndata: {json.dumps(payload)}\n\n"
+        # A6: streamed native Claude calls accrue to the daily ledger too —
+        # this is the main production mode (Hermes anthropic_messages), so
+        # leaving it untracked would leave enforcement blind on the exact
+        # path it was built for.
+        _record_anthropic_usage(
+            tier, MODELS[tier]["litellm_model"].split("/", 1)[1],
+            type("U", (), usage_acc)(), caller=caller,
+        )
         log.info("messages_stream_ok tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
     except Exception as e:
         log.warning("messages_stream_failed tier=%s error=%s", tier, e)
@@ -1496,6 +1638,11 @@ async def chat_completions(request: Request):
         body["__router_caller__"] = caller
 
     tier = select_tier(body)
+    # A6: select_tier stashes a __budget_downgrade__ marker in the body when
+    # enforcement swapped the tier; surface it as a response header + _router
+    # metadata so callers can see the downgrade (empty dicts otherwise).
+    bd_headers = _budget_downgrade_headers(body)
+    bd_meta = _budget_downgrade_meta(body)
     stream = bool(body.get("stream", False))
 
     # Capture prompt-cache (and other Anthropic-beta) markers BEFORE handing the
@@ -1553,6 +1700,7 @@ async def chat_completions(request: Request):
                     headers={
                         "Cache-Control": "no-cache",
                         "Connection": "keep-alive",
+                        **bd_headers,
                     },
                 )
             except Exception as e:
@@ -1574,9 +1722,9 @@ async def chat_completions(request: Request):
     # Non-streaming path
     try:
         result = await _call_model(tier, body)
-        result["_router"] = {"tier": tier, "estimated_input_tokens": estimated}
+        result["_router"] = {"tier": tier, "estimated_input_tokens": estimated, **bd_meta}
         log.info("success tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
-        return JSONResponse(content=result)
+        return JSONResponse(content=result, headers=bd_headers)
     except Exception as e:
         log.warning("primary_failed tier=%s error=%s", tier, e)
         log.debug("primary_failed_traceback tier=%s\n%s", tier, traceback.format_exc())
@@ -1588,9 +1736,10 @@ async def chat_completions(request: Request):
                 "tier": fb,
                 "fallback_from": tier,
                 "estimated_input_tokens": estimated,
+                **bd_meta,
             }
             log.info("fallback_success tier=%s latency=%.2fs", fb, time.monotonic() - t_start)
-            return JSONResponse(content=result)
+            return JSONResponse(content=result, headers=bd_headers)
         except Exception as e:
             log.warning("fallback_failed tier=%s error=%s", fb, e)
             log.debug("fallback_failed_traceback tier=%s\n%s", fb, traceback.format_exc())
@@ -1633,6 +1782,56 @@ async def messages(request: Request):
             detail=f"Tier {tier!r} is not an Anthropic-backed tier",
         )
 
+    # Acting budget enforcement (A6): the native Messages path bypasses
+    # select_tier (tier comes from _select_anthropic_tier_for_model above) —
+    # the exact gap class that let the upstream deployment's Claude tier
+    # overrun its daily budget with only WARN lines — so it gets an explicit
+    # check here. The response must stay Anthropic-shaped end to end, so a
+    # downgrade can only serve another Anthropic-backed tier: the configured
+    # fallback participates only when it is Anthropic-backed; otherwise
+    # decide() sees no usable fallback and degrades to warn (a non-servable
+    # fallback must never strand a request). block returns an Anthropic-shaped
+    # 429 so anthropic_messages transports parse it like any upstream error.
+    _msg_fallback = (
+        _BUDGET_FALLBACK_TIER
+        if _BUDGET_FALLBACK_TIER in MODELS and _is_anthropic_tier(_BUDGET_FALLBACK_TIER)
+        else None
+    )
+    decision = budget_enforcement.decide(
+        tier=tier,
+        over_budget=is_over_budget(tier),
+        mode=_BUDGET_ENFORCE_MODE,
+        fallback_tier=_msg_fallback,
+        registered_tiers=MODELS,
+        spent_usd=_spend.get(tier, 0.0),
+        limit_usd=MODELS[tier]["daily_budget"],
+    )
+    bd_headers: dict[str, str] = {}
+    bd_meta: dict[str, str] = {}
+    if decision.action == budget_enforcement.ACTION_BLOCK:
+        log.warning("budget_enforce_block tier=%s %s (messages)", tier, decision.reason)
+        return JSONResponse(
+            status_code=429,
+            content={
+                "type": "error",
+                "error": {
+                    "type": "rate_limit_error",
+                    "message": decision.reason,
+                    "detail": budget_enforcement.block_detail(decision),
+                },
+            },
+        )
+    if decision.action == budget_enforcement.ACTION_DOWNGRADE:
+        log.warning("budget_enforce_downgrade tier=%s→%s %s (messages)",
+                    tier, decision.serve_tier, decision.reason)
+        name, value = budget_enforcement.downgrade_header(decision)
+        bd_headers[name] = value
+        bd_meta["budget_downgraded_from"] = tier
+        tier = decision.serve_tier
+    elif decision.action == budget_enforcement.ACTION_WARN:
+        log.warning("budget_enforce mode=%s tier=%s %s (messages)",
+                    _BUDGET_ENFORCE_MODE, tier, decision.reason)
+
     cfg = MODELS[tier]
     stream = bool(body.get("stream", False))
 
@@ -1648,14 +1847,16 @@ async def messages(request: Request):
 
     client = _make_anthropic_client(cfg)
     kwargs = _build_messages_passthrough_kwargs(cfg, body, request)
+    caller = resolve_caller_id(request.headers)
 
     if stream:
         return StreamingResponse(
-            _stream_anthropic_messages_sse(client, kwargs, tier, t_start),
+            _stream_anthropic_messages_sse(client, kwargs, tier, t_start, caller=caller),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
                 "Connection": "keep-alive",
+                **bd_headers,
             },
         )
 
@@ -1680,13 +1881,21 @@ async def messages(request: Request):
         }
         return JSONResponse(status_code=status, content=err_body)
 
+    # A6: accrue this call's spend to the daily ledger — the native path never
+    # goes through _call_model, so without this the enforcement above would
+    # never see the spend it is supposed to act on.
+    _record_anthropic_usage(
+        tier, cfg["litellm_model"].split("/", 1)[1], getattr(resp, "usage", None),
+        caller=caller,
+    )
+
     try:
         result = resp.model_dump(exclude_unset=False, mode="json")
     except Exception:
         result = getattr(resp, "to_dict", lambda: {})() or {}
-    result["_router"] = {"tier": tier, "estimated_input_tokens": estimated}
+    result["_router"] = {"tier": tier, "estimated_input_tokens": estimated, **bd_meta}
     log.info("messages success tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
-    return JSONResponse(content=result)
+    return JSONResponse(content=result, headers=bd_headers)
 
 
 # ─── Embeddings ──────────────────────────────────────────────────────────────
@@ -1704,6 +1913,56 @@ _EMBED_API_KEY = _tier_env("EMBEDDING_API_KEY") or _tier_env("OPENAI_API_KEY")
 _EMBED_API_BASE = os.environ.get("EMBEDDING_BASE_URL") or None
 _EMBED_TIMEOUT_S = int(os.environ.get("EMBEDDING_TIMEOUT_SECONDS", "20"))
 _EMBED_MAX_INPUTS = int(os.environ.get("EMBEDDING_MAX_INPUTS", "256"))
+
+# ── Embeddings daily budget (A6 acting enforcement) ──────────────────────────
+# /v1/embeddings bypasses tier selection entirely (no MODELS entry), so its
+# spend was previously invisible to cost governance — the same "spend with no
+# acting control" gap class A6 closes for the chat tiers. Embeddings spend now
+# accrues to a dedicated "embeddings" ledger bucket (it shows up in
+# daily_cost_rollup like any tier), capped by EMBEDDING_DAILY_BUDGET_USD; a
+# cap of 0 disables the ceiling (spend is still tracked), mirroring
+# PER_CALLER_DAILY_USD's convention. There is no meaningful downgrade target —
+# a different embedding model would land queries in a different vector space
+# than the stored document embeddings (the whole point of the model pin) — so
+# in downgrade mode this path degrades to warn (decide() gets
+# fallback_tier=None); block mode 429s with the same machine-readable body as
+# the chat paths. Cost comes from LiteLLM's response_cost when available, else
+# a list-price token estimate at EMBEDDING_PRICE_PER_MTOK (default matches
+# text-embedding-3-small; adjust it alongside EMBEDDING_MODEL).
+_EMBED_LEDGER_BUCKET = "embeddings"
+_EMBED_DAILY_BUDGET_USD = float(os.environ.get("EMBEDDING_DAILY_BUDGET_USD", "1.00") or 0)
+_EMBED_PRICE_PER_MTOK = float(os.environ.get("EMBEDDING_PRICE_PER_MTOK", "0.02") or 0)
+log.info(
+    "budget_enforce embeddings_daily_budget_usd=%.2f (0 disables the cap)",
+    _EMBED_DAILY_BUDGET_USD,
+)
+
+
+def is_embeddings_over_budget() -> bool:
+    """True when the embeddings bucket has reached its daily cap. A cap of 0
+    (or negative) disables the ceiling — mirrors PER_CALLER_DAILY_USD."""
+    if _EMBED_DAILY_BUDGET_USD <= 0:
+        return False
+    _reset_if_new_day()
+    return _spend.get(_EMBED_LEDGER_BUCKET, 0.0) >= _EMBED_DAILY_BUDGET_USD
+
+
+def _embedding_cost(resp, payload: dict) -> tuple[float, int]:
+    """(cost_usd, input_tokens) for one embeddings call. Prefers LiteLLM's
+    response_cost; falls back to a list-price token estimate. Defaults
+    gracefully — it runs on the hot path after a successful upstream call."""
+    usage = payload.get("usage") or {}
+    try:
+        tokens = int(usage.get("prompt_tokens") or usage.get("total_tokens") or 0)
+    except (TypeError, ValueError):
+        tokens = 0
+    try:
+        cost = float((getattr(resp, "_hidden_params", None) or {}).get("response_cost") or 0.0)
+    except (TypeError, ValueError):
+        cost = 0.0
+    if cost <= 0:
+        cost = tokens / 1_000_000 * _EMBED_PRICE_PER_MTOK
+    return cost, tokens
 
 
 def _pin_embedding_provider(model: str) -> str:
@@ -1752,6 +2011,34 @@ async def embeddings(request: Request):
         raise HTTPException(status_code=400, detail="'input' is required")
     if isinstance(inp, list) and len(inp) > _EMBED_MAX_INPUTS:
         raise HTTPException(status_code=400, detail=f"too many inputs (max {_EMBED_MAX_INPUTS})")
+
+    # aaf-0005: same per-caller budget gate as the chat endpoints — a caller
+    # over its daily cap must not keep spending through the embeddings path.
+    caller = resolve_caller_id(request.headers)
+    if is_over_caller_budget(caller):
+        raise HTTPException(status_code=429, detail="Per-caller daily budget exceeded")
+
+    # Acting budget enforcement (A6). fallback_tier=None: there is no
+    # same-vector-space downgrade target (see the bucket's comment block), so
+    # downgrade mode degrades to warn here; block refuses with the same
+    # machine-readable 429 body as the chat paths.
+    decision = budget_enforcement.decide(
+        tier=_EMBED_LEDGER_BUCKET,
+        over_budget=is_embeddings_over_budget(),
+        mode=_BUDGET_ENFORCE_MODE,
+        fallback_tier=None,
+        registered_tiers=MODELS,
+        spent_usd=_spend.get(_EMBED_LEDGER_BUCKET, 0.0),
+        limit_usd=_EMBED_DAILY_BUDGET_USD,
+    )
+    if decision.action == budget_enforcement.ACTION_BLOCK:
+        log.warning("budget_enforce_block tier=%s %s (embeddings)",
+                    _EMBED_LEDGER_BUCKET, decision.reason)
+        raise HTTPException(status_code=429, detail=budget_enforcement.block_detail(decision))
+    if decision.action != budget_enforcement.ACTION_ALLOW:
+        log.warning("budget_enforce mode=%s tier=%s %s (embeddings)",
+                    _BUDGET_ENFORCE_MODE, _EMBED_LEDGER_BUCKET, decision.reason)
+
     try:
         # _EMBED_LITELLM_MODEL (not _EMBED_MODEL): the openai/ prefix pin is
         # load-bearing against azure.com api_bases — see _pin_embedding_provider.
@@ -1771,6 +2058,15 @@ async def embeddings(request: Request):
         payload = resp.model_dump()
     except AttributeError:
         payload = resp if isinstance(resp, dict) else dict(resp)
+
+    # A6: embeddings spend accrues to the ledger (dedicated bucket + the
+    # per-caller ledger when the request is attributed).
+    cost, tokens = _embedding_cost(resp, payload)
+    record_cost(
+        _EMBED_LEDGER_BUCKET, cost, model=_EMBED_MODEL, input_tokens=tokens,
+        caller=caller, correlation_id=resolve_correlation_id(request.headers),
+    )
+
     data = payload.get("data") or []
     return {
         "object": "list",
