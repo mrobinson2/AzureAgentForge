@@ -81,6 +81,17 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 
 ## What's new
 
+**Unreleased on `main`, ahead of a v1.8.0 cut** (six merges, one theme: turn a silent failure into a loud one):
+
+- **The only test that proves the product works.** `local-stack-smoke` checked containers and health endpoints but never proved an agent could finish a task. The new **agent-loop canary** (`scripts/canary/`, wired into [`local-stack-smoke.yml`](.github/workflows/local-stack-smoke.yml)) files a real issue, wakes it, spawns the real vendored Hermes runtime, sends a model call through the model-router, executes a real terminal tool call, and checks for a disposition comment before the issue closes. Only the LLM reply is stubbed. Building it found six previously invisible defects, all fixed in the same change — headlined by **Hermes could never boot inside the AAF PaperClip image at all**: the `hermes-cli` build stage installed on `python:3.14` while the runtime image runs Debian trixie's `python3.13`, so every agent spawn died with `ModuleNotFoundError` and PaperClip's run-recovery quietly moved the issue to `blocked` — present since the file was first committed, with every health check green the whole time. See [`docs/local-development.md`](docs/local-development.md#agent-loop-canary-the-smoke-that-proves-agents-can-work).
+- **A CI job that catches config the app silently stopped reading.** The new `validate-vendored-config` job loads the pinned vendored source of each app (Honcho's actual pydantic-settings model, an AST parse of Hermes's config parser, a version-pinned manifest for PaperClip) and checks every key AAF ships against what that source really consumes — a dropped key now fails the build instead of quietly degrading a deployment. Its first run found the failure class alive in this repo: **57 stale flat Honcho keys in `honcho.tf`** and **19 more in the mac-site compose file** (both pre-dating the 3.0.7 nested `MODEL_CONFIG` migration — a live deploy would have silently run every specialist on direct-OpenAI `gpt-5.4-mini`), plus an inert `HERMES_DB_PATH` variable the pinned Hermes build never reads. All fixed in the same PR. Design doc: [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md).
+- **Hard cost-envelope enforcement.** The v1.5 cost-governance layer moves from observe-only to enforceable: `BUDGET_ENFORCE_MODE` (`warn` default / `downgrade` / `block`) now covers every router path, including the native `/v1/messages` Anthropic transport, which — as a side effect of wiring it up — now records spend at all; it previously recorded zero. Embeddings spend is now budgeted too, in its own ledger bucket.
+- **Provider-flexible embeddings, with an Azure AI Foundry path.** `/v1/embeddings` no longer assumes OpenAI. A documented Foundry deployment path ([`docs/walkthroughs/azure-foundry-embeddings.md`](docs/walkthroughs/azure-foundry-embeddings.md)) plus a load-bearing `openai/` LiteLLM provider-detection pin baked into the router means forks don't have to rediscover the `400 unknown_model` failure mode against a Foundry endpoint.
+- **One canonical user-peer identity.** `HONCHO_USER_PEER_ID` names the memory peer that represents the human principal, resolved the same way — and defaulted to the same fallback — by every writer and reader: Terraform, compose, the memory-governor, and the Hermes helper scripts. This closes AAF's own seeds of the peer-fragmentation failure mode it warns about elsewhere: Terraform defaulted the peer to `operator`, the governor hardcoded `"user"`, and a helper script sent no `observed` field at all. See [`docs/design/memory-system.md` §18](docs/design/memory-system.md#18-identity-the-canonical-user-peer).
+- **Vendored incident-fix defaults.** Three fixes ported from the upstream private deployment's own incident history, so a fresh fork doesn't have to rediscover them: the generated Hermes config now defaults to the router-compatible `chat_completions` + `api_key` shape instead of one that 401s against the router's fail-closed auth; the adapter build patch pins `--provider custom` in both the npm dist *and* the workspace source that PaperClip 707 actually loads at runtime; and every agent template gets an explicit disposition protocol — exactly one terminal state per run, never a silent one.
+
+This batch is merged to `main` but **not yet tagged**; see [Roadmap](#roadmap) for the v1.8.0 status.
+
 New in v1.7 (since v1.5):
 
 - **Contradiction sweep performance hardening**: the sweep's candidate query is a pg_trgm similarity self-join on `documents` — without a trigram index, even ~1k eligible docs blow through the pool-wide 30s command timeout, so every pass timed out and no pair was ever judged (found in production upstream). Migration [`0009`](infrastructure/migrations/0009_contradiction_sweep_perf.sql) adds a `gin_trgm_ops` index (guarded on `pg_trgm` presence), and the candidate fetch gains a dedicated per-query timeout (`CONTRADICTION_QUERY_TIMEOUT_S`) plus a recency window (`CONTRADICTION_LOOKBACK_DAYS`; `0` = full-corpus pass).
@@ -352,6 +363,8 @@ As of v1.7, AzureAgentForge includes:
 
 The local quickstart brings up PostgreSQL and the model router. The full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The end-to-end Azure deploy is automated (`scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline, which now runs green end to end).
 
+`main` also carries an incident-hardening batch ahead of the v1.7 tag above — the agent-loop canary smoke, the vendored-config schema guard, hard cost-envelope enforcement, provider-flexible embeddings, canonical user-peer identity, and vendored incident-fix defaults — merged but not yet released. See [What's new](#whats-new) and [Roadmap](#roadmap).
+
 ---
 
 ## What's not finished yet
@@ -561,6 +574,26 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Deployment experience: `./forge --check` offline preflight, named operator gates in the Forge Console + `AI-ASSISTED-SETUP.md`, advisory inline validation
 - ✅ Full grouped release notes: [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md)
 
+### On `main`, unreleased (post-v1.7, pre-v1.8.0)
+
+An incident-hardening batch, each item closing a way this platform (or the vendored apps it ships) could fail silently:
+
+- ✅ Agent-loop canary smoke: files a real issue, spawns the real vendored Hermes runtime, and proves it can complete work end to end — found and fixed 6 defects, including Hermes never being able to boot inside the PaperClip image at all
+- ✅ Vendored-config schema guard (`validate-vendored-config` CI job): validates every shipped config key against what the pinned vendored source actually reads — first run found 57 stale flat Honcho keys in `honcho.tf`, 19 more in the mac-site compose, and an inert `HERMES_DB_PATH`, all fixed
+- ✅ Hard cost-envelope enforcement: `BUDGET_ENFORCE_MODE` (`warn`/`downgrade`/`block`) on every router path, including the native Anthropic path, which also gains spend recording it previously lacked
+- ✅ Provider-flexible `/v1/embeddings` with a documented Azure AI Foundry path and a load-bearing LiteLLM provider pin
+- ✅ Canonical user-peer identity (`HONCHO_USER_PEER_ID`) threaded through Terraform, compose, the governor, and the Hermes helper scripts
+- ✅ Vendored incident-fix defaults: router-compatible Hermes config template, adapter `--provider custom` pin (dist + workspace), disposition protocol in every agent template
+
+Not yet tagged — see [Next steps](#next-steps) below.
+
+### Next steps
+
+- ⬜ Cut the v1.8.0 release once the batch above has soaked
+- ⬜ Bump the vendored Hermes submodule to v0.18.1 — previously blocked by the config/auth incidents this batch's A1 and A2 items fix; now unblocked
+- ⬜ Identity map + peer re-consolidation sweep: an alias table at admission and a background sweep that detects/merges unexpected peers, the production backstop the canonical-peer design ([`docs/design/memory-system.md` §18](docs/design/memory-system.md#18-identity-the-canonical-user-peer)) calls out as a separate enhancement
+- ⬜ Revisit `apps/paperclip/patch-adapter.mjs`'s per-session `HERMES_DB_PATH` override, a no-op on the current Hermes pin for the same reason the Terraform copy was removed, at the next Hermes bump
+
 ### Future releases
 
 - ⬜ A second, alternative agent runtime
@@ -574,7 +607,6 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ⬜ Artifacts and work products
 - ⬜ Synthetic dogfooding: scheduled canary conversations across channels, alerting on repeated failure
 - ⬜ Deeper observability pipeline: correlation-id threading, per-agent metric counters, an SLO dashboard, SLO burn-rate alerts, and a `gen_ai.usage` cost metric on top of the v1.3 spans
-- ⬜ Cost governance: a daily cost rollup and per-user budget caps on top of the per-tier daily caps
 - ⬜ Agent inventory and operational dashboard patterns
 - ⬜ Private enterprise RAG patterns with Azure AI Search
 - ⬜ Azure Container Apps dynamic-sessions provider behind the v1.3 sandbox seam
@@ -644,6 +676,7 @@ Multi-tenant support is designed and partially scaffolded.
 | [`docs/deploy-pipeline.md`](docs/deploy-pipeline.md) | Reference GitHub Actions deploy pipeline with a destroy-aware approval gate (OIDC, no stored secrets) |
 | [`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md) | Two-way memory ↔ Obsidian vault CLI: export governed memory, curate in Obsidian, sync edits back |
 | [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md) | Full grouped v1.7.0 release notes: platform features, security, examples & samples, docs & dependencies, upgrade notes |
+| [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md) | Why config drift into a vendored app fails silently, the `validate-vendored-config` CI job that closes it, and the per-app validation strategy (Honcho, Hermes, PaperClip) |
 
 ---
 
