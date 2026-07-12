@@ -64,10 +64,13 @@ jobs:
       # Fail fast with the REAL error if the bundled agent runtime can't even
       # boot inside the paperclip container (import errors here previously
       # surfaced only as an opaque one-line `adapter_failed` recovery comment).
+      # --user node is load-bearing: agents spawn as node, and a root-run
+      # probe would create root-owned files under ~/.hermes that then break
+      # the node-user spawns it is trying to validate.
       - name: Probe agent runtime inside the paperclip container
         run: |
           docker compose -f docker-compose.yml -f docker-compose.canary.yml --profile full \
-            exec -T paperclip sh -c 'python3 --version && hermes --version && echo "runtime probe OK"'
+            exec -T --user node paperclip sh -c 'python3 --version && hermes --version && echo "runtime probe OK"'
       - name: Canary roundtrip (file issue → agent wakes → disposition → done)
         run: CANARY_TIMEOUT_SECONDS=420 bash scripts/smoke-canary.sh
       - name: Logs on failure

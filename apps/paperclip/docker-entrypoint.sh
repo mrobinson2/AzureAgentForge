@@ -193,6 +193,17 @@ echo "[entrypoint] Skills manifests available at ${MANIFESTS_DIR}"
 # exits non-zero — a container that would spawn dead agents must not serve.
 /usr/local/bin/write-hermes-config.sh
 
+# The Hermes home tree is created/written by ROOT during this entrypoint
+# (write-hermes-config.sh mkdir + config.yaml, plus the skills/manifests sync
+# above), but the hermes CLI runs as `node` at agent spawn and must stat/read
+# AND WRITE inside it (its .env probe, sessions, logs). On Azure Files (SMB)
+# permissions surface as 0777 so this was invisible; on a real POSIX volume a
+# root-owned ~/.hermes killed EVERY agent spawn with
+#   PermissionError: [Errno 13] Permission denied: '/paperclip/.hermes/.env'
+# (surfacing only as an opaque `adapter_failed` recovery comment). Caught by
+# the agent-loop canary (scripts/smoke-canary.sh).
+chown -R node:node "${HERMES_HOME:-/paperclip/.hermes}" 2>/dev/null || true
+
 # ── JWT Auth Proxy for automation API access ─────────────────────────────────
 # When PAPERCLIP_AUTOMATION_JWT_SECRET is set, the auth proxy sits on port 3100
 # (the public port) and forwards to Paperclip on port 3099 (internal).
