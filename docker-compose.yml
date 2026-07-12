@@ -58,6 +58,15 @@ services:
       PHI_API_KEY: ${PHI_API_KEY:-}
       OPENAI_COMPAT_BASE_URL: ${OPENAI_COMPAT_BASE_URL:-}
       OPENAI_COMPAT_API_KEY: ${OPENAI_COMPAT_API_KEY:-}
+      # /v1/embeddings upstream (optional; 503 until the key is set). Base URL
+      # unset -> api.openai.com; point it at an Azure AI Foundry /openai/v1
+      # endpoint instead — docs/walkthroughs/azure-foundry-embeddings.md. Keep
+      # EMBEDDING_MODEL a bare model name: the router pins the openai/ LiteLLM
+      # prefix itself (azure.com base URL + bare model otherwise trips LiteLLM's
+      # AZURE provider -> api-key-header auth -> Foundry 400 unknown_model).
+      EMBEDDING_API_KEY: ${EMBEDDING_API_KEY:-}
+      EMBEDDING_BASE_URL: ${EMBEDDING_BASE_URL:-}
+      EMBEDDING_MODEL: ${EMBEDDING_MODEL:-text-embedding-3-small}
     ports: ["${ROUTER_PORT:-8080}:8080"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)\""]

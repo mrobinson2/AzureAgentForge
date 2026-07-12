@@ -50,6 +50,20 @@ Shared timeout across all Foundry tiers: `MODEL_TIMEOUT_SECONDS` (default: `60`)
 
 Set `OLLAMA_BASE_URL` and `OLLAMA_MODELS` (comma-separated model tags) to register local inference tiers. Each model tag `<name>[:<variant>]` becomes a `<name>-local` tier. Ollama tiers fall back to `gpt4o-mini` (or the value of `OLLAMA_FALLBACK_TIER`) when the edge host is unreachable. Leaving `OLLAMA_BASE_URL` unset gives a clean Foundry-only stack.
 
+### Embeddings (optional — provider-flexible)
+
+`POST /v1/embeddings` is an OpenAI-compatible passthrough used by the memory governor's vector retrieval. It is **disabled (503) until a key is set** — it fails loud rather than silently degrading memory search. The upstream is provider-flexible: any OpenAI-compatible endpoint serving the same model works, so forks are not tied to OpenAI billing. The Azure AI Foundry path is documented end-to-end in [`docs/walkthroughs/azure-foundry-embeddings.md`](../../docs/walkthroughs/azure-foundry-embeddings.md).
+
+| Env var | Purpose |
+|---|---|
+| `EMBEDDING_API_KEY` | API key for the embeddings upstream (falls back to `OPENAI_API_KEY`; unset → endpoint answers 503) |
+| `EMBEDDING_BASE_URL` | OpenAI-compatible base URL. Unset → `api.openai.com`. Point it at an Azure AI Foundry `/openai/v1` endpoint to serve embeddings from Foundry |
+| `EMBEDDING_MODEL` | Model / deployment name (default: `text-embedding-3-small` — matches Honcho's 1536-dim document-embedding space) |
+| `EMBEDDING_TIMEOUT_SECONDS` | Upstream timeout (default: `20`) |
+| `EMBEDDING_MAX_INPUTS` | Max inputs per request (default: `256`) |
+
+**Provider-detection pin**: the router prepends `openai/` to a bare `EMBEDDING_MODEL` before handing it to LiteLLM. This is load-bearing for the Foundry path — with an `azure.com` `EMBEDDING_BASE_URL` and no provider prefix, LiteLLM flips to its AZURE provider (`api-key` header auth) and Foundry's OpenAI-compatible endpoint rejects the call with `400 unknown_model`. The `openai/` prefix keeps auth on `Authorization: Bearer`. An explicit `provider/` prefix in `EMBEDDING_MODEL` is honored unchanged.
+
 ## Routing
 
 ### How a tier is selected
@@ -96,3 +110,4 @@ Tiers that cannot fit the request (input + max_tokens > context_limit) are prune
 |---|---|---|
 | `POST` | `/v1/chat/completions` | OpenAI-compatible chat completions (streaming and non-streaming) |
 | `POST` | `/v1/messages` | Anthropic Messages API passthrough (Claude tiers only) |
+| `POST` | `/v1/embeddings` | OpenAI-compatible embeddings passthrough (503 until `EMBEDDING_API_KEY` is set; see [Embeddings](#embeddings-optional--provider-flexible)) |
