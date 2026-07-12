@@ -503,6 +503,29 @@ variable "memory_classifier_daily_budget_usd" {
   default     = "1.00"
 }
 
+variable "budget_enforce_mode" {
+  type        = string
+  description = "Router acting budget enforcement (A6): warn (default; observe-only, pre-A6 behavior) | downgrade (serve budget_fallback_tier + X-Router-Budget-Downgrade header) | block (429 budget_exceeded). The router fails open to warn on any other value."
+  default     = "warn"
+
+  validation {
+    condition     = contains(["warn", "downgrade", "block"], var.budget_enforce_mode)
+    error_message = "budget_enforce_mode must be one of: warn, downgrade, block."
+  }
+}
+
+variable "budget_fallback_tier" {
+  type        = string
+  description = "Tier the router serves instead when budget_enforce_mode=downgrade trips (the designated floor; exempt from enforcement)."
+  default     = "gpt4o-mini"
+}
+
+variable "embedding_daily_budget_usd" {
+  type        = string
+  description = "Daily budget cap (USD) for the router's /v1/embeddings ledger bucket (A6). \"0\" disables the cap; spend is still tracked."
+  default     = "1.00"
+}
+
 variable "memory_sweeper_cron" {
   type        = string
   description = "Cron expression for the nightly TTL sweeper job."

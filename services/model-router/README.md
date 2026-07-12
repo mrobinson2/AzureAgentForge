@@ -61,6 +61,8 @@ Set `OLLAMA_BASE_URL` and `OLLAMA_MODELS` (comma-separated model tags) to regist
 | `EMBEDDING_MODEL` | Model / deployment name (default: `text-embedding-3-small` — matches Honcho's 1536-dim document-embedding space) |
 | `EMBEDDING_TIMEOUT_SECONDS` | Upstream timeout (default: `20`) |
 | `EMBEDDING_MAX_INPUTS` | Max inputs per request (default: `256`) |
+| `EMBEDDING_DAILY_BUDGET_USD` | Daily cap for the `embeddings` ledger bucket (default: `1.00`; `0` disables the cap — spend is still tracked) |
+| `EMBEDDING_PRICE_PER_MTOK` | List-price fallback for cost estimation when LiteLLM reports no `response_cost` (default: `0.02`, matching `text-embedding-3-small`; adjust alongside `EMBEDDING_MODEL`) |
 
 **Provider-detection pin**: the router prepends `openai/` to a bare `EMBEDDING_MODEL` before handing it to LiteLLM. This is load-bearing for the Foundry path — with an `azure.com` `EMBEDDING_BASE_URL` and no provider prefix, LiteLLM flips to its AZURE provider (`api-key` header auth) and Foundry's OpenAI-compatible endpoint rejects the call with `400 unknown_model`. The `openai/` prefix keeps auth on `Authorization: Bearer`. An explicit `provider/` prefix in `EMBEDDING_MODEL` is honored unchanged.
 
@@ -97,6 +99,29 @@ The tier value must be a key present in `MODELS` at request time (i.e. a registe
 - Ephemeral passthrough tiers → `gpt4o-mini`
 
 Tiers that cannot fit the request (input + max_tokens > context_limit) are pruned from the chain.
+
+## Budget enforcement (`BUDGET_ENFORCE_MODE`)
+
+Per-tier daily budgets are tracked on every path; **by default they only warn** (the pre-existing behavior, ship-dark safe). `BUDGET_ENFORCE_MODE` upgrades the budgets from observability to an acting control:
+
+| Mode | Over-budget behavior |
+|---|---|
+| `warn` *(default)* | Serve the requested tier and emit a `budget_enforce` WARN log — behavior identical to before this feature existed |
+| `downgrade` | Serve `BUDGET_FALLBACK_TIER` (default: `gpt4o-mini`) instead; the response carries the `X-Router-Budget-Downgrade: <from>-><to>` header and `_router.budget_downgraded_from` metadata |
+| `block` | Refuse with HTTP 429 and a machine-readable `budget_exceeded` body (`error`, `tier`, `spent_usd`, `limit_usd`, `mode`) |
+
+Semantics:
+
+- **All paths are covered.** Enforcement wraps `select_tier` (so `/v1/chat/completions` — including Claude tiers dispatched through the direct Anthropic SDK — and ephemeral passthrough tiers are checked), plus explicit checks on the two paths that bypass tier selection: the native `/v1/messages` endpoint and `/v1/embeddings`.
+- **The fallback tier is exempt** — it is the designated floor; blocking it would turn "over budget" into an outage. A misconfigured fallback (unregistered, or the same tier that is over budget) degrades to `warn` rather than stranding requests. An invalid `BUDGET_ENFORCE_MODE` value fails open to `warn`.
+- **Native `/v1/messages`**: responses must stay Anthropic-shaped, so `downgrade` only takes effect there when `BUDGET_FALLBACK_TIER` is itself an Anthropic-backed tier; otherwise the request degrades to `warn`. `block` returns an Anthropic-shaped 429 (`{"type": "error", "error": {"type": "rate_limit_error", ...}}`) so `anthropic_messages` transports parse it like any upstream error. This path also now records its spend to the daily ledger (streaming and non-streaming) — previously it recorded nothing, which is exactly the gap class this feature closes.
+- **`/v1/embeddings`**: spend accrues to a dedicated `embeddings` ledger bucket capped by `EMBEDDING_DAILY_BUDGET_USD`. There is no same-vector-space downgrade target (the model is pinned so query embeddings match the stored document space), so `downgrade` degrades to `warn` on this path; `block` 429s.
+
+| Env var | Purpose |
+|---|---|
+| `BUDGET_ENFORCE_MODE` | `warn` (default) \| `downgrade` \| `block` |
+| `BUDGET_FALLBACK_TIER` | Tier served in `downgrade` mode (default: `gpt4o-mini`) |
+| `EMBEDDING_DAILY_BUDGET_USD` | Daily cap for the embeddings bucket (default: `1.00`; `0` disables) |
 
 ## Security
 

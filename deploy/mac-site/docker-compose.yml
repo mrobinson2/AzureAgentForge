@@ -37,6 +37,12 @@ x-router-models: &router-models
   PHI_MODEL: ${PHI_MODEL:-Phi-4}
   PHI_MAX_TOKENS: ${PHI_MAX_TOKENS:-2048}
   PHI_DAILY_BUDGET_USD: ${PHI_DAILY_BUDGET_USD:-0.50}
+  # A6 acting budget enforcement: warn (default; observe-only) | downgrade
+  # (serve BUDGET_FALLBACK_TIER + X-Router-Budget-Downgrade header) | block
+  # (429 budget_exceeded). Invalid values fail open to warn.
+  BUDGET_ENFORCE_MODE: ${BUDGET_ENFORCE_MODE:-warn}
+  BUDGET_FALLBACK_TIER: ${BUDGET_FALLBACK_TIER:-gpt4o-mini}
+  EMBEDDING_DAILY_BUDGET_USD: ${EMBEDDING_DAILY_BUDGET_USD:-1.00}
 
 services:
   # ── Single-writer lease guard — every service waits on this ────────────────
