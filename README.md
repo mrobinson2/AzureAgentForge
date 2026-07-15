@@ -478,13 +478,13 @@ AzureAgentForge does not chase every new service that ships. It picks the ones t
 
 ## Cost
 
-Three infrastructure profiles, all excluding LLM token charges (your provider bills those separately) and any local computer's power and hardware:
+Three deployment configurations, all excluding LLM token charges (your provider bills those separately) and any local computer's power and hardware:
 
-| Profile | Azure infra / month | Basis |
+| Configuration | Azure infra / month | Basis |
 |---|---|---|
-| `cost-optimized` | **~$83** (target < $150) | Measured — Azure Cost Management, Central US, May 2026, single-tenant, continuous operation, Burstable PostgreSQL (no HA), 30-day / 1 GB-per-day logs |
-| `self-hosted-primary` | **~$35–45** | Modeled — stack runs on hardware you own; Azure holds a dormant warm standby over one shared managed PostgreSQL |
-| `hardened` | **~$250+** | Modeled — zone-redundant posture, longer retention |
+| `cost-optimized` (Terraform profile) | **~$83** (target < $150) | Measured — Azure Cost Management, Central US, May 2026, single-tenant, continuous operation, Burstable PostgreSQL (no HA), 30-day / 1 GB-per-day logs |
+| `self-hosted-primary` (topology) | **~$35–45** | Modeled — stack runs on hardware you own; Azure holds a dormant warm standby over one shared managed PostgreSQL |
+| `hardened` (Terraform profile) | **~$250+** | Modeled — zone-redundant posture, longer retention |
 
 These are estimated target profiles, not guaranteed bills. Real cost moves with region, activity level, log volume, database sizing, redundancy choices, and — above all — Azure Files SMB transaction volume. The `cost-optimized` figure is grounded in a live deployment; see [`docs/cost.md`](docs/cost.md) for the per-service breakdown.
 
