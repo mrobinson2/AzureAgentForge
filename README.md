@@ -6,7 +6,7 @@
   </picture>
 </p>
 
-<h3 align="center">An open-source Azure foundation for running AI agent teams with private memory, tool control, cost guardrails, voice/chat interfaces, and observability.</h3>
+<h3 align="center">An open-source Azure foundation for running AI agent teams with private memory, tool control, cost guardrails, chat interfaces, and observability.</h3>
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
@@ -21,48 +21,60 @@
 
 ---
 
-**At a glance:** open source, MIT-licensed, deployed on your own Azure subscription — nothing calls home. The `cost-optimized` Terraform profile targets under $150/month in infrastructure spend; your LLM provider bills token usage separately. It runs in production today; this repository is the sanitized, reusable version of that platform, and [what's not finished yet](#whats-not-finished-yet) is stated plainly below.
+## AzureAgentForge at a glance
 
-Most agent demos look amazing for five minutes.
+- Run a complete multi-agent platform on **your own computer, in your own Azure subscription, or across both**
+- Combines **PaperClip, Hermes, and Honcho** into one integrated and deployable stack
+- Uses **Azure AI Foundry-first model routing** with budgets, fallbacks, cost attribution, and enforceable spending controls
+- Keeps agent memory in **your PostgreSQL environment**, with optional admission, trust, retrieval, and review controls
+- Deploys the Azure foundation through **Terraform**, including compute, networking, secrets, PostgreSQL, and centralized logging
+- Adds **human approval and blast-radius controls** around destructive or high-risk actions
+- Provides cost-conscious deployment options for both self-hosted-primary and full-Azure configurations
 
-Then you try to run one for real work and the uncomfortable questions show up:
-
-- Where does memory live?
-- Who is allowed to call which tools?
-- How do you stop one agent from burning the expensive model budget?
-- What happened at 2 a.m. when the agent made that decision?
-- How do people use this from Teams, voice, web, or chat without creating four more side projects?
-- Can this run in Azure without becoming a weekend science project?
-
-**AzureAgentForge is built for that gap.**
-
-It brings together three open-source agent tools: **PaperClip** for orchestration and UI, **Hermes** for agent execution, and **Honcho** for private memory. It wraps them in an Azure foundation with Terraform, Key Vault, Container Apps, PostgreSQL, budget-aware model routing, and centralized logging.
-
-Most LLM calls route through **Azure AI Foundry**, which keeps model integration simple and aligned with the Azure security model. Where supported, the platform favors Microsoft Entra ID and managed identity over long-lived API keys.
-
-You can deploy these agent teams, watch them, constrain them, talk to them, and improve them. That is the point.
+**Open source · MIT licensed · No required AzureAgentForge-hosted SaaS or control plane.** The platform runs in infrastructure you control. It does call the services you point it at — Azure, Azure AI Foundry, your model providers, and package registries — but there is no vendor control plane in the middle.
 
 ---
 
-## AzureAgentForge is for you if...
+## The real-world problem
 
-You want agents that do more than chat.
+Most agent demos look impressive until you try to operate one for real work. Then the practical questions arrive:
 
-You want to give agents goals, tools, memory, and budgets, then see what they did, what they spent, and where they got stuck.
+- Where does agent memory actually live?
+- Which tools is each agent allowed to call?
+- What caps the model budget so one agent can't burn through the expensive tier?
+- What happened overnight, and which model made which decision at what cost?
+- Which actions need a human to approve them before they run?
+- Can the whole thing be torn down and rebuilt consistently?
+- Can people reach the agents from the tools they already use?
 
-You want to run that system on Azure instead of duct-taping together a laptop demo, a hosted memory service, a mystery dashboard, and a pile of API keys.
+AzureAgentForge is built for that gap between a demo and something you can run.
 
-You may be building:
+---
 
-- a private agent platform for your own projects
-- a small "AI company" made of specialized agents
-- an automation lab
-- an internal enterprise prototype
-- a safer way to experiment with long-running autonomous workflows
-- a voice-enabled assistant stack
-- an Azure-native agent stack you can actually reason about
+## What AzureAgentForge is
 
-AzureAgentForge gives you the starting foundation: orchestration, runtime, memory, model routing, Terraform, secrets, logs, cost controls, and human-facing channels.
+AzureAgentForge does not invent another orchestration engine, agent runtime, or memory store. It integrates three proven open-source tools and builds an operating foundation around them:
+
+- **PaperClip** for orchestration, task/issue management, and the operator UI
+- **Hermes** for agent execution
+- **Honcho** for private, self-hosted memory
+
+Around those three it adds Terraform for the Azure foundation, PostgreSQL with pgvector, Key Vault, Foundry-first model routing, cost governance, observability, security controls, human-approval gates, and deployment automation.
+
+AzureAgentForge is a production-minded integration and operating foundation for proven open-source agent tools. The infrastructure costs are grounded in a real deployment: the `cost-optimized` Azure profile came in at **~$83/month** in measured infrastructure spend (Central US, single-tenant, continuous operation, Burstable PostgreSQL with no HA, 30-day / 1 GB-per-day log retention) — comfortably under its $150/month target. A `self-hosted-primary` topology that runs the stack on hardware you own, with Azure holding a dormant warm standby over one shared managed PostgreSQL, models to **~$35–45/month** in cloud spend. These are estimated target profiles, not guaranteed bills: your local computer's power and hardware are excluded, LLM token charges are excluded and billed separately by your provider, and regional pricing, activity level, log volume, and redundancy choices all move the number. See [`docs/cost.md`](docs/cost.md) for the per-service breakdown.
+
+This repository is the open, sanitized version of a platform that runs on Azure day to day. What's still unfinished is stated plainly in [what's not finished yet](#whats-not-finished-yet).
+
+---
+
+## AzureAgentForge is for you if…
+
+- You want to move past the chat demo and give agents goals, tools, memory, roles, and budgets
+- You want to see what your agents did, what they spent, and where they failed
+- You want to experiment in an Azure-aligned way rather than assembling a laptop demo, a hosted memory service, a mystery dashboard, and a pile of API keys
+- You are building long-lived or multi-agent workflows that have to survive being operated
+- You want to learn from an inspectable open-source stack instead of a black box
+- You want to build prototypes without inventing every component yourself
 
 ---
 
@@ -95,8 +107,8 @@ For the full picture — how these five talk to each other, what Azure resource 
                     +---------------------------------------------------+
                     |                    PaperClip                      |
                     |          Orchestrator, UI, task dashboard          |
-                    |      Optional Telegram / Discord chat bridges      |
-                    |      Optional Microsoft Teams chat bridge (v1.2)   |
+                    |   Optional Teams / Slack / Telegram / Discord      |
+                    |   chat bridges (all off by default)                |
                     +----------------------+----------------------------+
                                            |
                                            | dispatches work
@@ -137,8 +149,6 @@ For the full picture — how these five talk to each other, what Azure resource 
       +-----------------------------------------------------------------------+
 ```
 
-For the full architecture, diagrams, component details, and data flow, see [`docs/architecture.md`](docs/architecture.md).
-
 ---
 
 ## See it in action
@@ -158,230 +168,142 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 
 ---
 
-## What's new
+## The v1.7 milestone
 
-*This section is a technical changelog — engineering-detail-level, written for readers evaluating exactly what changed. If you just want the pitch, skip to [Why AzureAgentForge](#why-azureagentforge). Terms in brackets link to the [glossary](docs/GLOSSARY.md).*
+v1.7 is the release where AzureAgentForge moves from an assembled agent stack toward a validated, governed, observable, and operationally credible platform. It brings together security, governance, memory, deployment, validation, observability, cost control, and agent-loop reliability. The README is not the exhaustive changelog — each area below links to the full detail, and the consolidated technical history lives in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
 
-**Unreleased on `main`, ahead of a v1.8.0 cut** (six merges, one theme: turn a silent failure into a loud one):
+**End-to-end agent-loop validation.** Earlier smoke tests only confirmed that containers started and health endpoints answered. The new agent-loop canary validates the whole path: issue creation, agent wake, Hermes start, model-router use, terminal tool execution, final disposition, and issue completion. Building it exposed failures the health checks had missed — including an incompatible Python runtime that stopped Hermes from booting inside the shipped image while every health check stayed green. See [`docs/local-development.md`](docs/local-development.md#agent-loop-canary-the-smoke-that-proves-agents-can-work).
 
-- **The only test that proves the product works.** `local-stack-smoke` checked containers and health endpoints but never proved an agent could finish a task. The new **agent-loop [canary](docs/GLOSSARY.md#canary)** (`scripts/canary/`, wired into [`local-stack-smoke.yml`](.github/workflows/local-stack-smoke.yml)) files a real issue, wakes it, spawns the real vendored Hermes runtime, sends a model call through the model-router, executes a real terminal tool call, and checks for a [disposition comment](docs/GLOSSARY.md#disposition-protocol) before the issue closes. Only the LLM reply is stubbed. Building it found six previously invisible defects, all fixed in the same change — headlined by **Hermes could never boot inside the AAF PaperClip image at all**: the `hermes-cli` build stage installed on `python:3.14` while the runtime image runs Debian trixie's `python3.13`, so every agent spawn died with `ModuleNotFoundError` and PaperClip's run-recovery quietly moved the issue to `blocked` — present since the file was first committed, with every health check green the whole time. See [`docs/local-development.md`](docs/local-development.md#agent-loop-canary-the-smoke-that-proves-agents-can-work).
-- **A CI job that catches config the app silently stopped reading.** The new `validate-vendored-config` job loads the pinned [vendored source](docs/GLOSSARY.md#vendored-source) of each app (Honcho's actual [pydantic-settings](docs/GLOSSARY.md#pydantic-settings) model, an [AST parse](docs/GLOSSARY.md#ast-parse) of Hermes's config parser, a version-pinned manifest for PaperClip) and checks every key AAF ships against what that source really consumes — a dropped key now fails the build instead of quietly degrading a deployment. Its first run found the failure class alive in this repo: **57 stale flat Honcho keys in `honcho.tf`** and **19 more in the mac-site compose file** (both pre-dating the 3.0.7 nested `MODEL_CONFIG` migration — a live deploy would have silently run every specialist on direct-OpenAI `gpt-5.4-mini`), plus an inert `HERMES_DB_PATH` variable the pinned Hermes build never reads. All fixed in the same PR. Design doc: [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md).
-- **Hard cost-envelope enforcement.** The v1.5 cost-governance layer moves from observe-only to enforceable: `BUDGET_ENFORCE_MODE` (`warn` default / `downgrade` / `block`) now covers every router path, including the native `/v1/messages` Anthropic transport, which — as a side effect of wiring it up — now records spend at all; it previously recorded zero. Embeddings spend is now budgeted too, in its own ledger bucket.
-- **Provider-flexible embeddings, with an Azure AI Foundry path.** `/v1/embeddings` no longer assumes OpenAI. A documented Foundry deployment path ([`docs/walkthroughs/azure-foundry-embeddings.md`](docs/walkthroughs/azure-foundry-embeddings.md)) plus a load-bearing `openai/` [LiteLLM](docs/GLOSSARY.md#litellm) provider-detection pin baked into the router means forks don't have to rediscover the `400 unknown_model` failure mode against a Foundry endpoint.
-- **One canonical user-peer identity.** `HONCHO_USER_PEER_ID` names the memory peer that represents the human principal, resolved the same way — and defaulted to the same fallback — by every writer and reader: Terraform, compose, the memory-governor, and the Hermes helper scripts. This closes AAF's own seeds of the peer-fragmentation failure mode it warns about elsewhere: Terraform defaulted the peer to `operator`, the governor hardcoded `"user"`, and a helper script sent no `observed` field at all. See [`docs/design/memory-system.md` §18](docs/design/memory-system.md#18-identity-the-canonical-user-peer).
-- **Vendored incident-fix defaults.** Three fixes ported from the upstream private deployment's own incident history, so a fresh fork doesn't have to rediscover them: the generated Hermes config now defaults to the router-compatible `chat_completions` + `api_key` shape instead of one that 401s against the router's fail-closed auth; the adapter build patch pins `--provider custom` in both the npm dist *and* the workspace source that PaperClip 707 actually loads at runtime; and every agent template gets an explicit [disposition protocol](docs/GLOSSARY.md#disposition-protocol) — exactly one terminal state per run, never a silent one.
+**Configuration validation.** CI now checks AAF-supplied config against what the pinned upstream apps actually consume. A renamed or removed upstream setting now fails CI instead of silently changing runtime behavior. Design doc: [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md).
 
-This batch is merged to `main` but **not yet tagged**; see [Roadmap](#roadmap) for the v1.8.0 status.
+**Cost governance.** Every model call passes through the router, which supports warn, downgrade, and block enforcement across its supported paths. It attributes model and embedding spend per caller, applies daily budgets, accounts for the native Anthropic path, and enforces spending envelopes. LLM token charges remain separate from infrastructure cost.
 
-New in v1.7 (since v1.5):
+**Memory reliability and governance.** The memory story is coherent, and each part is labeled honestly for maturity:
 
-- **Contradiction sweep performance hardening**: the sweep's candidate query is a pg_trgm similarity self-join on `documents` — without a [trigram index](docs/GLOSSARY.md#trigram-matching), even ~1k eligible docs blow through the pool-wide 30s command timeout, so every pass timed out and no pair was ever judged (found in production upstream). Migration [`0009`](infrastructure/migrations/0009_contradiction_sweep_perf.sql) adds a `gin_trgm_ops` index (guarded on `pg_trgm` presence), and the candidate fetch gains a dedicated per-query timeout (`CONTRADICTION_QUERY_TIMEOUT_S`) plus a recency window (`CONTRADICTION_LOOKBACK_DAYS`; `0` = full-corpus pass).
-- **Read-only memory inspector summary**: `GET /memory/inspector-summary` aggregates a workspace's governed memory at a glance — live counts by memory class / verification state / source type, the embedding-sync queue, and a 7-day tally of ranking modes (vector vs trigram). No mutation, no new state.
-- **Daily memory review-queue digest**: `GET /memory-digest` lists, per workspace, what needs operator action — pending pin-candidates, memories flagged `needs_review` by the contradiction sweep, and memories expiring within 7 days — each section capped with an honest "+N more" overflow line. Read-only, always available for preview; `MEMORY_DIGEST_ENABLED` (migration [`0010`](infrastructure/migrations/0010_memory_digest_flag.sql), seeded off) only gates folding the listing into the daily `/digest` post.
-- **Escalation SLA auditor ([ship-dark](docs/GLOSSARY.md#ship-dark))**: `GET /escalation-sla` audits the human side of the autonomy handoff — an event taxonomy on the `agent_events` spine plus a pure pairing/rollup that measures human ack latency against a per-tenant SLA (default 30m, optional business-hours clock), where TTL expiry always counts as a breach AND unresolved ([fail-closed](docs/GLOSSARY.md#fail-closed-and-fail-open) made visible, never weakened) and the v1.5 approval seam's `autonomy_decision` events serve as retroactive ack+resolution. Read-only; the auditor never acts. `ESCALATION_SLA_ENABLED` (migration [`0011`](infrastructure/migrations/0011_escalation_sla_flag.sql), seeded off) only gates folding the report into the daily `/digest`; emitters land when the [HITL](docs/GLOSSARY.md#hitl) approval seam is wired for real volume.
+- Canonical human identity resolved the same way across every reader and writer — validated and active
+- Governed admission and computed trust, hybrid vector-plus-text retrieval, contradiction review, and expiration — shipped, disabled by default
+- Operator summaries and digests: read-only inspector summary (active), review-queue digest and escalation SLA auditor (ship-dark: readable for preview, folded into the daily digest only when a flag is turned on)
+- Retrieval-path observability and contradiction-sweep performance hardening — active when governed memory is enabled
+- The Obsidian memory interface and self-improvement watchdog — operator-triggered / shipped, flag-gated
 
-- **Security remediation batch** ([#97](https://github.com/mrobinson2/AzureAgentForge/pull/97)): ~27 findings remediated across the auth-proxy, the multi-tenant reference design, model-router, chat bridges, memory-governor, the installer/forge-console, and the infrastructure modules. Headline changes: **fail-closed auth** (model-router, memory-governor, slack-bridge, teams-bridge, and the multi-tenant control-plane/memory-store now return `503` when their auth secret is unconfigured instead of silently running open); **tenant isolation** (memory-store derives `tenant_id` from a verified bearer token, Postgres [RLS](docs/GLOSSARY.md#rls) backstops the control-plane and memory-store tables, and the tenant-console `vertical` field is allowlisted + realpath-contained); **prompt-injection fencing** (untrusted Slack/Teams/governed-memory/watchdog text is wrapped in explicit untrusted-data delimiters before reaching a model); plus CSRF/DNS-rebinding guards, error-detail hardening, and secure-by-default Key Vault/storage firewalls (`Deny` + allowlist). Full grouped notes in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
-- **Governance examples & samples** (three new self-contained packages, sanitized and flags-off, readable and testable locally with no live Azure subscription):
-  - **`examples/governed-ui-patterns/`** — nine themeable UI governance patterns (honesty badge, trust receipt, refusal card, approval gate, pricing-policy engine, autonomy panel, sealed record, movement log, signed charter) + an 11-check conformance linter (`check.js`) with a CI-able exit-code contract + a live demo page.
-  - **`samples/foundry-chat-proxy/`** — a minimal Node 24 Flex Consumption Azure Function fronting an AI Foundry chat deployment, with a grounded persona, message clamping, prompt-injection guardrails, Bicep for the function app, and a runbook README of the hard-won Flex/Node-24 gotchas.
-  - **`examples/governed-transaction-saga/`** — a compact (~300-line + tests) event-sourced governance core: append-only event log with tenant/correlation/causation IDs + idempotency, a fold/apply state machine, complete-at-write receipts, and an audit walk producing a chronological narrative + receipt-gap report. Pure Python stdlib + pytest.
-- **Multi-tenant console demo** ([`demos/tenant-console/`](demos/tenant-console/)): a sanitized, self-contained static demo of the multi-tenant operator console — a tenant list (six fictional tenants with vertical, status, assigned playbook pack, monthly budget cap, and spend-to-date), a per-tenant detail drawer (pack, read-only feature-flags panel with every flag **off**, budget/cost bars, roster, autonomy policy), and a playbook-packs view showing pack-to-tenant assignment. One `index.html`, inline CSS/JS, zero external resources, opens from `file://`, clearly labeled "DEMO — sample data, read-only, no live tenants". The concepts (tenant-as-contract, per-vertical pack bundles, green/yellow/red fail-closed autonomy policy, per-tenant budget ledger) mirror the `experimental/multi-tenant/` design.
-- **Deployment experience**: `./forge --check` (alias `--preflight`) runs an offline, dependency-free preflight — a prerequisite table, a per-path readiness verdict (Azure / local Docker), and the operator-gate reference — before you touch the console. The Forge Console gains an "Operator gates — where you sign off" card naming every human-approval gate (subscription/billing, secrets-in-Key-Vault, environment-name confirmation, destroy-approval, CI/CD scaffold-apply), advisory inline validation on the Configure fields (the server stays source of truth), and theming for the CI/CD setup panel. [`AI-ASSISTED-SETUP.md`](AI-ASSISTED-SETUP.md) adds a preconditions checklist, an operator-gates subsection, and per-phase "how to know it worked" verification signals.
+Not everything runs automatically. Governed memory ships disabled and must be intentionally enabled. Architecture reference: [`docs/design/memory-system.md`](docs/design/memory-system.md).
 
-New in v1.5 (since v1.4):
+**Security and tenant isolation.** Fail-closed authentication (services return `503` rather than run open when an auth secret is unconfigured), tenant identity derived from verified bearer tokens, PostgreSQL row-level security, prompt-injection fencing on untrusted inbound text, CSRF and DNS-rebinding protection, and secure-by-default Key Vault and storage firewalls (`Deny` plus allowlist), alongside dependency remediation and recurring scanning. Grouped detail in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
 
-- **Governed memory, enable-able for real**: the memory-governor self-provisions its full schema on startup (a `0002` overlay completes the planner's `documents` columns and adds `session_memory` + `skill_candidates`, reconciled to the canonical migrations), `memory_governor_enabled` is threaded through the deploy, and a `showcase` profile deploys it with an honest cost + go-live checklist. Flags still seed off; enabling needs an operator embedding key + a live validate.
-- **Retrieval observability**: the memory system reports its ranking path (`vector`/`trigram`/`trigram_fallback`) in the retrieval package, the `memory_injected` event, and a `/healthz` embedding block; a watchdog detector fires on sustained vector→trigram degradation.
-- **`aca-job` sandbox contract reconciled**: to the documented ACA dynamic-sessions **executions** API (`/executions`, query-param `identifier`, `shellCommand` body, `properties`-nested response) plus an IMDS managed-identity token provider. Still unverified against a live pool; default provider stays `local`.
-- **Observability + cost governance**: `gen_ai.usage` token/cost metrics and a `correlation_id` on the router span, per-caller spend attribution with an optional daily cap and rollup, an SLO-burn alert, and a GenAI cost workbook tile.
-- **Human-in-the-loop action approval**: a provider-pluggable seam that gates runtime agent actions (outbound message, destructive tool) behind human approval — inert by default, fails closed for gated actions, with a `webhook` approver. Ships unwired.
+**Deployment and operations.** A one-command local stack, an Azure deploy validated against a clean subscription, the Forge Console, an offline preflight (`./forge --check`), CI/CD scaffolding with OIDC and Key Vault seeding, image build and push, and operator approval gates. It supports a self-hosted-primary topology with an Azure warm standby and failover tooling, bring-your-own VNet, and optional Cloudflare ingress. Validated paths are distinguished from design references and scaffolds throughout the docs.
 
-New in v1.4 (since v1.3):
+**Human oversight and safer autonomy.** A destroy-aware approval gate at the infrastructure layer, an action-approval seam for runtime actions (shipped, not fully wired to live volume), role-based tool access with scope guards and forbidden-tool checks, an escalation SLA auditor (ship-dark), reproducible orchestration fixtures, and an audit trail.
 
-- **Multi-tenant tenant console (reference)**: playbook-driven onboarding — one tenant contract renders an intake/coordinator agent pack, seeds per-tenant governed memory, provisions an isolated workspace, and enforces a per-tenant daily budget cap. Ships as a badged reference with a worked field-service pack ([`experimental/multi-tenant/tenant-console/`](experimental/multi-tenant/tenant-console/)).
-- **Self-hosted-primary topology**: a cost profile that runs the full stack on an always-on machine you own as the primary site, with Azure as a dormant warm standby sharing one managed Postgres — so failover is a stateless compute switch. Includes a `scripts/aaf-site` failover/failback helper and an ADR ([`deploy/mac-site/`](deploy/mac-site/), [`deploy/windows-site/`](deploy/windows-site/)).
-- **Inbound-intake webhook (reference)**: a vendor-neutral handler that turns an inbound intake/lead payload into a routed Orchestrator issue, with signature verification and a fenced untrusted-content boundary ([`integrations/webhook-intake/`](integrations/webhook-intake/)).
-- **Slack bridge**: a flag-gated `slack-bridge` service at parity with Discord/Telegram/Teams — a Slack Events API endpoint that verifies the signing-secret HMAC, turns inbound messages into Orchestrator issues, and replies via `chat.postMessage`. Off by default (`slack_enabled`), internal ingress, bot token from Key Vault ([`services/slack-bridge/`](services/slack-bridge/)).
-- **ACA `aca-job` sandbox provider (scaffold)**: the v1.3 sandbox seam gains an Azure Container Apps dynamic-sessions provider with an injectable, fully unit-tested transport and a spawn-path patch gated on `SANDBOX_PROVIDER`. The one live REST call is marked unverified and `aca-job` stays disabled (default `local`) pending a spike against a real session pool ([`apps/paperclip/sandbox.mjs`](apps/paperclip/sandbox.mjs)).
+**Integrations and examples.** Optional Teams, Slack, Telegram, and Discord bridges (default off, internal-ingress only), a webhook intake handler, a governed-UI pattern library, a Foundry chat-proxy sample, a governed transaction saga, a multi-tenant console demo, a multi-tenant reference architecture, and a sandbox-provider scaffold. These are labeled as examples and reference implementations, not turnkey production integrations.
 
-New in v1.3 (since v1.2):
-
-- **GenAI observability, now live**: every LLM call through the model-router emits one OpenTelemetry GenAI span (model, token counts, cost) to Application Insights, behind `OBSERVABILITY_ENABLED` (off by default), with content redacted. The same change closes the Anthropic cost gap: Claude-tier calls return no billed cost from the SDK, so they now carry a list-price estimate and show up in both cost tracking and traces. The span export was fixed and verified against a live Application Insights workspace.
-- **Sandbox execution seam**: a provider-pluggable sandbox contract in PaperClip with a `local` adapter and a fail-closed factory, shipped unwired so importing it changes nothing at runtime. It is the seam for an Azure Container Apps dynamic-sessions provider later. 16 unit tests in CI ([`apps/paperclip/sandbox.mjs`](apps/paperclip/sandbox.mjs)).
-- **Turnkey CI/CD setup**: the Forge Console gains a CI/CD Setup page that runs [`scripts/scaffold-cicd.sh`](scripts/scaffold-cicd.sh), provisioning the [OIDC](docs/GLOSSARY.md#oidc) app, the Terraform state backend, and the GitHub variables the deploy pipeline needs. It runs preview-first and live-streamed, behind an apply-confirmation gate. The reference [`deploy.yml`](.github/workflows/deploy.yml) now runs green end to end against a clean subscription.
-- **Obsidian memory interface**: a two-way `memory ↔ vault` CLI in the governor. `export` projects governed memory into an Obsidian-compatible Markdown vault, you curate it in Obsidian, and `sync` applies your edits back conservatively, re-checking server state and skipping conflicts ([`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md)).
-- **Upstream security hardening**: the vendored Hermes runtime ships with its Python dependency CVEs remediated, including the aiohttp, starlette, tornado, and python-multipart DoS cluster on the request path plus cryptography and pynacl, force-upgraded past Hermes's exact version pins at build time. The vulnerable Hermes Node surface (the WhatsApp bridge, which carries the critical `baileys` advisory) is kept out of the agent-runtime image, and a `security-checks` CI job enforces both. The PaperClip auth-proxy adds a fail-closed CSRF Origin guard and a bounded admin-session TTL, and recurring dependency scanning runs through Dependabot.
-- **Deployment flexibility**: an optional Cloudflare-managed ingress module (named tunnel, ingress config, and proxied DNS record) gives a chat surface like Teams a public endpoint without a public load balancer, and the network module can now deploy into an existing VNet (BYO-VNet) instead of creating its own.
-
-New in v1.2 (since v1.1):
-
-- **End-to-end Azure deploy, now validated**: a full deploy from a clean subscription covering server-side image build and push (`az acr build`), Key Vault seeding, `terraform apply`, and post-deploy smoke. See the [step-by-step walkthrough](docs/getting-started.md#deployment-walkthrough-forge-console).
-- **One-command full local stack**: the upstream PaperClip/Honcho/Hermes sources are vendored so the full image set builds and runs with `scripts/local-stack.sh up` (or `docker compose --profile full up`).
-- **Microsoft Teams integration**: the `teams-bridge` Bot Framework service files inbound Teams messages as Orchestrator issues and replies with Adaptive Cards, gated by `teams_enabled` at parity with Telegram/Discord ([`services/teams-bridge`](services/teams-bridge/)).
-- **Hardened model-router tests**: 146 offline tests covering auth, rate limiting, per-tier budget/fallback, Foundry registration, and the OpenAI↔Anthropic translation layer, guarding the silent-downgrade and budget-exhaustion paths.
-- **Observability module**: opt-in Log Analytics alert rules (watchdog findings, secret expiry, run failures) plus an Azure Monitor workbook, no app changes ([`infrastructure/modules/monitoring`](infrastructure/modules/monitoring/)).
-
-Earlier releases (v1.1, v1.0) are in the [roadmap](#roadmap).
+For the full item-by-item history — and earlier releases v1.0 through v1.5 — see [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md) and [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
 ## Why AzureAgentForge?
 
-Because real agent systems need boring things that are easy to ignore in a demo:
+Real agent systems need more than a model and a prompt. They need memory, identity, scoped tools, budget controls, secrets, logs, approval points, deployment automation, and a way to recover when something fails.
 
-- private memory
-- scoped tool access
-- budget limits
-- deployment repeatability
-- identity-aware model access
-- secrets management
-- logs and traces
-- fallback providers
-- human review points
-- chat and voice channels
-- infrastructure that can be rebuilt
-
-The boring stuff is the production stuff.
-
-AzureAgentForge gives you a practical Azure-native base so you can focus on what the agents should do instead of rebuilding the platform plumbing from scratch.
+The unglamorous platform work is what makes an agent system operable — and it is exactly the part a five-minute demo skips.
 
 ---
 
 ## What it solves
 
-### Memory that stays in your network
+### Memory under your control
 
-Honcho stores per-session and per-user memory in PostgreSQL with pgvector. Agent memory stays inside your Azure network instead of disappearing into someone else's hosted black box.
+Honcho stores per-session and per-user memory in PostgreSQL with pgvector, in a database you operate. Your agent memory lives in your environment rather than a hosted black box. Exactly where that database sits — a private Azure network, a machine you own, or a mix — depends on the topology you deploy, so the guarantee is operator control, not a single fixed network.
 
-### Governed memory: admission, trust, and a self-improvement loop
+### Optional governed memory
 
-Letting agents write unbounded rows into a vector store is how memory rots. The optional **Memory Governor** (`services/memory-governor/`) sits between the agents and the store as a write-time and read-time choke point: a classifier sorts each observation into one of six classes, an admission pipeline decides whether it's worth persisting (and dedupes near-duplicates), trust is *computed* from provenance + verification + usage rather than stored as a single rotting number, and a four-plane retrieval planner injects only what an agent is allowed to see, ranked by a hybrid of pgvector similarity and trigram match. Background loops sweep expired memory, flag contradictions for review (they never auto-resolve; the operator finalizes), and a watchdog turns recurring failures into durable lessons the planner re-injects into the agent that keeps hitting them.
+Left ungoverned, agents write unbounded rows into a vector store and memory rots. The optional Memory Governor (`services/memory-governor/`) sits between the agents and the store and decides what is worth storing, avoids near-duplicates, records where each memory came from and whether it was verified, controls what gets returned to an agent, flags contradictions for a human to review, expires stale memory, and turns repeated failures into reusable lessons.
 
-It ships **disabled**. Every feature flag seeds off, so adding it to a running system changes nothing until you turn a flag on. See [enabling it](docs/design/memory-system.md#17-enabling-governed-memory) and the [architecture reference](docs/design/memory-system.md).
+It ships **disabled**. Every feature flag seeds off, so adding it to a running system changes nothing until you intentionally enable it (and provision an embedding key and pass a live validate). The internals — six memory classes, the four-plane retrieval planner, the scoring model, the SQL, and the ranking — are in the [architecture reference](docs/design/memory-system.md); [enabling it](docs/design/memory-system.md#17-enabling-governed-memory) is documented there too.
 
 ### Model access through Azure AI Foundry
 
-Most LLM integrations are designed to go through Azure AI Foundry first.
+Model access is designed to prefer Azure AI Foundry, which gives a cleaner model gateway and a better fit for Azure-native environments. Where a provider supports it, Azure identity is favored over long-lived keys; not every provider does, so this is a preference, not a universal guarantee. OpenAI-compatible endpoints remain supported as fallbacks, and everything reaches models through one consistent router endpoint.
 
-That gives the platform a cleaner model gateway and a better security posture for Azure-native environments. The goal is to reduce one-off API key sprawl and make model access feel like part of the platform, not an afterthought.
+### Budget and cost controls
 
-OpenAI-compatible endpoints remain supported as fallback options.
+The router applies per-tier and per-caller budgets and supports warn, downgrade, and block enforcement. An agent on the `economy` tier cannot accidentally spend the `frontier` budget. Spend is attributed per caller, embedding usage is accounted separately, and LLM token charges are kept separate from infrastructure cost. Infrastructure profiles: `cost-optimized` (measured at ~$83/month, under its $150 target), `self-hosted-primary` (~$35–45/month modeled), and `hardened` (~$250+/month, zone-redundant posture and longer retention). See [`docs/cost.md`](docs/cost.md).
 
-### Cost control with real budget caps
+### Role and tool controls
 
-The model router enforces per-tier daily budgets. Agents on the `economy` tier cannot accidentally burn through the `frontier` model budget.
+Each of the 14 predefined roles gets an intentional model tier and an allowed toolset, so no role gains broad capability by accident. A dedicated `CostGuardian` role exists specifically to watch spend.
 
-Two Terraform cost profiles are included:
+### Safer destructive actions
 
-- `cost-optimized`: targets under $150/month in Azure infrastructure
-- `hardened`: zone-redundant posture, private endpoints, and longer log retention
+When a destructive request lands — *"delete this resource group"* — the controls are independent and layered: the orchestrator's scope-guard, forbidden-tool blocks, role-to-tier routing, and a destroy-aware approval gate at the infrastructure layer. Multiple independent controls are intended to make the safe outcome the default. See it traced end to end, with reproducible replay fixtures, in the [governance and blast-radius walkthrough](docs/walkthroughs/governance-and-blast-radius.md).
 
-LLM token costs are separate and depend on your provider usage.
+### Repeatable Azure deployment
 
-### Safe tool use across defined roles
+Terraform provisions the Azure foundation: Azure Container Apps, Azure Database for PostgreSQL Flexible Server, Azure Container Registry, Azure Key Vault, Log Analytics, and private networking. CI validates and plans clean on every commit.
 
-The agent team uses role profiles that define model tier and allowed toolsets. Roles do not get broad capability by accident.
+### Logs, traces, and cost visibility
 
-A dedicated `CostGuardian` role exists specifically to watch spend.
+Every service logs to a shared Log Analytics workspace. Optionally, each model-router LLM call emits an OpenTelemetry GenAI trace (model, token usage, estimated cost, correlation ID) to Application Insights, so you can see what ran, which model handled it, what it cost, and where it failed. Content is redacted and observability is off by default (`OBSERVABILITY_ENABLED`).
 
-### Governance you can watch refuse a dangerous task
+### Work channels
 
-When a destructive request lands, say *"delete this resource group"*, the controls
-are independent and layered: the orchestrator's scope-guard, forbidden-tool
-blocks, role→tier routing, and a destroy-aware approval gate at the IaC layer.
-Each is designed so the *default* outcome is "nothing destructive happens," and a
-request has to defeat all of them. See it traced end to end, with reproducible
-replay fixtures, in the [governance &amp; blast-radius walkthrough](docs/walkthroughs/governance-and-blast-radius.md).
+Agents can be reached from Teams, Slack, Telegram, and Discord, plus a webhook intake path. Teams and Slack are Bot Framework and Events API bridge services; Telegram and Discord are PaperClip bridges. All are off by default and internal-ingress only — going live requires additional exposure (a Cloudflare tunnel) and, for Teams, Bot Framework JWT validation. Treat these as optional, reference-quality bridges rather than fully hardened integrations validated in every environment.
 
-### Deployable on Azure
+### Voice (planned)
 
-Terraform provisions the Azure foundation, including:
-
-- Azure Container Apps
-- Azure Database for PostgreSQL Flexible Server
-- Azure Container Registry
-- Azure Key Vault
-- Log Analytics
-- private networking
-
-CI validates and plans clean on every commit.
-
-### Observability: logs and GenAI traces
-
-Every service logs to a shared Log Analytics workspace. As of v1.3, each model-router LLM call also emits an OpenTelemetry GenAI span (model, token counts, estimated cost) to Application Insights when you set `OBSERVABILITY_ENABLED`. Content is redacted, and the flag is off by default.
-
-You can see what an agent did and what it spent without SSHing into a container and reading logs line by line.
-
-### Built for where people already work
-
-Telegram and Discord can be enabled through Terraform variables:
-
-```hcl
-telegram_enabled = true
-discord_enabled  = true
-```
-
-Both are off by default.
-
-Full Microsoft Teams integration shipped in v1.2: the `teams-bridge` Bot Framework service, with Bot Framework JWT validation added on the inbound endpoint in v1.3. Teams joins Telegram and Discord as a place agents can reach people where they already work.
-
-### Voice as a first-class interface
-
-A future release will include first-class integration with **Microsoft Voice Live** for low-cost, low-latency speech-to-text and text-to-speech.
-
-The goal is simple: agents should not be trapped behind a text box. You should be able to talk to them naturally, interrupt them, hear responses, and use voice where voice makes sense.
+First-class Microsoft Voice Live integration remains planned and is not included as a completed v1.7 capability. See the [Planned and future](#planned-and-future) note below.
 
 ---
 
-## What is included today
+## Capability status
 
-As of v1.7, AzureAgentForge includes:
+Maturity labels below are drawn from the tests, flags, and behavior in the repo, not from ambition. Deeper detail for each row lives in the linked docs and in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
 
-- Full Terraform IaC for the Azure foundation
-- Two infrastructure cost profiles
-- 13 predefined agent roles with tests
-- Azure AI Foundry-first model routing pattern
-- Model router that runs locally
-- OpenAI-compatible fallback support
-- Sanitized Dockerfiles and service configuration
-- Key Vault-based secret loading
-- Log Analytics integration plus opt-in GenAI traces to Application Insights
-- Private VNet design
-- Local working slice with PostgreSQL and the model router
-- Optional Telegram, Discord, and Microsoft Teams surfaces
-- Governance & blast-radius walkthrough with reproducible replay fixtures
-- Destroy-aware approval gate (Forge Console + reference CI/CD pipeline)
-- 14 golden orchestration replay fixtures (agent-behavior regression tests)
-- Governed memory: governor service, retrieval planner, background loops, hybrid vector retrieval, schema migrations, and self-improvement watchdog (shipped, flag-gated off)
-- Obsidian memory interface: two-way memory↔vault CLI for the governor
-- Sandbox execution seam in PaperClip (shipped unwired)
-- Automated end-to-end Azure deploy: image build/push, Key Vault seeding, and post-deploy smoke tests, with a turnkey CI/CD setup page in the Forge Console
-- Optional Cloudflare-managed ingress (named tunnel + proxied DNS) for exposing a chat surface
-- Deploy into an existing VNet (BYO-VNet) or a platform-created one
-- Upstream Hermes dependency CVEs remediated at build time, with recurring scanning in CI
-- Web-research agent tooling (web read, search, and video-transcript wrappers)
-- One-command full local stack (`scripts/local-stack.sh up`)
-- Multi-tenant architecture design and early scaffolding
-- Governor operator endpoints: read-only inspector summary (`/memory/inspector-summary`), review-queue digest (`/memory-digest`, ship-dark), and escalation SLA auditor (`/escalation-sla`, ship-dark), plus contradiction-sweep performance hardening (trigram index + per-query timeout + recency window)
-- Security remediation batch: fail-closed auth, bearer-derived tenant isolation with Postgres RLS, prompt-injection fencing, CSRF/DNS-rebinding guards, and secure-by-default Key Vault/storage firewalls
-- Governance examples & samples: `examples/governed-ui-patterns/` (UI pattern library + conformance linter), `samples/foundry-chat-proxy/` (minimal AI Foundry chat backend), and `examples/governed-transaction-saga/` (event-sourced governance core) — self-contained, sanitized, no live Azure needed
-- Multi-tenant console demo (`demos/tenant-console/`): static, read-only, fictional tenants, all flags off — the operator-console concept made inspectable without a deployment
-- Deployment preflight and operator-gate UX: `./forge --check` offline preflight, named operator sign-off gates in the Forge Console and `AI-ASSISTED-SETUP.md`, advisory inline field validation
-- Full grouped release notes in [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md)
+| Capability | Status |
+|---|---|
+| Full local agent stack (`scripts/local-stack.sh up`) | Validated |
+| Azure Terraform foundation (Container Apps, PostgreSQL + pgvector, ACR, Key Vault, Log Analytics, VNet) | Validated |
+| Agent-loop canary (issue → wake → Hermes → router → tool → disposition) | Validated |
+| Model routing and cost controls (warn / downgrade / block, per-caller attribution) | Validated |
+| 14 predefined agent roles with tests, plus a `CostGuardian` role | Validated |
+| 15 golden orchestration replay fixtures (behavior regression tests) | Validated |
+| Destroy-aware approval gate (Forge Console + reference CI/CD) | Validated |
+| End-to-end Azure deploy (build/push, Key Vault seeding, smoke) against a clean subscription | Validated |
+| Self-hosted-primary topology with Azure warm standby + failover tooling | Available |
+| Optional Cloudflare ingress, BYO-VNet | Available |
+| Security hardening (fail-closed auth, RLS, prompt-injection fencing, secure-by-default firewalls) | Available |
+| GenAI observability traces to Application Insights | Shipped, disabled by default |
+| Governed memory (governor, retrieval planner, watchdog, migrations) | Shipped, disabled by default |
+| Governor ship-dark endpoints (review-queue digest, escalation SLA auditor) | Shipped, disabled by default |
+| Obsidian memory interface (two-way memory ↔ vault CLI) | Available (operator-run) |
+| Human action-approval seam (`apps/paperclip/approval.mjs`) | Shipped, not fully wired |
+| Chat bridges (Teams, Slack, Telegram, Discord) | Available, off by default (internal ingress) |
+| Sandbox provider (`local` default; `aca-job` present) | Scaffold (`aca-job` unverified against a live pool) |
+| Multi-tenant platform (`experimental/multi-tenant/`, `demos/tenant-console/`) | Reference design and demo |
+| Governance examples & samples (UI patterns, chat proxy, transaction saga) | Reference implementations |
+| Voice (Microsoft Voice Live and other surfaces) | Planned |
 
-The local quickstart brings up PostgreSQL and the model router. The full platform runs locally with one command (`scripts/local-stack.sh up`, or `docker compose --profile full up`). The end-to-end Azure deploy is automated (`scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline, which now runs green end to end).
+The local quickstart brings up PostgreSQL and the model router; the full platform runs locally with one command; the end-to-end Azure deploy is automated through `scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline.
 
-`main` also carries an incident-hardening batch ahead of the v1.7 tag above — the agent-loop canary smoke, the vendored-config schema guard, hard cost-envelope enforcement, provider-flexible embeddings, canonical user-peer identity, and vendored incident-fix defaults — merged but not yet released. See [What's new](#whats-new) and [Roadmap](#roadmap).
+<a id="planned-and-future"></a>
+**Planned and future.** First-class Microsoft Voice Live integration, a second agent runtime, Discord as a control plane, full multi-tenant support with per-user RBAC, scheduled agent routines, a skills manager, more chat surfaces (WhatsApp, a web widget), the rest of the observability pipeline, private enterprise RAG over Azure AI Search, and Foundry Agent Service / Microsoft 365 publishing are on the roadmap, not shipped. See [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
 ## What's not finished yet
 
-AzureAgentForge is not a one-click SaaS product. Standing up your own instance takes real setup: an Azure subscription, GitHub-to-Azure IAM (OIDC), and a handful of environment-specific values.
+AzureAgentForge is candid about what it is not:
 
-Through v1.7 you get the architecture, Terraform, model router, role schema, Docker and config scaffolding, the full local stack, the Forge Console, a reference deploy pipeline that runs green end to end, automated image build/push plus Key Vault seeding, the flag-gated governed-memory stack with its operator endpoints, and the security-hardened service and infrastructure surface. The end-to-end Azure deploy is validated against a clean subscription.
+- not a one-click hosted SaaS
+- not a zero-config installer
+- not a fully managed commercial platform
+- not a finished multi-tenant control plane
+- not a guarantee that every optional integration is validated in every environment
+- not a system where every governance feature is auto-enabled
+- not a replacement for the operator's own Azure, identity, security, and cost decisions
 
-What you get is a foundation you can inspect, fork, improve, and run in your own Azure environment.
+A real deployment still needs an Azure subscription (for the Azure paths), environment-specific configuration, GitHub-to-Azure OIDC (the reference CI/CD path), secrets and model access, a cost review, network and DNS decisions, and operator approval of destructive infrastructure changes.
+
+What AAF provides is an inspectable and reusable foundation that you can run, test, fork, and improve in infrastructure you control.
 
 ---
 
@@ -486,7 +408,7 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 
 ## Roadmap
 
-**AzureAgentForge builds in this order: foundation and Azure hosting first, then agent governance and safety, then more places people can reach the agents from.** The table below is the current snapshot — what's available now, and what just landed on `main` awaiting a version tag. For the full version-by-version history (every feature v1.0 through v1.7 shipped) and the longer-term list, see [`ROADMAP.md`](ROADMAP.md).
+**AzureAgentForge builds in this order: foundation and Azure hosting first, then agent governance and safety, then more places people can reach the agents from.** The table below is the current snapshot of what's available in the v1.7 milestone. For the full version-by-version history and the longer-term list, see [`ROADMAP.md`](ROADMAP.md).
 
 ### Available now
 
@@ -497,10 +419,11 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Measured Azure costs from real bills
 
 **Agents & models**
-- ✅ 13 predefined agent roles + schema with automated tests
+- ✅ 14 predefined agent roles + schema with automated tests
 - ✅ Model router (local): Azure AI Foundry primary, OpenAI-compatible fallback
-- ✅ Per-tier daily budget caps
-- ✅ 14 golden orchestration replay fixtures (agent-behavior regression tests)
+- ✅ Per-tier and per-caller budget caps with warn / downgrade / block enforcement
+- ✅ 15 golden orchestration replay fixtures (agent-behavior regression tests)
+- ✅ Agent-loop canary — proves an agent can complete work end to end, not just that containers start
 
 **Governance & safety**
 - ✅ Role-scoped toolsets + a dedicated `CostGuardian` role
@@ -521,22 +444,17 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 **Governed memory** *(shipped, flag-gated off; code bundled + unit-tested in CI, not yet deployed end-to-end)*
 - 🧠 Governor service + four-plane retrieval planner + six memory classes + computed trust + admission control + background loops + hybrid pgvector retrieval + the self-improvement watchdog ([`services/memory-governor/`](services/memory-governor/), [`services/watchdog/`](services/watchdog/)). Every feature flag seeds OFF. Architecture + the explicitly-not-built long tail: [`docs/design/memory-system.md`](docs/design/memory-system.md).
 
-**Security & multi-tenant hardening (v1.7)**
+**Security & multi-tenant hardening**
 - ✅ Fail-closed auth, bearer-derived tenant isolation + Postgres RLS, prompt-injection fencing, CSRF/DNS-rebinding guards, secure-by-default infra firewalls
-- ✅ Governance examples & samples, multi-tenant console demo, deployment preflight + named operator gates — see [What's new](#whats-new)
+- ✅ Governance examples & samples, multi-tenant console demo, deployment preflight + named operator gates — see [the v1.7 milestone](#the-v17-milestone)
 
-### On `main`, unreleased (post-v1.7, pre-v1.8.0)
-
-An incident-hardening batch, each item closing a way this platform (or the vendored apps it ships) could fail silently. Each is detailed in [What's new](#whats-new) above:
-
-- ✅ Agent-loop canary smoke — proves an agent can complete work end to end, not just that containers start
+**Reliability hardening**
 - ✅ Vendored-config schema guard — catches config drift into a vendored app before it ships
-- ✅ Hard cost-envelope enforcement — budget caps now block or downgrade, not just warn
 - ✅ Provider-flexible `/v1/embeddings` with an Azure AI Foundry path
 - ✅ Canonical user-peer identity, closing a memory-fragmentation risk
 - ✅ Vendored incident-fix defaults ported from production incident history
 
-Not yet tagged. Full item-by-item detail, the next-steps queue, and the longer-term roadmap (a second agent runtime, voice, Discord-as-control-plane, complete multi-tenant support, and more): **[`ROADMAP.md`](ROADMAP.md)**.
+For item-by-item detail, the next-steps queue, and the longer-term roadmap (a second agent runtime, voice, Discord-as-control-plane, complete multi-tenant support, and more), see **[`ROADMAP.md`](ROADMAP.md)**.
 
 ---
 
@@ -560,13 +478,15 @@ AzureAgentForge does not chase every new service that ships. It picks the ones t
 
 ## Cost
 
-The `cost-optimized` profile targets under **$150/month** in Azure infrastructure spend.
+Three infrastructure profiles, all excluding LLM token charges (your provider bills those separately) and any local computer's power and hardware:
 
-LLM token costs are billed separately by your provider.
+| Profile | Azure infra / month | Basis |
+|---|---|---|
+| `cost-optimized` | **~$83** (target < $150) | Measured — Azure Cost Management, Central US, May 2026, single-tenant, continuous operation, Burstable PostgreSQL (no HA), 30-day / 1 GB-per-day logs |
+| `self-hosted-primary` | **~$35–45** | Modeled — stack runs on hardware you own; Azure holds a dormant warm standby over one shared managed PostgreSQL |
+| `hardened` | **~$250+** | Modeled — zone-redundant posture, longer retention |
 
-Cost estimates are modeled, not guaranteed. Real cost depends on region, usage, log volume, database sizing, redundancy choices, and model consumption.
-
-See [`docs/cost.md`](docs/cost.md) for the per-service breakdown.
+These are estimated target profiles, not guaranteed bills. Real cost moves with region, activity level, log volume, database sizing, redundancy choices, and — above all — Azure Files SMB transaction volume. The `cost-optimized` figure is grounded in a live deployment; see [`docs/cost.md`](docs/cost.md) for the per-service breakdown.
 
 ---
 

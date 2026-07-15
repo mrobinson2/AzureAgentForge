@@ -13,7 +13,7 @@
 
 *Why it matters: this is the whole platform, not a slice of it — the same Terraform, model router, and agent roles that run this project's own production stack, with two cost profiles CI already plans clean.*
 
-This stack runs in production on Azure; v1.0 is its sanitized, reusable version. Architecture, decisions, and full Terraform IaC are in the repo. Two cost profiles, cost-optimized (targets under $150/month) and hardened (zone-redundant, private endpoints), and the repo's CI validates and plans both clean. The 13-role agent schema ships with tests. The model-router builds and runs locally: Azure AI Foundry as primary, any OpenAI-compatible endpoint as fallback. PaperClip, Honcho, and the agent-runtime ship as sanitized Dockerfiles and config. Telegram and Discord are each a single Terraform variable. Multi-tenant architecture is designed and partially scaffolded (see [`experimental/multi-tenant/`](experimental/multi-tenant/)).
+This stack runs in production on Azure; v1.0 is its sanitized, reusable version. Architecture, decisions, and full Terraform IaC are in the repo. Two cost profiles, cost-optimized (targets under $150/month) and hardened (zone-redundant, private endpoints), and the repo's CI validates and plans both clean. The 14-role agent schema ships with tests. The model-router builds and runs locally: Azure AI Foundry as primary, any OpenAI-compatible endpoint as fallback. PaperClip, Honcho, and the agent-runtime ship as sanitized Dockerfiles and config. Telegram and Discord are each a single Terraform variable. Multi-tenant architecture is designed and partially scaffolded (see [`experimental/multi-tenant/`](experimental/multi-tenant/)).
 
 `docker compose up` runs the working slice: Postgres and the model-router.
 
@@ -133,11 +133,11 @@ Also in v1.7:
 
 Full grouped release notes: [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
 
-## v1.8: unreleased, on `main`
+## v1.7: reliability hardening (shipped)
 
 *Why it matters: every item here closes a way the platform could fail without telling you — including one where agents couldn't actually run inside the shipped image at all, while every health check stayed green the whole time.*
 
-Six merges, one theme: turn a way this platform — or an app it vendors — could fail silently into something that fails loud instead. Landed on `main`; **not yet tagged**.
+Part of the v1.7 milestone. Six merges, one theme: turn a way this platform — or an app it vendors — could fail silently into something that fails loud instead.
 
 - **Agent-loop canary smoke.** `local-stack-smoke` checked containers and health endpoints but never proved an agent could finish a task. The new canary ([`scripts/canary/`](scripts/canary/), wired into [`local-stack-smoke.yml`](.github/workflows/local-stack-smoke.yml)) files a real issue, wakes it, spawns the real vendored Hermes runtime, routes a model call through the model-router (real auth + tier dispatch), executes a real terminal tool call, and checks for a disposition comment before the issue closes — only the LLM reply is stubbed. Building it found and fixed six previously invisible stack-shape defects, headlined by **Hermes never being able to boot inside the AAF PaperClip image at all**: the `hermes-cli` build stage installed on `python:3.14` against a `python3.13` runtime, so every agent spawn died `ModuleNotFoundError` and PaperClip's run-recovery quietly moved the issue to `blocked` — present since the file was first committed, with every health check green the whole time. [`docs/local-development.md`](docs/local-development.md#agent-loop-canary-the-smoke-that-proves-agents-can-work).
 - **Vendored-config schema guard.** A new `validate-vendored-config` CI job loads the pinned vendored source of each app (Honcho's real pydantic-settings model, an AST parse of Hermes's config parser, a version-pinned manifest for PaperClip) and validates every config key AAF ships against what that source actually reads — a key the app silently drops now fails the build. Its first honest run found the exact failure class it was built to catch, live in this repo: **57 stale flat Honcho keys in `honcho.tf`** (pre-dating the 3.0.7 nested `MODEL_CONFIG` migration — a live deploy would have silently run every specialist and dialectic level on direct-OpenAI `gpt-5.4-mini`), **19 more in the mac-site compose file**, and an inert `HERMES_DB_PATH` variable the pinned Hermes build never reads. All fixed in the same PR. Design doc: [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md).
@@ -150,12 +150,11 @@ Six merges, one theme: turn a way this platform — or an app it vendors — cou
 
 *In plain terms: tag the release, catch the agent runtime up to the latest upstream version, and close a few loose ends the last few releases created.*
 
-The near-term direction after v1.7, before the longer "Later" list below:
+The near-term direction after the v1.7 milestone, before the longer "Later" list below:
 
-- **Cut the v1.8.0 release.** The batch above has soaked on `main`; tag it once it has.
-- **Bump the vendored Hermes submodule to v0.18.1.** Previously blocked by the config/auth incidents the v1.8 batch's vendored-defaults and canary items fix; unblocked now.
+- **Bump the vendored Hermes submodule to v0.18.1.** Previously blocked by the config/auth incidents the v1.7 reliability-hardening vendored-defaults and canary items fix; unblocked now.
 - **Identity map + peer re-consolidation sweep.** An alias table at admission plus a background sweep that detects and merges unexpected peers — the production backstop the canonical-peer design ([`docs/design/memory-system.md` §18](docs/design/memory-system.md#18-identity-the-canonical-user-peer)) names as a separate enhancement.
-- **Revisit `apps/paperclip/patch-adapter.mjs`'s per-session `HERMES_DB_PATH` override** — a no-op on the current Hermes pin for the same reason the Terraform copy was removed by the v1.8 vendored-config guard; worth revisiting at the next Hermes bump.
+- **Revisit `apps/paperclip/patch-adapter.mjs`'s per-session `HERMES_DB_PATH` override** — a no-op on the current Hermes pin for the same reason the Terraform copy was removed by the v1.7 vendored-config guard; worth revisiting at the next Hermes bump.
 - **Adapter maturity.** Move the flag-gated/badged seams toward verified-live: the `aca-job` sandbox provider against a real ACA dynamic-sessions pool, the HITL approval seam wired to emit `escalation_*` events at real volume (which lights up the v1.7 SLA auditor), and the governor's live-validate path exercised end to end.
 - **A second vertical example.** A second worked domain pack alongside the field-service tenant-console example, to show the multi-tenant onboarding path is not single-vertical.
 - **A prompt-governance loop methodology doc.** Write up the govern → observe → fold-back loop the v1.7 governor features embody (inspector summary → review-queue digest → SLA audit) as a reusable methodology, not just an API surface.
