@@ -46,10 +46,13 @@ module "keyvault" {
   public_network_access_enabled = var.key_vault_public_network_access_enabled
   network_default_action        = var.key_vault_network_default_action
   allowed_ip_ranges             = var.key_vault_allowed_ip_ranges
-  # aaf-0013: allowlist the app subnet through the default-Deny firewall. Empty
-  # by default (operator-gated) — set key_vault_allowed_subnet_ids, or rely on
-  # the private endpoint (hardened profile) / an allowed_ip_ranges egress entry.
-  allowed_subnet_ids = var.key_vault_allowed_subnet_ids
+  # aaf-0013: allowlist subnets through the default-Deny firewall. The app
+  # subnet is ALWAYS included (2026-07-15 deploy incident): Container Apps is
+  # not a Key Vault trusted service, so with the firewall at Deny every app's
+  # managed-identity secret fetch fails at revision provisioning unless its
+  # subnet is allowed. The subnet carries the Microsoft.KeyVault service
+  # endpoint (modules/network). Add more via key_vault_allowed_subnet_ids.
+  allowed_subnet_ids = concat([module.network.app_subnet_id], var.key_vault_allowed_subnet_ids)
 
   # List the principals that should have Key Vault Secrets Officer.
   # Replace with your own Azure AD object IDs before deploying.
@@ -114,8 +117,10 @@ module "container_apps" {
   # relies on the AzureServices/Logging/Metrics bypass; same operator-gated
   # pattern as the Key Vault allowlists above. See variables.tf and
   # modules/container-apps/storage.tf.
-  storage_allowed_ip_ranges  = var.storage_allowed_ip_ranges
-  storage_allowed_subnet_ids = var.storage_allowed_subnet_ids
+  storage_allowed_ip_ranges = var.storage_allowed_ip_ranges
+  # App subnet always allowed — same ACA-not-a-trusted-service rationale as the
+  # Key Vault allowlist above (file-share mounts fetch through the data plane).
+  storage_allowed_subnet_ids = concat([module.network.app_subnet_id], var.storage_allowed_subnet_ids)
 
   # PostgreSQL credentials for Honcho
   postgres_admin_username = var.postgres_admin_username

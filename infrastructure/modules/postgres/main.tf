@@ -69,7 +69,11 @@ resource "azurerm_postgresql_flexible_server_configuration" "log_connections" {
 }
 
 resource "azurerm_postgresql_flexible_server_configuration" "connection_throttling" {
-  name      = "connection_throttling" # AZU-0021: throttle repeated failed auth
+  # AZU-0021: throttle repeated failed auth. On Flexible Server / PG15 the
+  # parameter is `connection_throttle.enable` — the bare `connection_throttling`
+  # name is Single Server-era and the API rejects it with ParameterNotExists
+  # (bit the 2026-07-15 deploy).
+  name      = "connection_throttle.enable"
   server_id = azurerm_postgresql_flexible_server.main.id
   value     = "on"
 }

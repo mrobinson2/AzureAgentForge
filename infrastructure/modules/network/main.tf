@@ -35,6 +35,15 @@ resource "azurerm_subnet" "app" {
   virtual_network_name = local.vnet_name
   address_prefixes     = var.subnet_app_address_prefixes
 
+  # aaf-0013/0014 follow-on (2026-07-15 deploy): with the Key Vault / storage
+  # firewalls at default-Deny, Container Apps' managed identities can't fetch
+  # secrets — ACA is NOT a Key Vault trusted service, so the AzureServices
+  # bypass never applies and revision provisioning fails with "unable to fetch
+  # secret ... using Managed identity". Service endpoints let the app subnet be
+  # allowlisted via key_vault_allowed_subnet_ids / storage_allowed_subnet_ids
+  # (subnet rules REQUIRE the matching endpoint on the subnet).
+  service_endpoints = ["Microsoft.KeyVault", "Microsoft.Storage"]
+
   delegation {
     name = "container-apps"
     service_delegation {
