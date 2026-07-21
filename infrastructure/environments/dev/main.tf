@@ -139,6 +139,11 @@ module "container_apps" {
   honcho_image_tag    = var.honcho_image_tag
   router_image_tag    = var.router_image_tag
   paperclip_image_tag = var.paperclip_image_tag
+  # Only consumed when memory_governor_enabled = true. Without these the module
+  # falls back to "latest", which this registry never publishes (aaf-0025 pins
+  # explicit tags), so enabling the governor would fail the image pull.
+  memory_governor_image_tag = var.memory_governor_image_tag
+  watchdog_image_tag        = var.watchdog_image_tag
 
   # Paperclip orchestrator config
   paperclip_public_url        = var.paperclip_public_url
