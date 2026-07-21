@@ -77,3 +77,51 @@ class TestIdempotent:
                         "skill_candidates_status_chk"):
             assert conname in _SQL_0002
             assert f"conname = '{conname}'" in _SQL_0002
+
+
+class TestMigrationsShipWithTheImage:
+    """The governor applies this overlay on startup, so the SQL has to BE in the
+    image. It was not: the Dockerfile copied only src/governor, migrate.py
+    resolved MIGRATIONS_DIR to a path that did not exist, and apply() logged
+    "schema up to date (0 known)" — a success message for having done nothing.
+    The governor then failed every feature-flag lookup on a missing
+    feature_flags table. These pin both halves of that fix."""
+
+    def test_dockerfile_copies_the_migrations_directory(self):
+        dockerfile = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "services" / "memory-governor" / "Dockerfile"
+        ).read_text()
+        assert re.search(r"^COPY\s+.*\bmigrations\s+/migrations\s*$", dockerfile, re.M), (
+            "the image must carry the migrations at /migrations — the path "
+            "governor/migrate.py resolves from its own location"
+        )
+
+    def test_migrate_refuses_to_report_success_on_an_empty_dir(self, tmp_path, monkeypatch):
+        # Nothing to apply is only good news when there was something to check.
+        import asyncio
+
+        from governor import migrate
+
+        monkeypatch.setattr(migrate, "MIGRATIONS_DIR", tmp_path / "absent")
+        try:
+            asyncio.run(migrate.apply())
+        except migrate.MigrationsMissing as exc:
+            assert "no .sql migrations found" in str(exc)
+        else:
+            raise AssertionError("apply() must raise when the directory is missing")
+
+    def test_migrate_refuses_a_present_but_empty_dir(self, tmp_path, monkeypatch):
+        import asyncio
+
+        from governor import migrate
+
+        empty = tmp_path / "migrations"
+        empty.mkdir()
+        monkeypatch.setattr(migrate, "MIGRATIONS_DIR", empty)
+        try:
+            asyncio.run(migrate.apply())
+        except migrate.MigrationsMissing:
+            pass
+        else:
+            raise AssertionError("apply() must raise when the directory holds no .sql")

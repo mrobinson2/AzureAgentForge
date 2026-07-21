@@ -22,6 +22,13 @@ RUN groupadd --gid 1001 appgroup && \
 
 COPY --from=builder /install /usr/local
 COPY --chown=appuser:appgroup src/governor /app/governor
+# The schema overlay the governor applies on startup. governor/migrate.py
+# resolves MIGRATIONS_DIR relative to its own file — /app/governor/migrate.py →
+# parents[2] → "/" — so the SQL must land at /migrations, mirroring the repo
+# layout where it sits beside src/. Without this the image ships no migrations,
+# apply() finds nothing, and every flag lookup fails on a missing feature_flags
+# table while the boot log still says the schema is up to date.
+COPY --chown=appuser:appgroup migrations /migrations
 
 USER appuser
 

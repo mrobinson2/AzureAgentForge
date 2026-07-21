@@ -188,6 +188,18 @@ variable "router_image_tag" {
   default     = "latest"
 }
 
+variable "memory_governor_image_tag" {
+  description = "memory-governor container image tag. Consumed only when memory_governor_enabled = true; the governor image also backs the sweeper and digest jobs. Pin an explicit tag (aaf-0025) — \"latest\" is never published to the registry."
+  type        = string
+  default     = "latest"
+}
+
+variable "watchdog_image_tag" {
+  description = "watchdog container image tag, used by the watchdog job the governor module creates. Consumed only when memory_governor_enabled = true. Pin an explicit tag (aaf-0025)."
+  type        = string
+  default     = "latest"
+}
+
 variable "paperclip_image_tag" {
   description = "Paperclip orchestrator container image tag (set by CI/CD pipeline)"
   type        = string
