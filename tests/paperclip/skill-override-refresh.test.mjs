@@ -24,9 +24,24 @@ import { test } from "node:test";
 const DOCKERFILE = readFileSync(
   new URL("../../services/paperclip/Dockerfile", import.meta.url), "utf-8",
 );
+// The entrypoint the Dockerfile actually COPYs and runs. There used to be a
+// second, divergent copy under services/paperclip/ that nothing referenced —
+// the #139 fix first landed entirely in that dead file and shipped nothing.
+// This test now reads the same path the Dockerfile's COPY names; the assertion
+// below pins that they cannot drift apart again.
 const ENTRYPOINT = readFileSync(
-  new URL("../../services/paperclip/docker-entrypoint.sh", import.meta.url), "utf-8",
+  new URL("../../apps/paperclip/docker-entrypoint.sh", import.meta.url), "utf-8",
 );
+const ENTRYPOINT_COPY = (
+  DOCKERFILE.match(/COPY\s+(\S*docker-entrypoint\.sh)\s+\/usr\/local\/bin\//) || []
+)[1];
+
+test("the Dockerfile ships the entrypoint this test verifies", () => {
+  // Guards the exact trap #139 fell into: editing an entrypoint the image does
+  // not run. If the COPY path stops being apps/paperclip/, this test is reading
+  // the wrong file and must be updated deliberately.
+  assert.equal(ENTRYPOINT_COPY, "apps/paperclip/docker-entrypoint.sh");
+});
 
 test("repo-owned overrides are staged in their own image directory", () => {
   // Needed so the entrypoint can tell code-we-ship from user content; the
