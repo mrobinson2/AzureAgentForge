@@ -40,6 +40,15 @@ Bring the stack up **only** via `aaf-site local`, never a bare `docker compose u
 
 ## Memory peer identity
 
+> **Status on this path: supported, not verified.** Agent identity has been
+> deployed and checked end to end on the Azure path only. This stack runs the
+> same memory-governor image and reads the same three inputs, and it pulls the
+> same PaperClip image carrying the per-agent slug injection — so there is no
+> known reason it behaves differently here. But no self-hosted site has run it,
+> so treat it as untested rather than proven, and check
+> `pc-honcho list-peers` after enabling governed memory to confirm the peers you
+> expect are the peers you get.
+
 Governed memory is peer-scoped. Three inputs name who the peers are, and this
 site sets all three in `.env` — the Azure standby takes the same three as
 Terraform variables (`honcho_user_peer_id`, `honcho_agent_peer_ids`,

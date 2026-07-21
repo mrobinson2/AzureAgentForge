@@ -310,6 +310,16 @@ COPY apps/hermes/src/skills /opt/hermes-skills
 # forking the Hermes submodule.
 COPY apps/hermes/overrides/skills /opt/hermes-skills
 
+# The same overrides again, kept separately so the entrypoint can tell
+# repo-owned files from agent-authored ones. The skills sync copies to a
+# PERSISTENT volume with `cp -rn` (no-clobber) so agent-created skills survive a
+# deploy — which also means a repo-owned helper fix never reaches a deployment
+# that already has the old file. A live example: the fix that stopped the memory
+# helper defaulting to a system-privileged peer shipped in the image and was
+# still not what agents ran, because the share kept the previous copy. These
+# files are code, not user content, so the entrypoint force-refreshes them.
+COPY apps/hermes/overrides/skills /opt/hermes-skill-overrides
+
 # Skill-helper wrappers on $PATH. The fresh-shell-per-terminal-call model
 # in Hermes means env-var-resolved helper paths (e.g. $DELEGATE_HELPER) get
 # lost between calls, leading to exit-127 loops. Symlinking the helper
@@ -318,6 +328,8 @@ RUN chmod +x /opt/hermes-skills/playbooks/agent-delegate/scripts/pc-delegate.sh 
  && ln -sf /opt/hermes-skills/playbooks/agent-delegate/scripts/pc-delegate.sh /usr/local/bin/pc-delegate \
  && chmod +x /opt/hermes-skills/playbooks/honcho-memory/scripts/pc-honcho.sh \
  && ln -sf /opt/hermes-skills/playbooks/honcho-memory/scripts/pc-honcho.sh /usr/local/bin/pc-honcho \
+ && chmod +x /opt/hermes-skills/playbooks/honcho-memory/scripts/pc-memory.sh \
+ && ln -sf /opt/hermes-skills/playbooks/honcho-memory/scripts/pc-memory.sh /usr/local/bin/pc-memory \
  && chmod +x /opt/hermes-skills/playbooks/web-research/scripts/research-doctor.sh \
  && ln -sf /opt/hermes-skills/playbooks/web-research/scripts/research-doctor.sh /usr/local/bin/research-doctor
 

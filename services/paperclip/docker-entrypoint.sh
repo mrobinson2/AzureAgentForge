@@ -152,6 +152,20 @@ if [ -d "${OPT_SKILLS_SRC}" ]; then
   echo "[entrypoint] Synced optional Hermes skills to ${SKILLS_DST}"
 fi
 
+# Repo-owned skill overrides: force-refresh (clobber), unlike the no-clobber
+# syncs above. Those exist so agent-authored skills survive a deploy; the side
+# effect is that a REPO-owned helper fix never reaches a deployment whose volume
+# already holds the previous copy. That is how a fix to the memory helper's
+# identity fallback shipped in an image and still was not what agents ran.
+# These files are code we ship, not user content, so the newer image wins.
+# Deletions made through the Skills UI are still honoured — the .deleted marker
+# is processed after this block.
+OVERRIDES_SRC="/opt/hermes-skill-overrides"
+if [ -d "${OVERRIDES_SRC}" ]; then
+  cp -rf "${OVERRIDES_SRC}/." "${SKILLS_DST}/"
+  echo "[entrypoint] Refreshed repo-owned skill overrides in ${SKILLS_DST} (image wins)"
+fi
+
 # Honour the .deleted marker: skills deleted via the PaperClip Skills UI are
 # recorded here so they don't reappear after an image-based sync.
 DELETED_FILE="${SKILLS_DST}/.deleted"
