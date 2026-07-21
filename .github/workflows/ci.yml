@@ -84,6 +84,8 @@ jobs:
           shellcheck --severity=error scripts/*.sh
       - name: agent-loop canary self-check (offline)
         run: bash scripts/smoke-canary.sh --self-check
+      - name: keyvault seed DSN guard self-check (offline)
+        run: bash scripts/seed-keyvault.sh --self-check
 
   node-tests:
     runs-on: ubuntu-latest
