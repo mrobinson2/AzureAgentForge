@@ -319,6 +319,18 @@ variable "honcho_user_peer_id" {
   default     = "user"
 }
 
+variable "honcho_agent_peer_ids" {
+  description = "Comma-separated agent slugs that are legitimate memory peers alongside honcho_user_peer_id. The governor reports any write whose peer is neither, so identity fragmentation surfaces instead of going quiet. Empty (default) declares no roster and reports nothing. See docs/design/memory-system.md §18."
+  type        = string
+  default     = ""
+}
+
+variable "honcho_peer_aliases" {
+  description = "Comma-separated alias=canonical peer pairs (e.g. \"operator=user\"), rewritten at the governor's admission choke point before the write is stored. Empty (default) rewrites nothing. Discover strays with `pc-honcho list-peers`."
+  type        = string
+  default     = ""
+}
+
 variable "observability_enabled" {
   description = "Emit GenAI-semconv spans from the model-router to App Insights. Off by default; flip to true in dev.auto.tfvars to activate."
   type        = bool

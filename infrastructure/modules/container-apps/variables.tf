@@ -371,6 +371,18 @@ variable "honcho_user_peer_id" {
   }
 }
 
+variable "honcho_agent_peer_ids" {
+  description = "Comma-separated agent slugs that are legitimate memory peers alongside honcho_user_peer_id. The governor reports a write whose peer is neither — the identity-fragmentation signal from docs/design/memory-system.md §18. Empty (default) declares no roster and reports nothing: a deployment that has not listed its agents should not have every write flagged."
+  type        = string
+  default     = ""
+}
+
+variable "honcho_peer_aliases" {
+  description = "Comma-separated alias=canonical peer pairs, rewritten at the governor's admission choke point before a write is stored. Use to fold legacy or per-channel peers (e.g. \"operator=user\") into the canonical identity as they arrive. Empty (default) rewrites nothing."
+  type        = string
+  default     = ""
+}
+
 variable "honcho_deriver_job_timeout_seconds" {
   description = "Max seconds a single deriver Job run can execute before ACA forcibly kills it. The deriver is a long-running poller; the timeout bounds cost per run. 600s = 10 min."
   type        = number

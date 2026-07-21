@@ -188,6 +188,12 @@ module "container_apps" {
   # and readers always name the same peer. Default "user".
   honcho_user_peer_id = var.honcho_user_peer_id
 
+  # The agent half of that identity set, plus the alias map applied at the
+  # governor's admission choke point. Both empty by default: no roster declared,
+  # nothing rewritten, nothing reported.
+  honcho_agent_peer_ids = var.honcho_agent_peer_ids
+  honcho_peer_aliases   = var.honcho_peer_aliases
+
   # OTel tracing from the model-router sidecar → App Insights (B3 observability).
   # Off by default; flip observability_enabled=true in dev.auto.tfvars to activate.
   observability_enabled = var.observability_enabled

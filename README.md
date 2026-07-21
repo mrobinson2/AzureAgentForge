@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.8-blue" alt="Release v1.8"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.8.1-blue" alt="Release v1.8.1"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
@@ -169,6 +169,8 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 ---
 
 ## The v1.8 release
+
+**v1.8.1** adds the agent half of memory identity. v1.8.0 gave the human principal one canonical peer; `HONCHO_AGENT_PEER_IDS` now declares which agent slugs are legitimate peers alongside it, and `HONCHO_PEER_ALIASES` rewrites known strays (`operator=user`) at the governor's admission choke point before a write is stored. A peer that is neither the canonical user nor a declared agent is reported, never rejected — losing the memory is worse than storing it where you can see it. Both inputs default to empty, which behaves exactly as before. See [`docs/releases/v1.8.1.md`](docs/releases/v1.8.1.md).
 
 v1.8 is a repair release, not a feature one. v1.7 hardened the platform's security posture; applying that hardening to a real subscription then broke the paths that install and update it. Every item is a defect found by running the thing, plus a guard so it fails loudly next time. No new features, no new flags, no migrations — if your environment is deployed and healthy, v1.8 changes what happens the next time you build an image, seed a vault, or deploy from scratch. Full detail in [`docs/releases/v1.8.0.md`](docs/releases/v1.8.0.md).
 
@@ -531,6 +533,7 @@ Start with the row that matches what you're trying to do; each doc opens with it
 | [`docs/design/memory-system.md`](docs/design/memory-system.md) | Governed-memory architecture (four planes, six classes, trust model, self-improvement loop); shipped flag-gated off; code under [`services/memory-governor/`](services/memory-governor/) + [`services/watchdog/`](services/watchdog/) |
 | [`docs/deploy-pipeline.md`](docs/deploy-pipeline.md) | Reference GitHub Actions deploy pipeline with a destroy-aware approval gate (OIDC, no stored secrets) |
 | [`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md) | Two-way memory ↔ Obsidian vault CLI: export governed memory, curate in Obsidian, sync edits back |
+| [`docs/releases/v1.8.1.md`](docs/releases/v1.8.1.md) | v1.8.1 release notes: agent peer identity, the identity map at admission, and the report-don't-reject contract |
 | [`docs/releases/v1.8.0.md`](docs/releases/v1.8.0.md) | v1.8.0 release notes: deploy-path repair after the v1.7 firewall hardening, the DSN username guard, dependency bumps, upgrade notes |
 | [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md) | Full grouped v1.7.0 release notes: platform features, security, examples & samples, docs & dependencies, upgrade notes |
 | [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md) | Why config drift into a vendored app fails silently, the `validate-vendored-config` CI job that closes it, and the per-app validation strategy (Honcho, Hermes, PaperClip) |

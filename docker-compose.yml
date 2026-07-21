@@ -267,6 +267,11 @@ services:
       # resolve, hence the same ${HONCHO_USER_PEER_ID} input with the same
       # "user" fallback. docs/design/memory-system.md §18.
       HONCHO_USER_PEER_ID: ${HONCHO_USER_PEER_ID:-user}
+      # The agent half of the expected peer set, plus the alias map applied at
+      # admission. Both empty by default: no roster declared, nothing rewritten,
+      # nothing reported. docs/design/memory-system.md §18.
+      HONCHO_AGENT_PEER_IDS: ${HONCHO_AGENT_PEER_IDS:-}
+      HONCHO_PEER_ALIASES: ${HONCHO_PEER_ALIASES:-}
     ports: ["${GOVERNOR_PORT:-8090}:8090"]
 
   # Self-improvement watchdog. A one-shot: it self-mints a JWT from the secret,

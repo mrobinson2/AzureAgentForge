@@ -165,6 +165,20 @@ resource "azurerm_container_app" "memory_governor" {
         value = var.honcho_user_peer_id
       }
       env {
+        # The agent half of the same identity set. A write whose peer is neither
+        # the canonical user nor a declared agent is reported (never rejected —
+        # losing the memory is worse than storing it where the operator can see
+        # it). Empty declares no roster and reports nothing.
+        name  = "HONCHO_AGENT_PEER_IDS"
+        value = var.honcho_agent_peer_ids
+      }
+      env {
+        # Identity map applied at admission: alias=canonical pairs, rewritten
+        # before the write is stored, so a known stray never accumulates.
+        name  = "HONCHO_PEER_ALIASES"
+        value = var.honcho_peer_aliases
+      }
+      env {
         # Planner canary allowlist. Empty = planner answers enabled=false for
         # every agent even with MEMORY_PLANNER_ENABLED on. Add slugs one at a time.
         name  = "PLANNER_AGENT_ALLOWLIST"
