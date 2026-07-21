@@ -32,10 +32,14 @@ CREATE INDEX IF NOT EXISTS documents_memory_class_idx ON documents (memory_class
 CREATE INDEX IF NOT EXISTS documents_expires_at_idx   ON documents (expires_at);
 
 -- (b) governor-owned tables ---------------------------------------------------
+-- Column set matches infrastructure/migrations/0001_agent_events_and_feature_flags.sql.
+-- `updated_by` carries the provenance later flag seeds write; 0002a ALTERs it in
+-- for databases created before it was added here.
 CREATE TABLE IF NOT EXISTS feature_flags (
     name        text PRIMARY KEY,
     enabled     boolean     NOT NULL DEFAULT false,
     description text,
+    updated_by  text,
     updated_at  timestamptz NOT NULL DEFAULT now()
 );
 

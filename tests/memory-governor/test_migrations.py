@@ -125,3 +125,70 @@ class TestMigrationsShipWithTheImage:
             pass
         else:
             raise AssertionError("apply() must raise when the directory holds no .sql")
+
+
+class TestChainIsSelfConsistent:
+    """The governor applies THIS chain on its own at startup. Anything a later
+    migration references must therefore be created by an earlier one in the same
+    chain — not by the separate infrastructure/migrations chain that happens to
+    have run first on long-lived databases.
+
+    The regression: 0003/0004 seed flags with `updated_by`, but 0001's CREATE
+    TABLE never had that column. It worked wherever the infra chain had already
+    run, and broke on the first fresh database:
+
+        applying migration 0003_memory_digest_flag.sql
+        UndefinedColumnError: column "updated_by" of relation "feature_flags"
+        does not exist
+    """
+
+    def _chain(self):
+        return sorted(_MIG.glob("*.sql"))
+
+    def test_every_feature_flags_insert_column_exists_earlier_in_the_chain(self):
+        provided: set[str] = set()
+        for path in self._chain():
+            sql = path.read_text()
+            create = re.search(
+                r"CREATE TABLE IF NOT EXISTS feature_flags\s*\((.*?)\);", sql, re.S | re.I
+            )
+            if create:
+                for line in create.group(1).splitlines():
+                    m = re.match(r"\s*([a-z_]+)\s+[a-z]", line, re.I)
+                    if m:
+                        provided.add(m.group(1).lower())
+            for m in re.finditer(
+                r"ALTER TABLE feature_flags\s+ADD COLUMN IF NOT EXISTS\s+([a-z_]+)",
+                sql, re.I,
+            ):
+                provided.add(m.group(1).lower())
+            for m in re.finditer(r"INSERT INTO feature_flags\s*\(([^)]*)\)", sql, re.I):
+                used = {c.strip().lower() for c in m.group(1).split(",") if c.strip()}
+                missing = used - provided
+                assert not missing, (
+                    f"{path.name} inserts into feature_flags column(s) {sorted(missing)} "
+                    "that no earlier migration in this chain creates — fine only if "
+                    "infrastructure/migrations ran first, which a fresh deploy does not do"
+                )
+
+    def test_the_two_chains_agree_on_the_feature_flags_columns(self):
+        def columns(sql: str) -> set[str]:
+            m = re.search(
+                r"CREATE TABLE IF NOT EXISTS feature_flags\s*\((.*?)\);", sql, re.S | re.I
+            )
+            assert m, "feature_flags CREATE TABLE not found"
+            return {
+                mm.group(1).lower()
+                for line in m.group(1).splitlines()
+                if (mm := re.match(r"\s*([a-z_]+)\s+[a-z]", line, re.I))
+            }
+
+        infra = (
+            pathlib.Path(__file__).resolve().parents[2]
+            / "infrastructure" / "migrations" / "0001_agent_events_and_feature_flags.sql"
+        ).read_text()
+        local = (_MIG / "0001_governed_memory_overlay.sql").read_text()
+        assert columns(local) == columns(infra), (
+            "the two feature_flags definitions have drifted; a database built by "
+            "one chain then migrated by the other is how the updated_by break happened"
+        )
