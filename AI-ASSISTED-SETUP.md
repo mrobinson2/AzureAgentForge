@@ -309,6 +309,51 @@ For each one, explain:
 * how to enable it
 * how to verify it
 
+## Phase 9b — Memory peer identity (both deployment paths)
+
+Governed memory is peer-scoped, and every store keyed by peer trusts its writers
+to agree on what the user and the agents are called. When they disagree, nothing
+errors: facts land under peers the reader never queries and recall goes quiet.
+Cover this for whichever path the operator is on.
+
+Three inputs, same names and same meaning on both paths:
+
+| Input | Meaning | Default |
+|---|---|---|
+| user peer | The one peer id for the human principal | `user` |
+| agent peers | Agent slugs that are legitimate peers alongside the human | empty = no roster declared |
+| peer aliases | `alias=canonical` pairs rewritten as writes arrive | empty = rewrite nothing |
+
+**The only difference between the two paths is transport.** Explain it plainly:
+
+* **Azure** — Terraform variables `honcho_user_peer_id`, `honcho_agent_peer_ids`,
+  `honcho_peer_aliases`, set in `terraform.tfvars` (or by the Forge Console's
+  "Agent memory peers" and "Peer aliases" fields, which write the same file).
+  Terraform injects them as env vars on the memory-governor container app.
+* **Self-hosted (Mac mini)** — `HONCHO_USER_PEER_ID`, `HONCHO_AGENT_PEER_IDS`,
+  `HONCHO_PEER_ALIASES` in `deploy/mac-site/.env`, read by the governor service
+  in that site's compose stack.
+
+A roster written for one path is valid for the other verbatim — same strings,
+same parsing.
+
+Tell the operator:
+
+* Both new inputs are optional and empty by default, and empty means the
+  previous behavior exactly. Nothing is called a stray until a roster exists.
+* An unexpected peer is **reported, never rejected**. The write proceeds and a
+  `memory_identity` event records it. Refusing the write would lose the memory
+  while the misconfiguration that caused it is still in place.
+* Declare the roster from what the deployment actually holds, not from
+  intention: `pc-honcho list-peers` in the paperclip container.
+* The self-hosted path is the more likely one to need aliases — a site that ran
+  before the canonical-peer input existed usually carries legacy peers.
+* This only takes effect where the memory-governor runs and governed memory is
+  enabled (`memory_governor_enabled`, plus the in-app flags). If the governor is
+  not deployed, record the inputs and say plainly that they are inert for now.
+
+Reference: `docs/design/memory-system.md` §18.
+
 ## Phase 10 — Post-deployment validation
 
 Create a smoke test checklist.

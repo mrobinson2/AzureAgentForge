@@ -99,6 +99,10 @@ class ConfigBody(BaseModel):
     image_tag: str = ""
     owner_email: str = ""
     keyvault_admin_object_ids: list[str] = []
+    # Memory peer identity (v1.8.1). Same two inputs the self-hosted path takes
+    # as HONCHO_AGENT_PEER_IDS / HONCHO_PEER_ALIASES in its .env.
+    agent_peer_ids: str = ""
+    peer_aliases: str = ""
     preview_only: bool = False
 
 

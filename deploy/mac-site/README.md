@@ -38,6 +38,32 @@ Bring the stack up **only** via `aaf-site local`, never a bare `docker compose u
 `boot-guard.sh` backstops the one path lease-guard can't cover: Docker's
 `unless-stopped` restart after a reboot.
 
+## Memory peer identity
+
+Governed memory is peer-scoped. Three inputs name who the peers are, and this
+site sets all three in `.env` — the Azure standby takes the same three as
+Terraform variables (`honcho_user_peer_id`, `honcho_agent_peer_ids`,
+`honcho_peer_aliases`). Same strings, same parsing, different transport:
+
+| `.env` (here) | Terraform (Azure) | Meaning |
+|---|---|---|
+| `HONCHO_USER_PEER_ID` | `honcho_user_peer_id` | The one peer for the human principal (default `user`) |
+| `HONCHO_AGENT_PEER_IDS` | `honcho_agent_peer_ids` | Agent slugs that are legitimate peers alongside them |
+| `HONCHO_PEER_ALIASES` | `honcho_peer_aliases` | `alias=canonical` pairs rewritten as writes arrive |
+
+**Keep the two sites' values identical.** Both write to the *same* managed
+PostgreSQL — that is the whole point of this topology — so a peer id that
+differs between sites fragments one identity across a failover, which is the
+failure this design exists to prevent. Treat the three values like the DB URL:
+site-agnostic, changed in both places or neither.
+
+The last two are optional and empty by default, which behaves exactly as before.
+An unexpected peer is reported (a `memory_identity` event), never rejected.
+Declare a roster from what this site actually holds — `pc-honcho list-peers` —
+not from what you intended; a site that ran before the canonical-peer input
+existed usually carries legacy peers worth aliasing. See
+[`docs/design/memory-system.md` §18](../../docs/design/memory-system.md#18-identity-the-canonical-user-peer).
+
 ## Failover / failback
 ```sh
 aaf-site status          # lease + mirror + local containers + cloud apps awake?
