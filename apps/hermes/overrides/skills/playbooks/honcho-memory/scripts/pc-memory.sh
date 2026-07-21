@@ -38,7 +38,14 @@ set -e
 BASE="${GOVERNOR_BASE_URL:-http://ca-memory-governor-dev}"
 KEY="${GOVERNOR_API_KEY:-}"
 WORKSPACE="${GOVERNOR_WORKSPACE:-${HONCHO_APP_ID:-hermes-dev}}"
-AGENT="${PAPERCLIP_AGENT_SLUG:-${GOVERNOR_AGENT_SLUG:-operator}}"
+# Agent identity. The fallback is deliberately an UNPRIVILEGED, obviously-wrong
+# slug, not "operator": the governor maps "operator" to the SYSTEM memory
+# profile (write: every class), so defaulting there silently handed any agent
+# whose slug failed to resolve full write authority — the opposite of the
+# per-agent profile enforcement this identity is for. An unknown slug falls to
+# SPECIALIST (profiles.profile_for), which is least-privilege, and the peer name
+# says plainly that identity resolution failed.
+AGENT="${PAPERCLIP_AGENT_SLUG:-${GOVERNOR_AGENT_SLUG:-unknown-agent}}"
 # A5: canonical user peer. `record` sends `observed` EXPLICITLY instead of
 # leaning on the governor's server-side default — an omitted field is how
 # writes fragment across peers when any component's default drifts. The same
