@@ -32,12 +32,26 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 ALL_SERVICES="model-router memory-governor watchdog teams-bridge agent-runtime honcho paperclip"
 SELF_CONTAINED="model-router memory-governor watchdog teams-bridge"
 
-# Default build-args for the paperclip upstream pin (match the Dockerfile ARGs).
+# Build-args for the paperclip upstream pin. These are READ FROM THE DOCKERFILE
+# ARG defaults rather than duplicated here: hardcoded copies drifted once (the
+# v2026.707.0 bump landed in the Dockerfile only), and because --build-arg wins
+# over the ARG default, the stale copy silently built the OLD upstream. That
+# clone predates packages/adapters/hermes, so patch-adapter.mjs then aborted the
+# build looking for @paperclipai/hermes-paperclip-adapter.
+#
 # EXPECTED_SHA guards against git-tag drift: the build fails if the cloned tag
 # resolves to a different commit. Resolve with:
 #   git ls-remote https://github.com/paperclipai/paperclip refs/tags/<tag>
-PAPERCLIP_VERSION="${PAPERCLIP_VERSION:-v2026.517.0}"
-PAPERCLIP_EXPECTED_SHA="${PAPERCLIP_EXPECTED_SHA:-3e6610fb938d04638fa578a1fc0d119b434fa2e4}"
+paperclip_arg_default() {
+  sed -n "s/^ARG $1=\\(.*\\)\$/\\1/p" "$REPO_ROOT/services/paperclip/Dockerfile" | head -1
+}
+PAPERCLIP_VERSION="${PAPERCLIP_VERSION:-$(paperclip_arg_default PAPERCLIP_VERSION)}"
+PAPERCLIP_EXPECTED_SHA="${PAPERCLIP_EXPECTED_SHA:-$(paperclip_arg_default PAPERCLIP_EXPECTED_SHA)}"
+[ -n "$PAPERCLIP_VERSION" ] && [ -n "$PAPERCLIP_EXPECTED_SHA" ] || {
+  echo "ERROR: could not read PAPERCLIP_VERSION / PAPERCLIP_EXPECTED_SHA from" \
+       "services/paperclip/Dockerfile — pass them as env vars, or restore the ARG lines." >&2
+  exit 1
+}
 
 REGISTRY=""
 TAG=""
