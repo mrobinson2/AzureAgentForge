@@ -113,6 +113,20 @@ Turning the flag-gated differentiators real and closing day-2 operational gaps. 
 - **Observability + cost governance.** The model-router emits `gen_ai.usage` metrics (aggregatable token + cost counters by model/tier) alongside the v1.3 spans, threads a `correlation_id` onto the span, and attributes spend per caller (agent/tenant) with an optional per-caller daily cap and a `daily_cost_rollup`. The monitoring module gains an SLO-burn alert on sustained model-router upstream failures/fallbacks and a GenAI cost-per-day workbook tile. All flag-gated and fail-open; 194 offline router tests.
 - **Human-in-the-loop action approval.** A provider-pluggable action-approval seam ([`apps/paperclip/approval.mjs`](apps/paperclip/approval.mjs)) extends the v1.1 destroy-aware *infra* gate to runtime *actions* (an outbound message, a destructive tool call). Only kinds in `APPROVAL_REQUIRED_KINDS` are gated (default empty → inert); a gated action with no approver **fails closed**; a `webhook` provider delegates the decision to an external approver and fails closed on any error. Ships **unwired** (mirrors the sandbox seam); 15 offline tests.
 
+## v1.8: shipped
+
+*Why it matters: v1.7's security hardening broke the paths that install and update the platform. v1.8 fixes them, and adds guards so the same class of breakage announces itself instead of hiding.*
+
+A repair release. No new features, no new flags, no migrations — it changes what happens the next time you build an image, seed a vault, or deploy from scratch.
+
+- **Fresh deploys work again after the `Deny`-by-default firewalls** ([#122](https://github.com/mrobinson2/AzureAgentForge/pull/122)). A clean-subscription apply died mid-Pass-2 with `ForbiddenByFirewall` on the Key Vault data sources and a 403 on file-share reads, after plan-time reads had already succeeded — so it failed with billable resources standing. Azure Container Apps is **not** a Key Vault trusted service, so an IP allowlist alone never covers in-VNet callers: the app subnet now carries `Microsoft.KeyVault`/`Microsoft.Storage` service endpoints and is concatenated into both allowlists. Storage `ip_rules` rejects `/32`, so single addresses go in as bare IPs. PostgreSQL 15 names the throttling parameter `connection_throttle.enable`.
+- **The paperclip image is buildable again** ([#128](https://github.com/mrobinson2/AzureAgentForge/pull/128)). `scripts/build-and-push.sh` hardcoded its own `PAPERCLIP_VERSION`/`PAPERCLIP_EXPECTED_SHA`, which stopped matching the Dockerfile ARGs at the `v2026.707.0` bump. Because `--build-arg` beats an `ARG` default, every build cloned the old upstream — which predates `packages/adapters/hermes`, so `patch-adapter.mjs` aborted looking for a workspace package that version does not ship. Both values are now read from the Dockerfile.
+- **DSN username guard** ([#129](https://github.com/mrobinson2/AzureAgentForge/pull/129)). Postgres answers a username mismatch with `FATAL: password authentication failed for user "..."` — the message names the password and sends you to the wrong secret. That cost the reference deployment a six-day outage (2026-07-15 → 07-21) when a rebuild used the sanitized default admin login while both DSN secrets still carried the pre-v1.4 one. `seed-keyvault.sh` now validates `postgres-connection-string` and `paperclip-db-url` against the expected `administrator_login` (from `POSTGRES_ADMIN_USERNAME`, else the Terraform variable's own default), including values *kept* from an earlier run — the path the drift actually took. Offline `--self-check` runs it in CI.
+- **CI green again** ([#127](https://github.com/mrobinson2/AzureAgentForge/pull/127), [#130](https://github.com/mrobinson2/AzureAgentForge/pull/130)). Two gitleaks false positives in `docs/notes/` — Slack's published placeholder signing secret and a demo feature-flag key — allowlisted with `condition = "AND"` so only those literals are exempt, and only there. #130 also files the v1.7 release plan under `docs/notes/plans/` instead of leaving it untracked at the repo root.
+- **Dependencies.** `services/honcho` → `python:3.14-slim-bookworm` ([#125](https://github.com/mrobinson2/AzureAgentForge/pull/125)), reversing the v1.7 revert of #98 now that `local-stack-smoke` passes on 3.14; `astral-sh/uv` 0.11.29 ([#126](https://github.com/mrobinson2/AzureAgentForge/pull/126)); `actions/setup-node` 7 ([#123](https://github.com/mrobinson2/AzureAgentForge/pull/123)). The `services/paperclip` 3.14 bump ([#124](https://github.com/mrobinson2/AzureAgentForge/pull/124)) stays open — its smoke job still fails.
+
+Full grouped release notes: [`docs/releases/v1.8.0.md`](docs/releases/v1.8.0.md).
+
 ## v1.7: shipped
 
 *Why it matters: the memory system stays useful under real load instead of silently timing out, you get a daily digest of what needs your attention, and roughly 27 security findings across the codebase got fixed in one pass.*
@@ -146,11 +160,13 @@ Six merges, one theme: turn a way this platform — or an app it vendors — cou
 
 Full grouped release notes: [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
 
-## Post-1.7 horizon
+## Post-1.8 horizon
 
-*In plain terms: tag the release, catch the agent runtime up to the latest upstream version, and close a few loose ends the last few releases created.*
+*In plain terms: catch the agent runtime up to the latest upstream version, and close a few loose ends the last few releases created.*
 
-The near-term direction after the v1.7 milestone, before the longer "Later" list below:
+The near-term direction after the v1.8 release, before the longer "Later" list below:
+
+- **Get `services/paperclip` onto Python 3.14** ([#124](https://github.com/mrobinson2/AzureAgentForge/pull/124)), which needs the smoke failure diagnosed rather than the bump merged on green-looking checks.
 
 - **Bump the vendored Hermes submodule to v0.18.1.** Previously blocked by the config/auth incidents the v1.7 reliability-hardening vendored-defaults and canary items fix; unblocked now.
 - **Identity map + peer re-consolidation sweep.** An alias table at admission plus a background sweep that detects and merges unexpected peers — the production backstop the canonical-peer design ([`docs/design/memory-system.md` §18](docs/design/memory-system.md#18-identity-the-canonical-user-peer)) names as a separate enhancement.
