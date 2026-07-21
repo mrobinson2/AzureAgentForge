@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.8.1-blue" alt="Release v1.8.1"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.8.2-blue" alt="Release v1.8.2"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
@@ -169,6 +169,8 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 ---
 
 ## The v1.8 release
+
+**v1.8.2** makes that identity actually resolve, and gives the self-hosted path the same inputs. Deploying v1.8.1 to a real subscription found that `PAPERCLIP_AGENT_SLUG` was never set anywhere — every agent's memory collapsed onto one fallback peer — and that the fallback, `operator`, carried system-level write authority, so an unresolved identity was checked against a *more* privileged profile than the agent's own. It also found the memory-governor could not start on a fresh deployment at all: its image shipped without the migrations it applies on boot, while the log said the schema was up to date. Details in [`docs/releases/v1.8.2.md`](docs/releases/v1.8.2.md).
 
 **v1.8.1** adds the agent half of memory identity. v1.8.0 gave the human principal one canonical peer; `HONCHO_AGENT_PEER_IDS` now declares which agent slugs are legitimate peers alongside it, and `HONCHO_PEER_ALIASES` rewrites known strays (`operator=user`) at the governor's admission choke point before a write is stored. A peer that is neither the canonical user nor a declared agent is reported, never rejected — losing the memory is worse than storing it where you can see it. Both inputs default to empty, which behaves exactly as before. See [`docs/releases/v1.8.1.md`](docs/releases/v1.8.1.md).
 
@@ -533,6 +535,7 @@ Start with the row that matches what you're trying to do; each doc opens with it
 | [`docs/design/memory-system.md`](docs/design/memory-system.md) | Governed-memory architecture (four planes, six classes, trust model, self-improvement loop); shipped flag-gated off; code under [`services/memory-governor/`](services/memory-governor/) + [`services/watchdog/`](services/watchdog/) |
 | [`docs/deploy-pipeline.md`](docs/deploy-pipeline.md) | Reference GitHub Actions deploy pipeline with a destroy-aware approval gate (OIDC, no stored secrets) |
 | [`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md) | Two-way memory ↔ Obsidian vault CLI: export governed memory, curate in Obsidian, sync edits back |
+| [`docs/releases/v1.8.2.md`](docs/releases/v1.8.2.md) | v1.8.2 release notes: agent slug resolution, the privileged-fallback fix, governor migrations shipping in the image, and self-hosted parity |
 | [`docs/releases/v1.8.1.md`](docs/releases/v1.8.1.md) | v1.8.1 release notes: agent peer identity, the identity map at admission, and the report-don't-reject contract |
 | [`docs/releases/v1.8.0.md`](docs/releases/v1.8.0.md) | v1.8.0 release notes: deploy-path repair after the v1.7 firewall hardening, the DSN username guard, dependency bumps, upgrade notes |
 | [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md) | Full grouped v1.7.0 release notes: platform features, security, examples & samples, docs & dependencies, upgrade notes |
