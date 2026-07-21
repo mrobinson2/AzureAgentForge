@@ -10,7 +10,7 @@
 
 <p align="center">
   <a href="#platform-status"><img src="https://img.shields.io/badge/status-running%20on%20Azure-brightgreen" alt="Status"></a>
-  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.7-blue" alt="Release v1.7"></a>
+  <a href="ROADMAP.md"><img src="https://img.shields.io/badge/release-v1.8-blue" alt="Release v1.8"></a>
   <a href="#license"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#quickstart"><img src="https://img.shields.io/badge/IaC-Terraform-623CE4" alt="Terraform"></a>
   <a href="#why-azureagentforge"><img src="https://img.shields.io/badge/cloud-Azure-0078D4" alt="Azure"></a>
@@ -167,6 +167,18 @@ The part most demos skip is what happens when a request is dangerous. Ask the or
 </p>
 
 ---
+
+## The v1.8 release
+
+v1.8 is a repair release, not a feature one. v1.7 hardened the platform's security posture; applying that hardening to a real subscription then broke the paths that install and update it. Every item is a defect found by running the thing, plus a guard so it fails loudly next time. No new features, no new flags, no migrations — if your environment is deployed and healthy, v1.8 changes what happens the next time you build an image, seed a vault, or deploy from scratch. Full detail in [`docs/releases/v1.8.0.md`](docs/releases/v1.8.0.md).
+
+**Fresh deploys work again.** The `Deny`-by-default Key Vault and storage firewalls from v1.7 blocked the deploy that creates the platform. Azure Container Apps is not a Key Vault trusted service, so the app subnet now carries service endpoints and is allowlisted alongside the runner's IP; storage rejects `/32`, so single addresses go in bare; and PostgreSQL 15 names its throttling parameter differently than the module assumed.
+
+**The paperclip image builds again.** The build script pinned its own copy of the vendored PaperClip version, which stopped matching the Dockerfile after the upstream bump — so every build silently cloned the wrong upstream and then failed on a workspace package that version doesn't contain. Both values now come from one place.
+
+**A misconfigured database URL fails at seed time instead of six days later.** Postgres reports a wrong *username* as `password authentication failed`, which points at the wrong secret. In the reference deployment that cost a six-day outage. `seed-keyvault.sh` now checks each DSN's user against the server's administrator login — including values kept from an earlier run, which is how the drift actually happened.
+
+**Dependencies.** `services/honcho` moves to Python 3.14, reversing the v1.7 revert now that the smoke suite passes on it. The equivalent `services/paperclip` bump stays open — its smoke job still fails.
 
 ## The v1.7 milestone
 
@@ -519,6 +531,7 @@ Start with the row that matches what you're trying to do; each doc opens with it
 | [`docs/design/memory-system.md`](docs/design/memory-system.md) | Governed-memory architecture (four planes, six classes, trust model, self-improvement loop); shipped flag-gated off; code under [`services/memory-governor/`](services/memory-governor/) + [`services/watchdog/`](services/watchdog/) |
 | [`docs/deploy-pipeline.md`](docs/deploy-pipeline.md) | Reference GitHub Actions deploy pipeline with a destroy-aware approval gate (OIDC, no stored secrets) |
 | [`docs/obsidian-memory-interface.md`](docs/obsidian-memory-interface.md) | Two-way memory ↔ Obsidian vault CLI: export governed memory, curate in Obsidian, sync edits back |
+| [`docs/releases/v1.8.0.md`](docs/releases/v1.8.0.md) | v1.8.0 release notes: deploy-path repair after the v1.7 firewall hardening, the DSN username guard, dependency bumps, upgrade notes |
 | [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md) | Full grouped v1.7.0 release notes: platform features, security, examples & samples, docs & dependencies, upgrade notes |
 | [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md) | Why config drift into a vendored app fails silently, the `validate-vendored-config` CI job that closes it, and the per-app validation strategy (Honcho, Hermes, PaperClip) |
 
