@@ -20,6 +20,24 @@ honcho_workspace_name = "hermes"
 # peers and recall silently misses. docs/design/memory-system.md §18.
 # honcho_user_peer_id = "user"
 
+# Agent peer identity (v1.8.1) — the agent half of that same set, consumed by
+# the memory-governor. These are the SAME two inputs a self-hosted site sets in
+# its .env (HONCHO_AGENT_PEER_IDS / HONCHO_PEER_ALIASES), so a roster is
+# portable between the Azure and Mac-mini paths.
+#
+# honcho_agent_peer_ids: comma-separated agent slugs that are legitimate memory
+# peers alongside honcho_user_peer_id. The governor REPORTS (never rejects) a
+# write whose peer is neither — an unexpected peer is a config smell, and
+# refusing the write would lose the memory. Empty declares no roster and reports
+# nothing, so a deployment that has not listed its agents is not flooded.
+#
+# honcho_peer_aliases: alias=canonical pairs rewritten at the governor's
+# admission choke point before the write is stored. Discover what to fold in
+# with `pc-honcho list-peers` — describe what is really there, not what you
+# intended. docs/design/memory-system.md §18.
+# honcho_agent_peer_ids = "researcher,engineer,qa,watchdog"
+# honcho_peer_aliases   = "operator=user"
+
 # aaf-0013: Key Vault firewall defaults to Deny (secure-by-default). With public
 # access on and no private endpoint, add your Terraform-runner egress IP so
 # apply/secret-pull is not locked out (example uses an RFC-5737 documentation IP):

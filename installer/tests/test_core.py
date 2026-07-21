@@ -410,3 +410,56 @@ def test_plan_summary_endpoint(client, monkeypatch):
     r = client.get("/api/plan-summary", headers=_h())
     assert r.status_code == 200 and r.json()["has_destroy"] is True
     forge_app._last_config.clear()
+
+
+# ---------------------------------------------------------------------------
+# Memory peer identity (v1.8.1) — the turnkey Azure path's half of the two
+# inputs a self-hosted site sets as HONCHO_AGENT_PEER_IDS / HONCHO_PEER_ALIASES.
+# Same names, same semantics, different transport, so a roster is portable.
+# ---------------------------------------------------------------------------
+
+def test_peer_identity_omitted_by_default():
+    # Empty means "no roster declared" — the governor then calls nothing a
+    # stray. Rendering an empty string instead would declare an empty roster
+    # and flag every write.
+    kv = _kv(core.render_tfvars(core.DeployConfig(**GOOD)))
+    assert "honcho_agent_peer_ids" not in kv
+    assert "honcho_peer_aliases" not in kv
+
+
+def test_peer_identity_rendered_when_set():
+    cfg = core.DeployConfig(**GOOD, agent_peer_ids="researcher,engineer",
+                            peer_aliases="operator=user")
+    kv = _kv(core.render_tfvars(cfg))
+    assert kv["honcho_agent_peer_ids"] == '"researcher,engineer"'
+    assert kv["honcho_peer_aliases"] == '"operator=user"'
+
+
+def test_peer_identity_normalized_before_rendering():
+    # What the operator types with stray whitespace must equal, byte for byte,
+    # what the governor parses — otherwise " engineer" is a peer nobody matches.
+    cfg = core.DeployConfig(**GOOD, agent_peer_ids=" researcher , engineer ,, ",
+                            peer_aliases=" operator=user , ")
+    kv = _kv(core.render_tfvars(cfg))
+    assert kv["honcho_agent_peer_ids"] == '"researcher,engineer"'
+    assert kv["honcho_peer_aliases"] == '"operator=user"'
+
+
+@pytest.mark.parametrize("field,value,fragment", [
+    ("agent_peer_ids", "researcher,not a slug", "peer id"),
+    ("agent_peer_ids", 'evil"injection', "peer id"),
+    ("peer_aliases", "operator", "alias=canonical"),
+    ("peer_aliases", "operator=", "alias=canonical"),
+    ("peer_aliases", "=user", "alias=canonical"),
+    ("peer_aliases", 'a=b"c', "alias=canonical"),
+])
+def test_peer_identity_invalid_rejected(field, value, fragment):
+    errs = core.DeployConfig(**{**GOOD, field: value}).validate()
+    assert errs and any(fragment in e for e in errs)
+
+
+def test_peer_identity_valid_shapes_accepted():
+    cfg = core.DeployConfig(**GOOD,
+                            agent_peer_ids="researcher,engineer.qa,watch-dog,a_b",
+                            peer_aliases="operator=user,legacy-admin=user")
+    assert cfg.validate() == []

@@ -141,6 +141,13 @@ services:
       # a site that overrides it does so ONCE in .env for every service.
       # docs/design/memory-system.md §18.
       HONCHO_USER_PEER_ID: "${HONCHO_USER_PEER_ID:-user}"
+      # The agent half of the same identity set, plus the alias map applied at
+      # admission. Identical inputs and semantics to the Azure path (there they
+      # arrive as Terraform vars on the governor container app; here they come
+      # from this site's .env). Both empty by default: no roster declared,
+      # nothing rewritten, nothing reported.
+      HONCHO_AGENT_PEER_IDS: "${HONCHO_AGENT_PEER_IDS:-}"
+      HONCHO_PEER_ALIASES: "${HONCHO_PEER_ALIASES:-}"
 
   # ── PaperClip (auth-proxy + UI/API + agent runtime) ────────────────────────
   paperclip:

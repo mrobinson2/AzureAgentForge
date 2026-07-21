@@ -163,6 +163,12 @@
         <div class="note">The short git SHA <code>scripts/build-and-push.sh</code> prints after pushing images (e.g. <code>9bf1a51</code>). Blank uses <code>latest</code>.</div>
         <label>Key Vault admin object IDs <span class="dim">(your Azure AD object ID; comma-separated for more — needed to seed secrets)</span></label>
         <input type="text" id="kvAdmins" placeholder="az ad signed-in-user show --query id -o tsv">
+        <label>Agent memory peers <span class="dim">(optional — comma-separated agent slugs)</span></label>
+        <input type="text" id="agentPeerIds" placeholder="e.g. researcher,engineer,qa,watchdog">
+        <div class="note">Which agent slugs are legitimate memory peers alongside the human's canonical peer. The governor <b>reports</b> — never rejects — a write whose peer is neither, so a component inventing its own peer shows up instead of quietly sharding memory. Blank declares no roster and reports nothing. <b>Self-hosted sites set the same list</b> as <code>HONCHO_AGENT_PEER_IDS</code> in <code>deploy/mac-site/.env</code>.</div>
+        <label>Peer aliases <span class="dim">(optional — comma-separated alias=canonical)</span></label>
+        <input type="text" id="peerAliases" placeholder="e.g. operator=user">
+        <div class="note">Folds known legacy or per-channel peers into the canonical one as writes arrive. Discover what a deployment actually holds with <code>pc-honcho list-peers</code> before filling this in. Self-hosted equivalent: <code>HONCHO_PEER_ALIASES</code>.</div>
         <div class="chk"><input type="checkbox" id="telegram"><label for="telegram" style="margin:0">Enable Telegram surface</label></div>
         <div class="chk"><input type="checkbox" id="discord"><label for="discord" style="margin:0">Enable Discord surface</label></div>
         <div class="btns">
@@ -349,6 +355,8 @@ function configBody(previewOnly) {
     ai_foundry_deployment_id: $('foundryDeployment').value.trim(),
     image_tag: $('imageTag').value.trim(),
     keyvault_admin_object_ids: $('kvAdmins').value.split(',').map(s => s.trim()).filter(Boolean),
+    agent_peer_ids: $('agentPeerIds').value.trim(),
+    peer_aliases: $('peerAliases').value.trim(),
     preview_only: previewOnly,
   });
 }
@@ -458,6 +466,10 @@ const VALIDATORS = {
   foundry:           { re: /^https:\/\/.+/,      optional: true, msg: "must be an https:// URL" },
   foundryDeployment: { re: /^[A-Za-z0-9._-]+$/,  optional: true, msg: "a deployment name (letters, digits, . _ -)" },
   imageTag:          { re: /^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/, optional: true, msg: "container tag: letters, digits, . _ -" },
+  // Advisory only, mirroring installer/core.py's _PEER_ID_RE — the server
+  // stays the source of truth and re-validates every field it is sent.
+  agentPeerIds:      { re: /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}(\s*,\s*[A-Za-z0-9][A-Za-z0-9._-]{0,63})*$/, optional: true, msg: "comma-separated agent slugs" },
+  peerAliases:       { re: /^[A-Za-z0-9][A-Za-z0-9._-]{0,63}=[A-Za-z0-9][A-Za-z0-9._-]{0,63}(\s*,\s*[A-Za-z0-9][A-Za-z0-9._-]{0,63}=[A-Za-z0-9][A-Za-z0-9._-]{0,63})*$/, optional: true, msg: "comma-separated alias=canonical pairs" },
 };
 
 function checkField(id) {
