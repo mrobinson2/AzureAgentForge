@@ -289,6 +289,7 @@ Maturity labels below are drawn from the tests, flags, and behavior in the repo,
 | Security hardening (fail-closed auth, RLS, prompt-injection fencing, secure-by-default firewalls) | Available |
 | GenAI observability traces to Application Insights | Shipped, disabled by default |
 | Governed memory (governor, retrieval planner, watchdog, migrations) | Shipped, disabled by default |
+| Agent memory identity (per-agent peers, roster check, alias map) | Shipped — verified on Azure, unverified self-hosted ([see below](#agent-memory-identity-across-the-deployment-flavors)) |
 | Governor ship-dark endpoints (review-queue digest, escalation SLA auditor) | Shipped, disabled by default |
 | Obsidian memory interface (two-way memory ↔ vault CLI) | Available (operator-run) |
 | Human action-approval seam (`apps/paperclip/approval.mjs`) | Shipped, not fully wired |
@@ -304,6 +305,23 @@ The local quickstart brings up PostgreSQL and the model router; the full platfor
 **Planned and future.** First-class Microsoft Voice Live integration, a second agent runtime, Discord as a control plane, full multi-tenant support with per-user RBAC, scheduled agent routines, a skills manager, more chat surfaces (WhatsApp, a web widget), the rest of the observability pipeline, private enterprise RAG over Azure AI Search, and Foundry Agent Service / Microsoft 365 publishing are on the roadmap, not shipped. See [`ROADMAP.md`](ROADMAP.md).
 
 ---
+
+
+### Agent memory identity across the deployment flavors
+
+AzureAgentForge is meant to run in three shapes, and agent identity is worth calling out per shape because only one of them has been exercised end to end.
+
+| Flavor | What it is | Agent identity |
+|---|---|---|
+| **1. Self-hosted primary** (`self-hosted-primary`, ~$35–45/mo) | Stack on hardware you own; Azure holds a dormant warm standby over one shared managed PostgreSQL | **Supported, not verified.** The compose stack runs the memory-governor and reads all three inputs from `.env`, and it pulls the same PaperClip image that carries the per-agent slug injection — so there is no known reason it differs. But no self-hosted site has run it, so treat it as untested rather than proven |
+| **2. Azure, self-hosted containers, not extensively hardened** (`cost-optimized`, measured ~$83/mo) | The default Azure path | **Verified.** Deployed and checked against the running containers: the declared roster classifies correctly, unexpected peers surface, and the slug injection is present in the deployed image |
+| **3. Azure, security-hardened** (`hardened`, ~$250+/mo) | Zone-redundant posture, longer retention, tighter network defaults | **Supported, not separately verified.** The hardened profile changes infrastructure posture, not the identity code path — it is the same governor image reading the same Terraform variables as flavor 2 |
+
+The three inputs are identical across all three; only the transport differs — `.env` keys on a self-hosted site, Terraform variables on Azure — so a roster written for one is valid for another verbatim. See [`docs/design/memory-system.md` §18](docs/design/memory-system.md#18-identity-the-canonical-user-peer).
+
+**If you run flavor 1 with the Azure standby:** keep the peer values identical on both sites. They share one managed PostgreSQL, so peer ids that differ between them fragment a single identity across a failover — the exact failure this design prevents. Treat them like the database URL: changed in both places or neither.
+
+Identity resolution runs inside governed-memory admission, so on any flavor it takes effect only where `MEMORY_CLASSES_ENABLED` is on. Deploying does not turn that on.
 
 ## What's not finished yet
 
