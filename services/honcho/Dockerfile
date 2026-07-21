@@ -3,7 +3,7 @@
 # Port 8000 matches the upstream default. Health check uses /openapi.json which
 # FastAPI always serves — no custom /health route needed.
 
-FROM ghcr.io/astral-sh/uv:0.11.28 AS uv
+FROM ghcr.io/astral-sh/uv:0.11.30 AS uv
 
 FROM python:3.13-slim-bookworm AS base
 
