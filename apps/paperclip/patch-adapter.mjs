@@ -95,6 +95,41 @@ if (!execute.includes("if (ctx.runId)")) {
   }
 }
 
+// ── Fix 2b: agent identity — inject PAPERCLIP_AGENT_SLUG ────────────────────
+// Upstream's buildPaperclipEnv gives the spawned Hermes PAPERCLIP_AGENT_ID (a
+// UUID) and PAPERCLIP_COMPANY_ID — but no slug. The memory helpers key identity
+// off PAPERCLIP_AGENT_SLUG, so without this every agent's writes collapse onto
+// one peer: memory cannot be attributed per agent, and the governor's per-agent
+// memoryProfile is enforced against the wrong identity.
+//
+// Derived from the agent's display name using the SAME convention the rest of
+// the platform already uses (services/watchdog/roster.py's name→slug map and
+// governor/profiles.py's keys): camel-case boundaries become hyphens, then
+// lowercase — "Researcher" → "researcher", "CostGuardian" → "cost-guardian",
+// "QA" → "qa" (an all-caps run has no boundary to split).
+const AGENT_SLUG_INJECTION =
+  "if (ctx.agent?.name) env.PAPERCLIP_AGENT_SLUG = String(ctx.agent.name)" +
+  ".replace(/([a-z0-9])([A-Z])/g, '$1-$2').trim().toLowerCase()" +
+  ".replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');\n    ";
+
+if (!execute.includes("env.PAPERCLIP_AGENT_SLUG")) {
+  if (execute.includes("if (ctx.runId)")) {
+    execute = execute.replace("if (ctx.runId)", AGENT_SLUG_INJECTION + "if (ctx.runId)");
+    console.log("[patch-adapter] Injected PAPERCLIP_AGENT_SLUG (per-agent memory identity)");
+  } else {
+    // Fail loud: silently shipping without this returns the platform to one
+    // shared memory peer, which is exactly the failure mode we are closing.
+    console.error(
+      "[patch-adapter] FATAL: 'if (ctx.runId)' anchor not found — PAPERCLIP_AGENT_SLUG " +
+      "NOT injected. Every agent would write memory under the same fallback peer and " +
+      "be profiled as the wrong identity. Re-inspect execute.ts and update this patch."
+    );
+    process.exit(1);
+  }
+} else {
+  console.log("[patch-adapter] PAPERCLIP_AGENT_SLUG already present (cached layer) — no-op");
+}
+
 // AzureAgentForge cost-envelope — forward the per-run id + budget ceiling to the
 // spawned Hermes (ROUTER_RUN_ID = ctx.runId; ROUTER_BUDGET_ENVELOPE_USD from the
 // container env). patch-hermes-cost-envelope.mjs then relays them into the
