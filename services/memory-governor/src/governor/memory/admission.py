@@ -16,7 +16,7 @@ import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
-from .. import config, db, llm
+from .. import config, db, identity, llm
 from .classifier import (
     ClassificationResult,
     MemoryClass,
@@ -274,11 +274,60 @@ async def _write_session_memory(req: AdmitRequest, cr: ClassificationResult) -> 
     return str(row["id"])
 
 
+async def _resolve_identity(req: AdmitRequest) -> None:
+    """Apply the §18 identity map to this write, in place, and report strays.
+
+    Mutates `observer`, `observed`, and `created_by_peer` to their canonical
+    form, then emits one `memory_identity` event per peer that was either
+    rewritten or is not in the declared expected set. The event is the operator's
+    signal that a writer is minting peers nobody queries — the quiet failure the
+    canonical-peer input exists to prevent.
+    """
+    for field in ("observer", "observed", "created_by_peer"):
+        original = getattr(req, field)
+        if not original:
+            continue
+        resolved, classification, was_aliased = identity.resolve_and_classify(original)
+        if was_aliased:
+            setattr(req, field, resolved)
+        if not was_aliased and classification != identity.UNEXPECTED:
+            continue
+        await db.emit_event(
+            "memory_identity",
+            req.created_by_peer,
+            {
+                "field": field,
+                "peer": original,
+                "resolved_peer": resolved,
+                "classification": classification,
+                "aliased": was_aliased,
+                "workspace": req.workspace_name,
+            },
+            session_id=req.session_id,
+            issue_id=req.issue_id,
+        )
+        if classification == identity.UNEXPECTED:
+            log.warning(
+                "unexpected peer %r on %s (workspace=%s) — not the canonical user "
+                "peer and not in HONCHO_AGENT_PEER_IDS; the write proceeds, but a "
+                "reader querying the expected set will never see it",
+                resolved,
+                field,
+                req.workspace_name,
+            )
+
+
 async def admit(req: AdmitRequest) -> AdmitResult:
     """The pipeline. Flag-off returns 'disabled' so callers fall back to the
     legacy (ungoverned) write path — flag-off means zero behavior change."""
     if not await db.flag_enabled("MEMORY_CLASSES_ENABLED"):
         return AdmitResult(status="disabled", reason="MEMORY_CLASSES_ENABLED is off")
+
+    # §18 identity map: rewrite known aliases BEFORE anything reads the peers,
+    # so the alias never reaches storage, the dedup lookup, or an event payload.
+    # An unexpected peer is reported, never rejected — refusing the write would
+    # lose the memory while the misconfiguration that caused it is still there.
+    await _resolve_identity(req)
 
     await db.emit_event(
         "memory_candidate",

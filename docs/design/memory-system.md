@@ -814,19 +814,50 @@ Rules that keep it canonical:
 A canonical input keeps *configured* components aligned. It cannot stop a
 *new* writer — the next gateway, an imported history, a vendored tool with
 its own naming scheme — from minting peers before anyone thinks to thread the
-variable. The recommended production backstop, designed but not implemented
-here (§15), is:
+variable. The backstop has two halves:
 
-1. **Identity map at admission.** A small alias table (`peer_alias` →
-   canonical peer) consulted at the write choke point (`/admit`), so known
-   aliases — legacy names, per-channel session peers — are rewritten to the
-   canonical peer as they arrive instead of accumulating.
-2. **Periodic re-consolidation sweep.** A background job (the sweeper cadence
-   of §8 fits) that lists peers, diffs against the expected set (canonical
-   peer + agent slugs), flags unexpected peers for operator review, and — on
-   operator confirmation, never automatically (§16) — migrates their
-   documents to the canonical peer and records the alias in the map.
+1. **Identity map at admission — shipped in v1.8.1.** A small alias table
+   (`peer_alias` → canonical peer) consulted at the write choke point
+   (`/admit`), so known aliases — legacy names, per-channel session peers — are
+   rewritten to the canonical peer as they arrive instead of accumulating.
+2. **Periodic re-consolidation sweep — designed, not implemented (§15).** A
+   background job (the sweeper cadence of §8 fits) that lists peers, diffs
+   against the expected set, and — on operator confirmation, never
+   automatically (§16) — migrates their documents to the canonical peer and
+   records the alias in the map.
 
-Both belong to a separate enhancement. The deploy-time input is deliberately
-shippable without them: it fixes the drift that already happened once, and it
-makes the backstop's job boring.
+#### The agent half of the expected set (v1.8.1)
+
+The canonical *user* peer answers "who is the human." The expected set also
+needs the agents, or the only thing an unexpected-peer check can say is "not
+the human," which is true of every legitimate agent self-lesson.
+
+Two optional deploy-time inputs, resolved by `governor/identity.py`:
+
+| Input | Meaning | Empty (default) |
+|---|---|---|
+| `HONCHO_AGENT_PEER_IDS` | Comma-separated agent slugs that are legitimate peers alongside the canonical user | No roster declared — nothing is called a stray |
+| `HONCHO_PEER_ALIASES` | Comma-separated `alias=canonical` pairs, applied at admission | Nothing is rewritten |
+
+At `/admit`, before anything reads the peers, `observer`, `observed`, and
+`created_by_peer` are each resolved through the alias map and classified as
+`canonical_user`, `known_agent`, `unexpected`, or `undeclared_roster`. Aliases
+are rewritten in place, so the alias never reaches storage, the dedup lookup, or
+a downstream event payload. Anything rewritten or unexpected emits a
+`memory_identity` event on the `agent_events` spine with the original peer, the
+resolved peer, and the classification.
+
+Three deliberate choices, each a place this could have gone wrong:
+
+- **Report, never reject.** An unexpected peer is a config smell, not an attack.
+  Refusing the write loses the memory while the misconfiguration is still in
+  place — strictly worse than storing it and telling the operator.
+- **Permissive when undeclared.** With no roster, every write would otherwise be
+  flagged, and an alert that fires on everything is an alert nobody reads.
+- **Fail open on bad config.** A malformed alias pair is skipped, not fatal.
+  This runs at the write choke point; failing closed on our own config would
+  lose every write for a typo. Alias resolution is one hop, so a cyclic config
+  (`a=b,b=a`) terminates instead of hanging admission.
+
+Agent self-lessons stay exempt, and now provably so: a declared agent observing
+itself classifies as `known_agent` and emits nothing.
