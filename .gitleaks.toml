@@ -31,3 +31,13 @@ description = "Slack docs placeholder signing secret quoted in design notes"
 condition = "AND"
 paths = ['''docs/notes/.*\.md$''']
 regexes = ['''8f742231b10e8888abcd99yyyzzz[0-9a-z]{4,}''']
+
+# Same class as the demo-fixture allowlist above: outbound_sms_10dlc is a demo
+# feature-flag name, quoted in the notes as `key: "outbound_sms_10dlc"`, which
+# generic-api-key reads as a key/value secret assignment. Scoped with
+# condition = "AND" so only this literal is exempt, only inside docs/notes/.
+[[allowlists]]
+description = "demo feature-flag key quoted in design notes"
+condition = "AND"
+paths = ['''docs/notes/.*\.md$''']
+regexes = ['''outbound_sms_10dlc''']
