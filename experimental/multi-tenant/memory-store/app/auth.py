@@ -24,8 +24,22 @@ import hmac
 import json
 import os
 import time
+from dataclasses import dataclass
 
 from fastapi import Header, HTTPException
+
+# Roles a per-user token may carry (phase 2). Kept in sync with the control-
+# plane issuer (control-plane/user_tokens.py ROLES).
+ROLES = ("viewer", "member", "operator", "owner")
+
+
+@dataclass(frozen=True)
+class Principal:
+    """The verified caller: who they are, which tenant, what role."""
+
+    tenant_id: str
+    user_id: str
+    role: str
 
 
 def _b64url_decode(seg: str) -> bytes:
@@ -89,3 +103,29 @@ async def require_tenant(authorization: str | None = Header(default=None)) -> st
     if not tenant_id:
         raise HTTPException(status_code=401, detail="token missing tenant_id claim")
     return str(tenant_id)
+
+
+async def require_principal(authorization: str | None = Header(default=None)) -> Principal:
+    """Phase 2: verify the bearer token and return the full Principal
+    (tenant_id + user_id + role), not just the tenant. Same fail-closed posture
+    as require_tenant: no secret -> 503; missing/invalid token, or a token
+    missing sub/tenant_id/role, -> 401. A partial identity is never returned —
+    downstream RBAC (phase 3) can trust every field.
+    """
+    secret = _signing_secret()
+    if not secret:
+        raise HTTPException(
+            status_code=503,
+            detail="memory-store authentication not configured (MEMORY_STORE_JWT_SECRET unset)",
+        )
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(status_code=401, detail="missing bearer token")
+    claims = _verify_hs256(authorization[7:].strip(), secret)
+    tenant_id = claims.get("tenant_id")
+    user_id = claims.get("sub")
+    role = claims.get("role")
+    if not tenant_id or not user_id or not role:
+        raise HTTPException(status_code=401, detail="token missing tenant_id/sub/role claim")
+    if role not in ROLES:
+        raise HTTPException(status_code=401, detail=f"unknown role in token: {role!r}")
+    return Principal(tenant_id=str(tenant_id), user_id=str(user_id), role=role)
