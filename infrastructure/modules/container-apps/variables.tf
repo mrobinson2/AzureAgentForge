@@ -389,6 +389,38 @@ variable "honcho_deriver_job_timeout_seconds" {
   default     = 600
 }
 
+# ── HITL action-approval gate (auth-proxy) — inert by default ─────────────
+# Wires the v1.5 approval seam into the auth-proxy outbound-comment path. The
+# default (empty approval_required_kinds) is byte-for-byte the previous
+# behavior: nothing is gated. See docs/superpowers/specs/2026-07-22-hitl-approval-wiring-design.md.
+variable "approval_provider" {
+  description = "Approval gate provider for gated agent actions: 'auto' (gated action fails closed — the safe default), 'allow' (deliberate bypass), or 'webhook' (delegates to approval_webhook_url). Unknown values fail loud at auth-proxy boot."
+  type        = string
+  default     = "auto"
+  validation {
+    condition     = contains(["auto", "allow", "webhook"], var.approval_provider)
+    error_message = "approval_provider must be one of: auto, allow, webhook."
+  }
+}
+
+variable "approval_required_kinds" {
+  description = "Comma-separated action kinds gated behind human approval (e.g. \"outbound_message\"). EMPTY (default) gates nothing — the seam stays inert. A gated kind under provider 'auto' with no approver fails closed (denied)."
+  type        = string
+  default     = ""
+}
+
+variable "approval_webhook_url" {
+  description = "External approver endpoint for approval_provider = 'webhook'. POSTed the action; expects {approved:boolean}. Fails closed on any error. Empty unless the webhook provider is used."
+  type        = string
+  default     = ""
+}
+
+variable "approval_workspace" {
+  description = "Workspace/tenant dimension stamped on emitted escalation events (the SLA auditor rolls up by it). Single-tenant deploys can leave the default."
+  type        = string
+  default     = "default"
+}
+
 variable "brave_search_enabled" {
   description = "Enable the brave-search wrapper inside paperclip (mounts BRAVE_SEARCH_API_KEY from KV secret platform-brave-search-api-key). DuckDuckGo blocks Azure cloud IPs so this is the practical default; set false only if you want to disable web search entirely."
   type        = bool

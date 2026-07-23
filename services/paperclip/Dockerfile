@@ -358,6 +358,11 @@ RUN chmod +x /usr/local/bin/write-hermes-config.sh
 
 # JWT auth proxy for automation API access (automation scripts, CI/CD)
 COPY apps/paperclip/auth-proxy.mjs /app/auth-proxy.mjs
+# auth-proxy.mjs imports ./approval.mjs (the HITL action-approval gate). It must
+# ship alongside auth-proxy.mjs or the ESM import fails at boot
+# (ERR_MODULE_NOT_FOUND) and the whole proxy — and the paperclip UI behind it —
+# never comes up.
+COPY apps/paperclip/approval.mjs /app/approval.mjs
 
 # Skills management UI — self-contained HTML page served by the auth-proxy
 COPY apps/paperclip/skills-ui.html /app/skills-ui.html
