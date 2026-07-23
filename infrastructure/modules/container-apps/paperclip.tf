@@ -358,6 +358,30 @@ resource "azurerm_container_app" "paperclip" {
         value = var.honcho_user_peer_id
       }
 
+      # ── HITL action-approval gate (auth-proxy) — inert by default ────────
+      # The v1.5 approval seam wired into the outbound-comment path. With
+      # approval_required_kinds empty (default) nothing is gated and this is a
+      # no-op. Emitting escalation events for the v1.7 SLA auditor additionally
+      # requires GOVERNOR_BASE_URL/GOVERNOR_API_KEY on this container (a
+      # separate secret-wiring follow-on); without them the gate still decides
+      # correctly and the emit is a fail-open no-op.
+      env {
+        name  = "APPROVAL_PROVIDER"
+        value = var.approval_provider
+      }
+      env {
+        name  = "APPROVAL_REQUIRED_KINDS"
+        value = var.approval_required_kinds
+      }
+      env {
+        name  = "APPROVAL_WEBHOOK_URL"
+        value = var.approval_webhook_url
+      }
+      env {
+        name  = "APPROVAL_WORKSPACE"
+        value = var.approval_workspace
+      }
+
       # ── Database ─────────────────────────────────────────────────────────
       env {
         name        = "DATABASE_URL"

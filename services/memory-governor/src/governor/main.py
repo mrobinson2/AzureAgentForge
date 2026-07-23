@@ -652,6 +652,66 @@ async def escalation_sla_endpoint(
     return stats
 
 
+class EscalationEventIn(BaseModel):
+    """An escalation-taxonomy event emitted by a wired approval surface (the
+    auth-proxy HITL gate today). The payload is rebuilt server-side through
+    `escalation_sla.escalation_payload` so the auditor's build-time discipline
+    (valid lane/source) is enforced at the choke point, not trusted from the
+    caller."""
+
+    event_type: str
+    escalation_id: str
+    lane: str
+    source: str
+    workspace: str
+    actor_peer: str = "auth-proxy"
+    issue_id: str | None = None
+    # autonomy_decision carries these; escalation_opened omits them.
+    decision: str | None = None
+    latency_ms: int | None = None
+
+
+@app.post("/escalation-event", dependencies=[Depends(require_key)])
+async def escalation_event_emit(evt: EscalationEventIn) -> dict[str, Any]:
+    """Emit one escalation-taxonomy event onto the `agent_events` spine so the
+    v1.7 escalation-SLA auditor can pair it. The single emit endpoint for wired
+    approval surfaces; validates the event type + rebuilds the payload through
+    the discipline helper (bad lane/source -> 400). `AGENT_EVENTS_ENABLED` off
+    makes the write a no-op — the endpoint still returns accepted, matching
+    `db.emit_event`'s fail-open, observability-not-control-flow posture."""
+    if evt.event_type not in escalation_sla.ROLLUP_EVENT_TYPES:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"event_type must be one of {escalation_sla.ROLLUP_EVENT_TYPES}, "
+                f"got {evt.event_type!r}"
+            ),
+        )
+    extra: dict[str, Any] = {}
+    if evt.decision is not None:
+        extra["decision"] = evt.decision
+    if evt.latency_ms is not None:
+        extra["latency_ms"] = evt.latency_ms
+    try:
+        payload = escalation_sla.escalation_payload(
+            evt.escalation_id,
+            lane=evt.lane,
+            source=evt.source,
+            workspace=evt.workspace,
+            **extra,
+        )
+    except ValueError as exc:  # bad lane/source — discipline helper is strict
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await db.emit_event(
+        event_type=evt.event_type,
+        actor_peer=evt.actor_peer,
+        payload=payload,
+        channel="approval",
+        issue_id=evt.issue_id,
+    )
+    return {"accepted": True, "event_type": evt.event_type, "escalation_id": evt.escalation_id}
+
+
 # ---------------------------------------------------------------------------
 # Skill candidates (automatic repetition detection -> skill autogen, 0008)
 # The miner proposes; the operator/curator disposes. The skill-curator job
