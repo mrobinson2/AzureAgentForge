@@ -135,6 +135,7 @@ jobs:
         run: |
           pip install fastapi
           pytest -q experimental/multi-tenant/control-plane/tests/test_user_tokens.py \
+                    experimental/multi-tenant/control-plane/tests/test_tenant_budget.py \
                     experimental/multi-tenant/memory-store/tests/test_user_auth.py \
                     experimental/multi-tenant/memory-store/tests/test_rbac.py
       - name: skill helpers (canonical user-peer threading, A5)
