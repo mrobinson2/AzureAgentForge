@@ -133,6 +133,11 @@ jobs:
         run: pytest -q services/watchdog/tests
       - name: voice-core
         run: pytest -q services/voice-core/tests
+      - name: multi-tenant per-user identity (offline)
+        run: |
+          pip install fastapi
+          pytest -q experimental/multi-tenant/control-plane/tests/test_user_tokens.py \
+                    experimental/multi-tenant/memory-store/tests/test_user_auth.py
       - name: skill helpers (canonical user-peer threading, A5)
         run: pytest -q tests/skills
       - name: canary stub self-test
