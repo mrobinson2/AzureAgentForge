@@ -1,0 +1,4 @@
+# voice-core is stdlib-only at runtime (phase 1). Tests need pytest.
+# Real provider adapters (Microsoft Voice Live, etc.) add their own SDK deps in
+# a later phase, isolated to providers/.
+pytest>=8.0

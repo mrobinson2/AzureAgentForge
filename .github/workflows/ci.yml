@@ -131,6 +131,8 @@ jobs:
           pytest -q tests/memory-governor
       - name: watchdog
         run: pytest -q services/watchdog/tests
+      - name: voice-core
+        run: pytest -q services/voice-core/tests
       - name: multi-tenant per-user identity (offline)
         run: |
           pip install fastapi
