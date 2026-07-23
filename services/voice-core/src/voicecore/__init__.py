@@ -11,6 +11,12 @@ from .interfaces import (
 )
 from .persona import SimplePersona
 from .pipeline import PipelineTick, VoicePipeline
+from .transport import (
+    PumpResult,
+    SessionState,
+    Transport,
+    WebVoiceSession,
+)
 from .vad import Vad, VadConfig
 
 __all__ = [
@@ -26,4 +32,8 @@ __all__ = [
     "VadConfig",
     "VoicePipeline",
     "PipelineTick",
+    "Transport",
+    "WebVoiceSession",
+    "SessionState",
+    "PumpResult",
 ]
