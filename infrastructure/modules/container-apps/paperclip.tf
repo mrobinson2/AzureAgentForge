@@ -106,6 +106,17 @@ resource "azurerm_container_app" "paperclip" {
     identity            = azurerm_user_assigned_identity.paperclip.id
   }
 
+  # Governor API key — the auth-proxy uses it to POST escalation events (and the
+  # existing /api/memory passthrough) to the memory-governor. Same KV secret the
+  # governor itself reads (memory_governor.tf). Always seeded by
+  # scripts/seed-keyvault.sh, so the reference resolves even when the governor is
+  # disabled; the auth-proxy no-ops the emit when GOVERNOR_BASE_URL is empty.
+  secret {
+    name                = "governor-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/governor-api-key"
+    identity            = azurerm_user_assigned_identity.paperclip.id
+  }
+
   # Agent JWT signing secret — enables agents to authenticate with the Paperclip API.
   # Without this, all agent API calls return Unauthorized.
   secret {
@@ -361,10 +372,10 @@ resource "azurerm_container_app" "paperclip" {
       # ── HITL action-approval gate (auth-proxy) — inert by default ────────
       # The v1.5 approval seam wired into the outbound-comment path. With
       # approval_required_kinds empty (default) nothing is gated and this is a
-      # no-op. Emitting escalation events for the v1.7 SLA auditor additionally
-      # requires GOVERNOR_BASE_URL/GOVERNOR_API_KEY on this container (a
-      # separate secret-wiring follow-on); without them the gate still decides
-      # correctly and the emit is a fail-open no-op.
+      # no-op. GOVERNOR_BASE_URL/GOVERNOR_API_KEY (below) let the gate emit
+      # escalation events to the memory-governor so the v1.7 SLA auditor lights
+      # up; when the governor is disabled GOVERNOR_BASE_URL is empty and the
+      # emit is a fail-open no-op (the gate still decides correctly).
       env {
         name  = "APPROVAL_PROVIDER"
         value = var.approval_provider
@@ -380,6 +391,19 @@ resource "azurerm_container_app" "paperclip" {
       env {
         name  = "APPROVAL_WORKSPACE"
         value = var.approval_workspace
+      }
+
+      # Governor endpoint for the escalation-event emit (and the operator memory
+      # passthrough). Empty when the governor is disabled — the auth-proxy skips
+      # the emit rather than failing the action. Internal ACA ingress terminates
+      # TLS, so https + the FQDN (governor targetPort 8090) is correct.
+      env {
+        name  = "GOVERNOR_BASE_URL"
+        value = var.memory_governor_enabled ? "https://${azurerm_container_app.memory_governor[0].ingress[0].fqdn}" : ""
+      }
+      env {
+        name        = "GOVERNOR_API_KEY"
+        secret_name = "governor-api-key"
       }
 
       # ── Database ─────────────────────────────────────────────────────────
