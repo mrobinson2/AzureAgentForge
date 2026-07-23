@@ -31,6 +31,8 @@ import { readFileSync, readdirSync, statSync, existsSync, writeFileSync,
          mkdirSync, rmSync, appendFileSync } from "node:fs";
 import { join, resolve, relative, basename, dirname, sep, posix } from "node:path";
 import { pathToFileURL } from "node:url";
+import { randomUUID } from "node:crypto";
+import { createApprovalGate } from "./approval.mjs";
 
 // ── Configuration ───────────────────────────────────────────────────────────
 
@@ -73,6 +75,92 @@ const VOICE_BRIDGE_MARKER = "[voice-agent]";
 // scope. Disabled (503) unless both env vars are present.
 const GOVERNOR_BASE_URL = (process.env.GOVERNOR_BASE_URL || "").replace(/\/$/, "");
 const GOVERNOR_API_KEY = process.env.GOVERNOR_API_KEY || "";
+
+// ── HITL action-approval gate — OPTIONAL, inert by default ───────────────
+// Wires the tested approval seam (approval.mjs) into the outbound-comment path.
+// APPROVAL_REQUIRED_KINDS is EMPTY by default, so `requiresApproval` is false
+// for every action and this whole block is a no-op — the comment route is
+// byte-for-byte unchanged until an operator opts a kind in. Once `outbound_message`
+// is gated, every gated comment is decided by the configured provider
+// (`auto`=fail-closed deny / `allow`=bypass / `webhook`=external approver) and
+// an escalation_opened + autonomy_decision pair is emitted to the governor's
+// agent_events spine, lighting up the v1.7 escalation-SLA auditor.
+//
+// The action kind for an agent posting a comment. Gated only when listed in
+// APPROVAL_REQUIRED_KINDS.
+const APPROVAL_KIND_OUTBOUND_MESSAGE = "outbound_message";
+// Escalation dimensions for the emitted events. A human-gated action is the
+// "red" lane (goes to a human) from the "approval" source. Workspace is the
+// tenant dimension the SLA auditor rolls up by.
+const APPROVAL_WORKSPACE = process.env.APPROVAL_WORKSPACE || "default";
+const APPROVAL_LANE = "red";
+const APPROVAL_SOURCE = "approval";
+// Built once at boot from APPROVAL_PROVIDER / APPROVAL_REQUIRED_KINDS /
+// APPROVAL_WEBHOOK_URL. Throws loudly on an unknown provider (fail-loud, never
+// a silent bypass).
+const approvalGate = createApprovalGate();
+
+// Emit one escalation-taxonomy event to the governor's /escalation-event
+// endpoint. FAIL-OPEN telemetry: any error is logged and swallowed — a lost
+// emit must never flip an approval decision. No-op when the governor isn't
+// configured (single-tenant deploy with the gate off wouldn't reach here anyway,
+// since APPROVAL_REQUIRED_KINDS is empty).
+async function emitEscalationEvent(evt) {
+  if (!GOVERNOR_BASE_URL || !GOVERNOR_API_KEY) return;
+  try {
+    await fetch(`${GOVERNOR_BASE_URL}/escalation-event`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Governor-Key": GOVERNOR_API_KEY,
+      },
+      body: JSON.stringify(evt),
+    });
+  } catch (err) {
+    console.warn(`[auth-proxy] escalation-event emit failed (non-fatal): ${err.message}`);
+  }
+}
+
+// Run the outbound-message action through the approval gate. Returns
+// { approved, reason, escalationId } — escalationId is null when the action
+// wasn't gated. On a gated action, emits escalation_opened before deciding and
+// autonomy_decision after, so the SLA auditor can pair open→decision latency.
+async function gateOutboundMessage(
+  { agent, summary, issueId },
+  { gate = approvalGate, emit = emitEscalationEvent } = {},
+) {
+  const action = { kind: APPROVAL_KIND_OUTBOUND_MESSAGE, agent, summary };
+  if (!gate.requiresApproval(action)) {
+    return { approved: true, reason: "not gated", escalationId: null };
+  }
+  const escalationId = randomUUID();
+  const t0 = Date.now();
+  const base = {
+    escalation_id: escalationId,
+    lane: APPROVAL_LANE,
+    source: APPROVAL_SOURCE,
+    workspace: APPROVAL_WORKSPACE,
+    actor_peer: agent || "unknown-agent",
+    issue_id: issueId || null,
+  };
+  await emit({ ...base, event_type: "escalation_opened" });
+  const decision = await gate.requestApproval(action);
+  await emit({
+    ...base,
+    event_type: "autonomy_decision",
+    decision: decision.approved ? "approved" : "denied",
+    latency_ms: Date.now() - t0,
+  });
+  return { approved: decision.approved, reason: decision.reason, escalationId };
+}
+
+// Match POST /api/issues/<id>/comments and pull the issue id. Returns the issue
+// id string, or null when the request isn't the gated comment route.
+function outboundCommentIssueId(method, cleanPath) {
+  if (method !== "POST") return null;
+  const m = cleanPath.match(/^\/api\/issues\/([^/]+)\/comments$/);
+  return m ? m[1] : null;
+}
 
 const PROXY_PORT = parseInt(process.env.PORT || "3100", 10);
 const BACKEND_PORT = parseInt(process.env.PAPERCLIP_INTERNAL_PORT || "3099", 10);
@@ -462,6 +550,29 @@ async function proxyWithJwt(clientReq, clientRes, claims) {
     bodyChunks.push(chunk);
   }
   const body = Buffer.concat(bodyChunks);
+
+  // HITL action-approval gate (inert unless APPROVAL_REQUIRED_KINDS opts the
+  // outbound_message kind in). Gate an agent posting a comment BEFORE it is
+  // forwarded to PaperClip — a denied action never reaches the backend.
+  const issueId = outboundCommentIssueId(clientReq.method, cleanPath);
+  if (issueId) {
+    let summary = "";
+    try {
+      const parsed = JSON.parse(body.toString("utf-8") || "{}");
+      summary = String(parsed.content ?? parsed.body ?? parsed.text ?? "").slice(0, 200);
+    } catch { /* non-JSON body — leave summary empty, still gate on kind */ }
+    const gate = await gateOutboundMessage({ agent: claims.sub, summary, issueId });
+    if (!gate.approved) {
+      clientRes.writeHead(403, { "Content-Type": "application/json" });
+      clientRes.end(JSON.stringify({
+        error: "Forbidden",
+        message: "Outbound message denied by approval gate",
+        reason: gate.reason,
+        escalationId: gate.escalationId,
+      }));
+      return;
+    }
+  }
 
   // Forward with session cookie
   const fwdHeaders = { ...clientReq.headers };
@@ -1714,4 +1825,6 @@ export {
   handleRequest,
   guardedHandler,
   server,
+  gateOutboundMessage,
+  outboundCommentIssueId,
 };
