@@ -29,8 +29,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
 # All buildable services, in build order. cloudflared is intentionally absent.
-ALL_SERVICES="model-router memory-governor watchdog teams-bridge agent-runtime honcho paperclip"
-SELF_CONTAINED="model-router memory-governor watchdog teams-bridge"
+ALL_SERVICES="model-router memory-governor watchdog teams-bridge control-plane memory-store agent-runtime honcho paperclip"
+SELF_CONTAINED="model-router memory-governor watchdog teams-bridge control-plane memory-store"
 
 # Build-args for the paperclip upstream pin. These are READ FROM THE DOCKERFILE
 # ARG defaults rather than duplicated here: hardcoded copies drifted once (the
@@ -94,6 +94,8 @@ svc_meta() {
     memory-governor) echo "memory-governor|services/memory-governor|services/memory-governor/Dockerfile|self|" ;;
     watchdog)        echo "watchdog|services/watchdog|services/watchdog/Dockerfile|self|" ;;
     teams-bridge)    echo "teams-bridge|services/teams-bridge|services/teams-bridge/Dockerfile|self|" ;;
+    control-plane)   echo "control-plane|experimental/multi-tenant/control-plane|experimental/multi-tenant/control-plane/Dockerfile|self|" ;;
+    memory-store)    echo "memory-store|experimental/multi-tenant/memory-store|experimental/multi-tenant/memory-store/Dockerfile|self|" ;;
     agent-runtime)   echo "hermes|.|services/agent-runtime/Dockerfile|upstream|apps/hermes/src apps/hermes/overrides/skills" ;;
     honcho)          echo "honcho|.|services/honcho/Dockerfile|upstream|apps/honcho/src apps/honcho/docker-entrypoint.sh" ;;
     paperclip)       echo "paperclip|.|services/paperclip/Dockerfile|upstream|apps/paperclip apps/hermes/src build/skills/skills-manifest.json build/skills/agent-skill-mapping.json" ;;

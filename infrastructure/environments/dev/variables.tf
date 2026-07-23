@@ -402,3 +402,28 @@ variable "cloudflare_origin_service" {
   type        = string
   default     = ""
 }
+
+# ── Multi-tenant module (phase 1) — FLAG-GATED, off by default ───────────────
+variable "multi_tenant_enabled" {
+  description = "Deploy the control-plane + memory-store multi-tenant apps. false (default) => zero resources, single-tenant stack unchanged. Provision control-plane-operator-key + azure_search_endpoint before enabling."
+  type        = bool
+  default     = false
+}
+
+variable "control_plane_image_tag" {
+  description = "control-plane container image tag (set by CI/CD when multi_tenant_enabled)."
+  type        = string
+  default     = "latest"
+}
+
+variable "memory_store_image_tag" {
+  description = "memory-store container image tag (set by CI/CD when multi_tenant_enabled)."
+  type        = string
+  default     = "latest"
+}
+
+variable "azure_search_endpoint" {
+  description = "Azure AI Search endpoint the control-plane provisions per-tenant indexes against. Required when multi_tenant_enabled = true."
+  type        = string
+  default     = ""
+}

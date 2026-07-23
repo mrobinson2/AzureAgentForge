@@ -205,6 +205,31 @@ module "container_apps" {
 
 }
 
+# Multi-tenant module (control-plane + memory-store) — phase 1, FLAG-GATED.
+# multi_tenant_enabled defaults false => zero resources, no plan diff. See
+# docs/notes/plans/2026-07-22-full-multi-tenant.md. Deploys into the same
+# Container Apps Environment the container_apps module creates.
+module "multi_tenant" {
+  source = "../../modules/multi-tenant"
+
+  multi_tenant_enabled = var.multi_tenant_enabled
+
+  resource_group_name             = azurerm_resource_group.main.name
+  location                        = azurerm_resource_group.main.location
+  environment                     = var.environment
+  tags                            = local.common_tags
+  container_app_environment_id    = module.container_apps.environment_id
+  container_registry_id           = module.container_registry.id
+  container_registry_login_server = module.container_registry.login_server
+  key_vault_id                    = module.keyvault.id
+  key_vault_uri                   = module.keyvault.uri
+  app_insights_connection_string  = module.monitoring.connection_string
+
+  control_plane_image_tag = var.control_plane_image_tag
+  memory_store_image_tag  = var.memory_store_image_tag
+  azure_search_endpoint   = var.azure_search_endpoint
+}
+
 # Monitoring Module
 module "monitoring" {
   source                = "../../modules/monitoring"
