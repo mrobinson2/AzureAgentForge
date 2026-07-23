@@ -36,7 +36,8 @@ DRY_RUN=0
 GENERATE="postgres-admin-password governor-api-key router-api-key \
 paperclip-admin-password \
 paperclip-agent-jwt-secret paperclip-auth-secret paperclip-automation-jwt-secret \
-paperclip-automation-token auth-password gateway-token"
+paperclip-automation-token auth-password gateway-token \
+control-plane-operator-key"
 
 # Secrets sourced from the environment. Every name here is referenced by a
 # container app's Key Vault secret mount (infrastructure/modules/container-apps),
