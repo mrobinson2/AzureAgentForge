@@ -1,0 +1,542 @@
+<mxfile host="app.diagrams.net" agent="AzureAgentForge architecture style proof" version="24.7.7" type="device">
+  <diagram id="aaf-self-hosted-primary" name="AAF Self-Hosted Primary">
+    <mxGraphModel dx="2200" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1654" pageHeight="1169" math="0" shadow="0" background="#FFFFFF">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ============================================================ -->
+        <!-- TITLE BLOCK                                                   -->
+        <!-- ============================================================ -->
+        <mxCell id="title-bar" value="" style="rounded=0;whiteSpace=wrap;html=1;fillColor=#0B3D66;strokeColor=none;" vertex="1" parent="1">
+          <mxGeometry x="40" y="32" width="1574" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-text" value="AzureAgentForge — Self-Hosted Primary · Cloud Warm Standby" style="text;html=1;align=left;verticalAlign=middle;fontColor=#FFFFFF;fontSize=22;fontStyle=1;spacingLeft=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="52" y="32" width="1000" height="62" as="geometry" />
+        </mxCell>
+        <mxCell id="title-sub" value="Owned hardware runs the stack · Azure sleeps until a lease flip · steady-state ≈ $35–45/mo · reference topology" style="text;html=1;align=right;verticalAlign=middle;fontColor=#BBD7EE;fontSize=12;spacingRight=20;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="852" y="32" width="750" height="62" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- PUBLIC EDGE BAND (left)                                       -->
+        <!-- ============================================================ -->
+        <mxCell id="grp-public" value="Public edge · one Cloudflare tunnel — the hostname never moves" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F7FA;strokeColor=#AEB9C4;dashed=0;verticalAlign=top;fontColor=#5B7A95;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=4;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="100" y="116" width="690" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="user" value="End user" style="sketch=0;outlineConnect=0;fontColor=#23272E;gradientColor=none;fillColor=#0B3D66;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.azure2019.user;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="148" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="cf-edge" value="Cloudflare edge&#10;tunnel origin → live site only" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E8862F;fontColor=#23272E;fontSize=11;arcSize=12;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="280" y="146" width="230" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="cf-note" value="failover = lease flip,&#10;not a DNS change" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="540" y="146" width="230" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- OPERATOR CONTROL BAND (right)                                 -->
+        <!-- ============================================================ -->
+        <mxCell id="grp-operator" value="Operator control plane · every failover is a deliberate action" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F5F7FA;strokeColor=#AEB9C4;dashed=0;verticalAlign=top;fontColor=#5B7A95;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=4;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="830" y="116" width="724" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="operator" value="Operator" style="sketch=0;outlineConnect=0;fontColor=#23272E;gradientColor=none;fillColor=#44546A;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.azure2019.user;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="872" y="148" width="46" height="46" as="geometry" />
+        </mxCell>
+        <mxCell id="aaf-site" value="aaf-site {status | local | cloud}&#10;flips lease · syncs shares · wakes / sleeps cloud" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#44546A;strokeWidth=1.5;fontColor=#23272E;fontSize=11;fontStyle=1;arcSize=12;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1000" y="146" width="330" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="aaf-site-note" value="cloud --force = evacuation&#10;(skips share sync · loud warning)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1350" y="146" width="196" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- SELF-HOSTED PRIMARY SITE BOUNDARY (left)                      -->
+        <!-- ============================================================ -->
+        <mxCell id="home-site" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#44546A;dashed=1;dashPattern=8 4;strokeWidth=2;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="100" y="262" width="690" height="716" as="geometry" />
+        </mxCell>
+        <mxCell id="home-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#44546A;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.virtual_machine;" vertex="1" parent="1">
+          <mxGeometry x="114" y="272" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="home-lbl" value="Self-hosted primary site · owned hardware (Apple-silicon mini / mini-PC / WSL2) · normally holds the lease" style="text;html=1;align=left;verticalAlign=middle;fontColor=#44546A;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="270" width="640" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Compose stack box -->
+        <mxCell id="compose" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F2F8FD;strokeColor=#0B6BB0;dashed=0;strokeWidth=1.5;verticalAlign=top;arcSize=2;opacity=90;" vertex="1" parent="1">
+          <mxGeometry x="124" y="314" width="642" height="404" as="geometry" />
+        </mxCell>
+        <mxCell id="compose-lbl" value="Docker Compose stack · deploy/mac-site (shared with windows-site) · brought up only via the site switch" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0B6BB0;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="138" y="320" width="620" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- Row 1: lease-guard + cloudflared connector (live) -->
+        <mxCell id="c-leaseguard" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#44546A;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="146" y="354" width="290" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="c-leaseguard-t" value="lease-guard  (init container)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="158" y="360" width="270" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c-leaseguard-d" value="refuses to start the stack unless the&#10;lease mirror (~/aaf/active-site) names this site" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="158" y="388" width="270" height="48" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c-cfd" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF7EF;strokeColor=#E8862F;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="460" y="354" width="286" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="c-cfd-t" value="cloudflared connector — LIVE" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="472" y="360" width="266" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c-cfd-d" value="compose &quot;live&quot; profile · started only when&#10;this site holds the lease · same tunnel as standby" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="472" y="388" width="266" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Row 2: PaperClip + Hermes/Router -->
+        <mxCell id="c-paperclip" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="146" y="462" width="290" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="c-paperclip-t" value="PaperClip" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="158" y="468" width="270" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c-paperclip-d" value="orchestrator + web UI · :3100&#10;local bind-mounted workspace shares" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="158" y="496" width="270" height="48" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c-hermes" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="460" y="462" width="286" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="c-hermes-t" value="Hermes + Model Router" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="472" y="468" width="266" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c-hermes-d" value="agent runtime · 13-role hierarchy&#10;all inference egress via the router (budgets + fallback)" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="472" y="496" width="266" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Row 3: Honcho + lease mirror -->
+        <mxCell id="c-honcho" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="146" y="570" width="290" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="c-honcho-t" value="Honcho" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="158" y="576" width="270" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c-honcho-d" value="agent memory · no local Postgres —&#10;connects out to the shared Flexible Server" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="158" y="604" width="270" height="48" as="geometry" />
+        </mxCell>
+
+        <mxCell id="c-mirror" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8F5;strokeColor=#8593A1;strokeWidth=1.5;dashed=1;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="460" y="570" width="286" height="88" as="geometry" />
+        </mxCell>
+        <mxCell id="c-mirror-t" value="Lease mirror  ~/aaf/active-site" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="472" y="576" width="266" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="c-mirror-d" value="written by the site switch before every bring-up —&#10;the host never holds a service principal" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="472" y="604" width="266" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Host automation box -->
+        <mxCell id="host-auto" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F8F5;strokeColor=#8593A1;dashed=1;strokeWidth=1.5;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="124" y="738" width="642" height="216" as="geometry" />
+        </mxCell>
+        <mxCell id="host-auto-lbl" value="Host automation · launchd (macOS) / Task Scheduler → WSL2 (Windows) · each job is a no-op without the lease" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="138" y="744" width="620" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ha-boot" value="boot-guard · startup + every 5 min — stops the stack if the authoritative lease moved (does nothing on Key Vault errors)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;spacingLeft=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="776" width="600" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ha-image" value="image freshness · every 10 min — registry login + compose pull; roll the live profile only on a digest change" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;spacingLeft=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="808" width="600" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ha-fw" value="firewall keeper · every 15 min — upsert the shared-PG &quot;home-ip&quot; rule when the home WAN address rotates" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;spacingLeft=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="840" width="600" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ha-sync" value="warm-standby share sync · hourly — azcopy the file shares local→cloud; stamps standby_sync_completed for the watchdog" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;spacingLeft=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="872" width="600" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="ha-curator" value="skill curator · daily — one-shot maintenance job (compose &quot;jobs&quot; profile)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;spacingLeft=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="146" y="904" width="600" height="26" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- AZURE REGION BOUNDARY (right)                                 -->
+        <!-- ============================================================ -->
+        <mxCell id="region" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0078D4;dashed=1;dashPattern=8 4;strokeWidth=2;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="830" y="262" width="724" height="716" as="geometry" />
+        </mxCell>
+        <mxCell id="region-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure;" vertex="1" parent="1">
+          <mxGeometry x="844" y="272" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="region-lbl" value="Azure region · warm standby compute + the shared data plane" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0078D4;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="876" y="270" width="600" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Dormant CAE -->
+        <mxCell id="standby" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4F5F7;strokeColor=#8593A1;dashed=1;strokeWidth=1.5;verticalAlign=top;arcSize=2;" vertex="1" parent="1">
+          <mxGeometry x="854" y="314" width="676" height="212" as="geometry" />
+        </mxCell>
+        <mxCell id="standby-icon" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#8593A1;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_instances;" vertex="1" parent="1">
+          <mxGeometry x="868" y="324" width="24" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="standby-lbl" value="Container Apps Environment — DORMANT · scale-to-zero / asleep · woken only by aaf-site cloud" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="898" y="323" width="620" height="26" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s-paperclip" value="PaperClip&#10;(asleep)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8593A1;dashed=1;fontColor=#5B6B7B;fontSize=11;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="878" y="366" width="146" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="s-hermes" value="Hermes + Router&#10;(asleep)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8593A1;dashed=1;fontColor=#5B6B7B;fontSize=11;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1042" y="366" width="146" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="s-honcho" value="Honcho&#10;(asleep)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8593A1;dashed=1;fontColor=#5B6B7B;fontSize=11;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1206" y="366" width="146" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="s-cfd" value="cloudflared&#10;connector (idle)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#E8862F;dashed=1;fontColor=#5B6B7B;fontSize=11;arcSize=8;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="1370" y="366" width="146" height="64" as="geometry" />
+        </mxCell>
+        <mxCell id="standby-note" value="same images · same tunnel · same shared DB — a lease flip makes this the live site with shares at most one hour stale" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="878" y="448" width="640" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Shared data plane: PostgreSQL + Key Vault -->
+        <mxCell id="data-pg" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3FAF4;strokeColor=#3C7A47;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="854" y="556" width="330" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.azure_database_for_postgresql_servers;" vertex="1" parent="1">
+          <mxGeometry x="866" y="568" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-t" value="PostgreSQL Flexible Server — SHARED" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="904" y="566" width="276" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="data-pg-d" value="always-on · the failover pivot — the database never moves&#10;both sites connect over the public endpoint, IP-firewalled,&#10;sslmode=require · pgvector · RPO ≈ 0 for a site switch" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="866" y="604" width="308" height="92" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-kv" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3FAF4;strokeColor=#3C7A47;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1200" y="556" width="330" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#3C7A47;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.key_vaults;" vertex="1" parent="1">
+          <mxGeometry x="1212" y="568" width="30" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-t" value="Key Vault — the lease authority" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=13;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1250" y="566" width="270" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="data-kv-d" value="secret platform-active-site ∈ {cloud, local} —&#10;the single-writer lease (anti-split-brain)&#10;plus app credentials · public access default-deny + IP allowlist" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1212" y="604" width="308" height="92" as="geometry" />
+        </mxCell>
+
+        <!-- Supporting services row: ACR / Files / Log Analytics -->
+        <mxCell id="data-acr" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="854" y="736" width="200" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="data-acr-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.container_registries;" vertex="1" parent="1">
+          <mxGeometry x="866" y="748" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="data-acr-t" value="Container Registry" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="902" y="748" width="150" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="data-acr-d" value="one image source&#10;for both sites&#10;(arm64 + amd64 tags)" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="866" y="784" width="180" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-files" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#0078D4;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1078" y="736" width="228" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="data-files-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#0078D4;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.files;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="748" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="data-files-t" value="Azure Files shares" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1126" y="748" width="170" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="data-files-d" value="agent workspaces + gateway&#10;config · standby copy, refreshed&#10;by the hourly sync — at most 1 h stale" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="784" width="208" height="62" as="geometry" />
+        </mxCell>
+
+        <mxCell id="data-la" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#8593A1;strokeWidth=1.5;verticalAlign=top;arcSize=6;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="736" width="200" height="118" as="geometry" />
+        </mxCell>
+        <mxCell id="data-la-ico" value="" style="sketch=0;outlineConnect=0;gradientColor=none;fillColor=#8593A1;strokeColor=none;dashed=0;html=1;shape=mxgraph.azure2019.log_analytics_workspaces;" vertex="1" parent="1">
+          <mxGeometry x="1342" y="748" width="28" height="28" as="geometry" />
+        </mxCell>
+        <mxCell id="data-la-t" value="Log Analytics" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=12;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1378" y="748" width="150" height="22" as="geometry" />
+        </mxCell>
+        <mxCell id="data-la-d" value="minimal retention&#10;(self-hosted-primary&#10;profile keeps logs lean)" style="text;html=1;align=left;verticalAlign=top;fontColor=#5B6B7B;fontSize=10;spacingLeft=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1342" y="784" width="180" height="62" as="geometry" />
+        </mxCell>
+
+        <!-- Cost note inside region -->
+        <mxCell id="cost-note" value="steady-state cloud spend ≈ $35–45/mo — the always-on shared server is the price of RPO-0 failover" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="858" y="912" width="670" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- LLM BACKENDS BAND (bottom-left)                               -->
+        <!-- ============================================================ -->
+        <mxCell id="grp-llm" value="LLM backends (external inference)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FBF7F0;strokeColor=#C9A45B;dashed=0;verticalAlign=top;fontColor=#8A6D1F;fontSize=11;fontStyle=1;align=left;spacingLeft=12;spacingTop=6;arcSize=4;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="100" y="1002" width="690" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="llm-foundry" value="Azure AI Foundry&#10;(primary)" style="sketch=0;outlineConnect=0;fontColor=#23272E;gradientColor=none;fillColor=#FFFFFF;strokeColor=#C9A45B;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=11;shape=mxgraph.azure2019.cognitive_services;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="160" y="1036" width="44" height="44" as="geometry" />
+        </mxCell>
+        <mxCell id="llm-fallback" value="OpenAI-compatible&#10;endpoint (fallback)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#C9A45B;dashed=1;fontColor=#23272E;fontSize=11;arcSize=12;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;verticalAlign=middle;" vertex="1" parent="1">
+          <mxGeometry x="330" y="1034" width="180" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="llm-note" value="egress from whichever site is live,&#10;always via the Model Router (budget caps)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#5B6B7B;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="540" y="1034" width="240" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- REQUEST FLOW EDGES (numbered, navy)                           -->
+        <!-- ============================================================ -->
+        <mxCell id="e1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="user" target="cf-edge">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e1-n" value="1" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="228" y="160" width="20" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=0.75;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="cf-edge" target="c-cfd">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="452" y="250" />
+              <mxPoint x="603" y="250" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e2-n" value="2" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="520" y="240" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="e2-lbl" value="live connector only (lease holder)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#0B3D66;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="548" y="226" width="220" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=0.1;exitY=1;entryX=0.75;entryY=0;" edge="1" parent="1" source="c-cfd" target="c-paperclip">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="490" y="452" />
+              <mxPoint x="364" y="452" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e3-n" value="3" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="412" y="442" width="20" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#0B3D66;strokeWidth=2;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="c-paperclip" target="c-hermes">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4-n" value="4" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="438" y="496" width="20" height="20" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;startArrow=block;startFill=1;endArrow=block;endFill=1;strokeColor=#2E6CA3;strokeWidth=2;exitX=0.25;exitY=1;entryX=0.25;entryY=0;" edge="1" parent="1" source="c-hermes" target="c-honcho">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="532" y="560" />
+              <mxPoint x="291" y="560" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e5-n" value="5" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#2E6CA3;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="400" y="550" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="e5-lbl" value="memory read / write" style="text;html=1;align=left;verticalAlign=middle;fontColor=#2E6CA3;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="300" y="548" width="130" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;startArrow=block;startFill=1;endArrow=block;endFill=1;strokeColor=#3C7A47;strokeWidth=2;exitX=0.5;exitY=1;entryX=0;entryY=0.5;" edge="1" parent="1" source="c-honcho" target="data-pg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="291" y="700" />
+              <mxPoint x="798" y="700" />
+              <mxPoint x="798" y="631" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e6-n" value="6" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#3C7A47;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="788" y="650" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="e6-lbl" value="TLS · public endpoint · IP-firewalled — crosses both site boundaries; the DB itself never moves" style="text;html=1;align=center;verticalAlign=middle;fontColor=#3C7A47;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="335" y="680" width="420" height="24" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#C9851F;strokeWidth=2;exitX=1;exitY=0.75;entryX=0.5;entryY=0;" edge="1" parent="1" source="c-hermes" target="llm-foundry">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="818" y="530" />
+              <mxPoint x="818" y="988" />
+              <mxPoint x="182" y="988" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="e7-n" value="7" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=10;fontStyle=1;fillColor=#C9851F;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="300" y="978" width="20" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="e7b" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;strokeColor=#C9851F;strokeWidth=1.5;dashed=1;dashPattern=4 4;exitX=0.5;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="llm-foundry" target="llm-fallback">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="182" y="1092" />
+              <mxPoint x="420" y="1104" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- CONTROL / LEASE / SYNC EDGES (dotted)                         -->
+        <!-- ============================================================ -->
+        <!-- aaf-site -> Key Vault (lease flip) -->
+        <mxCell id="ec1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#44546A;strokeWidth=1.8;exitX=0.5;exitY=1;entryX=1;entryY=0.5;" edge="1" parent="1" source="aaf-site" target="data-kv">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1165" y="246" />
+              <mxPoint x="1542" y="246" />
+              <mxPoint x="1542" y="631" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec1-lbl" value="writes the lease (platform-active-site)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#44546A;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1300" y="530" width="230" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- aaf-site -> standby (wake/sleep) -->
+        <mxCell id="ec2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#44546A;strokeWidth=1.8;exitX=0.25;exitY=1;entryX=0.75;entryY=0;" edge="1" parent="1" source="aaf-site" target="standby">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1082" y="228" />
+              <mxPoint x="1361" y="228" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec2-lbl" value="wakes / sleeps the cloud apps" style="text;html=1;align=left;verticalAlign=middle;fontColor=#44546A;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1090" y="286" width="200" height="24" as="geometry" />
+        </mxCell>
+
+        <!-- aaf-site -> lease mirror -->
+        <mxCell id="ec3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#44546A;strokeWidth=1.8;exitX=0;exitY=0.5;entryX=1;entryY=0.5;" edge="1" parent="1" source="aaf-site" target="c-mirror">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="778" y="176" />
+              <mxPoint x="778" y="614" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- boot-guard -> Key Vault (authoritative lease read) -->
+        <mxCell id="ec4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0.25;entryY=1;" edge="1" parent="1" source="ha-boot" target="data-kv">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="806" y="789" />
+              <mxPoint x="806" y="726" />
+              <mxPoint x="1282" y="726" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- firewall keeper -> PG -->
+        <mxCell id="ec5" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0.5;entryY=1;" edge="1" parent="1" source="ha-fw" target="data-pg">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="804" y="853" />
+              <mxPoint x="804" y="714" />
+              <mxPoint x="1019" y="714" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- image freshness -> ACR -->
+        <mxCell id="ec6" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=1;exitY=0.5;entryX=0;entryY=0.5;" edge="1" parent="1" source="ha-image" target="data-acr">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="796" y="821" />
+              <mxPoint x="796" y="795" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+
+        <!-- share sync -> Azure Files (green dashed = data sync) -->
+        <mxCell id="ec7" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=block;endFill=1;dashed=1;dashPattern=6 3;strokeColor=#3C7A47;strokeWidth=2;exitX=1;exitY=0.5;entryX=0.5;entryY=1;" edge="1" parent="1" source="ha-sync" target="data-files">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="834" y="885" />
+              <mxPoint x="1192" y="885" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec7-lbl" value="azcopy · hourly · shares only — never the database" style="text;html=1;align=left;verticalAlign=middle;fontColor=#3C7A47;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="860" y="866" width="320" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- standby connector -> cf edge (idle tunnel) -->
+        <mxCell id="ec8" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#E8862F;strokeWidth=1.5;exitX=0.5;exitY=0;entryX=1;entryY=0.5;" edge="1" parent="1" source="s-cfd" target="cf-edge">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="1443" y="254" />
+              <mxPoint x="524" y="254" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ec8-lbl" value="second connector · same tunnel · idle until the lease flips" style="text;html=1;align=left;verticalAlign=middle;fontColor=#B06318;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="800" y="243" width="340" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- standby -> PG (dotted, when live) -->
+        <mxCell id="ec9" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;exitX=0.25;exitY=1;entryX=0.5;entryY=0;" edge="1" parent="1" source="standby" target="data-pg">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="ec9-lbl" value="same DB when live" style="text;html=1;align=left;verticalAlign=middle;fontColor=#7A8895;fontSize=10;fontStyle=2;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1030" y="532" width="130" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ============================================================ -->
+        <!-- LEGEND                                                        -->
+        <!-- ============================================================ -->
+        <mxCell id="legend-box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#AEB9C4;dashed=0;arcSize=4;" vertex="1" parent="1">
+          <mxGeometry x="830" y="1002" width="724" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-title" value="Legend" style="text;html=1;align=left;verticalAlign=middle;fontColor=#1B2733;fontSize=11;fontStyle=1;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="844" y="1008" width="100" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-b1" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#44546A;dashed=1;dashPattern=8 4;strokeWidth=2;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="846" y="1036" width="34" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-b1-t" value="dashed = site / trust boundary (slate = owned hardware, blue = Azure)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="888" y="1034" width="420" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-flow-line" value="" style="endArrow=block;endFill=1;dashed=0;strokeColor=#0B3D66;strokeWidth=2;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="848" y="1072" as="sourcePoint" />
+            <mxPoint x="882" y="1072" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-flow-num" value="n" style="text;html=1;align=center;verticalAlign=middle;fontColor=#FFFFFF;fontSize=9;fontStyle=1;fillColor=#0B3D66;strokeColor=none;rounded=1;arcSize=50;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="856" y="1062" width="18" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-flow-t" value="numbered request data-flow (live site)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="888" y="1060" width="260" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-ctl-line" value="" style="endArrow=open;endFill=0;dashed=1;dashPattern=2 4;strokeColor=#7A8895;strokeWidth=1.5;html=1;" edge="1" parent="1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="848" y="1098" as="sourcePoint" />
+            <mxPoint x="882" y="1098" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="lg-ctl-t" value="dotted = lease / control / secret access · green dashed = hourly share sync" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="888" y="1086" width="440" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-dorm" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F4F5F7;strokeColor=#8593A1;dashed=1;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="1036" width="34" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-dorm-t" value="grey dashed fill = dormant standby&#10;(woken by a lease flip)" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1372" y="1030" width="176" height="32" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-green" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F3FAF4;strokeColor=#3C7A47;arcSize=8;" vertex="1" parent="1">
+          <mxGeometry x="1330" y="1072" width="34" height="20" as="geometry" />
+        </mxCell>
+        <mxCell id="lg-green-t" value="green = shared data plane —&#10;never moves during failover" style="text;html=1;align=left;verticalAlign=middle;fontColor=#42505E;fontSize=10;fontFamily=Segoe UI,Helvetica,Arial,sans-serif;" vertex="1" parent="1">
+          <mxGeometry x="1372" y="1066" width="176" height="32" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

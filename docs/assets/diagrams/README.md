@@ -11,7 +11,7 @@ companions for embedding in Markdown.
 Each diagram is a pair: a `.drawio` editable source (open at
 [app.diagrams.net](https://app.diagrams.net) or with the VS Code Draw.io
 extension) and a rendered `.svg` companion for `<img>` embeds in Markdown. All
-five diagrams below are complete and embedded in the docs.
+six diagrams below are complete and embedded in the docs.
 
 > **SVG re-export.** The committed `.svg` is hand-authored to match the
 > `.drawio` for review. For pixel-perfect fidelity (and after any edit to the
@@ -21,7 +21,7 @@ five diagrams below are complete and embedded in the docs.
 
 ## Diagram set
 
-All five diagrams share the same conventions and naming so the set reads as one
+All six diagrams share the same conventions and naming so the set reads as one
 family. Each is embedded in the doc named in its row.
 
 | # | File | Scope |
@@ -31,6 +31,7 @@ family. Each is embedded in the doc named in its row.
 | 3 | `request-dataflow.{drawio,svg}` | Sequence-style agent/request flow: user → PaperClip → Hermes → Model Router → Foundry, with Honcho memory reads/writes, governor admission/retrieval, budget + fallback decisions. |
 | 4 | `deploy-pipeline.{drawio,svg}` | Build/deploy: `az acr build` → Key Vault seeding → `terraform plan` → destroy-aware approval gate → `apply` → post-deploy smoke (Forge Console + reference GitHub Actions pipeline). |
 | 5 | `multi-tenant.{drawio,svg}` | Multi-tenant target architecture: schema-per-tenant, RLS, per-tenant routing (marked *design target*, ~20–30% implemented). |
+| 6 | `self-hosted-primary.{drawio,svg}` | Two-site failover topology: owned hardware as the live compose site, Azure as a dormant warm standby, the shared always-on PostgreSQL pivot, single-writer lease in Key Vault, one Cloudflare tunnel with two connectors, host-automation timers, and the `aaf-site` switch. Embedded in [`docs/design/self-hosted-primary.md`](../../design/self-hosted-primary.md). |
 
 ## Shared conventions
 
@@ -51,6 +52,10 @@ Apply these to every diagram in the set so they stay visually consistent.
   **Container Apps Environment** (solid, `app-subnet`).
 - Private data services (PostgreSQL, Key Vault) sit inside the VNet and carry a
   lock marker; PostgreSQL is VNet-injected with public access disabled.
+- The self-hosted-primary diagram adds two site-level conventions: a **slate**
+  dashed boundary for the owned-hardware site (vs. blue for Azure), and
+  **muted grey dashed fill** for dormant standby services woken by a lease flip
+  (an extension of the optional-service convention).
 
 ### Layout
 - Layered top-to-bottom: **chat surfaces / ingress → app services → memory &
@@ -90,4 +95,4 @@ docs/assets/diagrams/
 ```
 
 Use lowercase, hyphenated subjects (`system-architecture`, `network-topology`,
-`request-dataflow`, `deploy-pipeline`, `multi-tenant`).
+`request-dataflow`, `deploy-pipeline`, `multi-tenant`, `self-hosted-primary`).
