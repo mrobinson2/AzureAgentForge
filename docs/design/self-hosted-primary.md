@@ -40,6 +40,12 @@ time; a one-tap **site switch** flips the lease, syncs the file shares, and wake
 or sleeps the cloud. Because the data lives in the shared database, a failover is
 a **stateless compute switch** — no dumps, no restores, near-zero RPO.
 
+<p align="center">
+  <img src="../assets/diagrams/self-hosted-primary.svg" alt="AzureAgentForge self-hosted-primary topology — owned hardware runs the compose stack as the live site, Azure holds a dormant warm standby, both sites share one always-on PostgreSQL Flexible Server, a Key Vault lease enforces a single live site, and one Cloudflare tunnel with two connectors keeps the public hostname fixed across failover" width="900">
+</p>
+
+<p align="center"><sub>Editable source: <a href="../assets/diagrams/self-hosted-primary.drawio"><code>self-hosted-primary.drawio</code></a> · <a href="../assets/diagrams/README.md">diagram conventions</a></sub></p>
+
 ## 1. Why invert primary and standby
 
 The default cloud deployment pays Azure Container Apps to keep the platform

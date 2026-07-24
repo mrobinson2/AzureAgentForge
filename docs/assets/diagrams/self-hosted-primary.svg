@@ -1,0 +1,325 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1654" height="1169" viewBox="0 0 1654 1169" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <defs>
+    <linearGradient id="azBlue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#3399E5"/>
+      <stop offset="1" stop-color="#0066B4"/>
+    </linearGradient>
+    <linearGradient id="azGreen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5CB36B"/>
+      <stop offset="1" stop-color="#2E7D3D"/>
+    </linearGradient>
+    <linearGradient id="azGold" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E0B65C"/>
+      <stop offset="1" stop-color="#C18B27"/>
+    </linearGradient>
+    <linearGradient id="azSlate" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#5E708A"/>
+      <stop offset="1" stop-color="#38455A"/>
+    </linearGradient>
+    <linearGradient id="azGrey" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#AEB9C4"/>
+      <stop offset="1" stop-color="#8593A1"/>
+    </linearGradient>
+    <marker id="arrNavy" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#0B3D66"/></marker>
+    <marker id="arrBlueS" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrBlueE" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#2E6CA3"/></marker>
+    <marker id="arrGreenS" markerWidth="9" markerHeight="9" refX="1" refY="4" orient="auto"><path d="M8,0 L0,4 L8,8 Z" fill="#3C7A47"/></marker>
+    <marker id="arrGreenE" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#3C7A47"/></marker>
+    <marker id="arrGold" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="#C9851F"/></marker>
+    <marker id="arrGrey" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="none" stroke="#7A8895" stroke-width="1.4"/></marker>
+    <marker id="arrSlate" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="none" stroke="#44546A" stroke-width="1.4"/></marker>
+    <marker id="arrOrange" markerWidth="9" markerHeight="9" refX="7" refY="4" orient="auto"><path d="M0,0 L8,4 L0,8 Z" fill="none" stroke="#E8862F" stroke-width="1.4"/></marker>
+  </defs>
+
+  <rect width="1654" height="1169" fill="#FFFFFF"/>
+
+  <!-- ===== TITLE BLOCK ===== -->
+  <rect x="40" y="32" width="1574" height="62" fill="#0B3D66"/>
+  <text x="60" y="71" fill="#FFFFFF" font-size="22" font-weight="700">AzureAgentForge — Self-Hosted Primary · Cloud Warm Standby</text>
+  <text x="1594" y="68" fill="#BBD7EE" font-size="12" text-anchor="end">Owned hardware runs the stack · Azure sleeps until a lease flip · steady-state ≈ $35–45/mo · reference topology</text>
+
+  <!-- ===== PUBLIC EDGE BAND ===== -->
+  <rect x="100" y="116" width="690" height="120" rx="8" fill="#F5F7FA" stroke="#AEB9C4"/>
+  <text x="116" y="135" fill="#5B7A95" font-size="11" font-weight="700">Public edge · one Cloudflare tunnel — the hostname never moves</text>
+  <g transform="translate(146,148)">
+    <circle cx="23" cy="15" r="9" fill="url(#azBlue)"/>
+    <path d="M6,40 a17,15 0 0 1 34,0 Z" fill="url(#azBlue)"/>
+    <text x="23" y="62" fill="#23272E" font-size="11" text-anchor="middle">End user</text>
+  </g>
+  <rect x="280" y="146" width="230" height="60" rx="8" fill="#FFFFFF" stroke="#E8862F"/>
+  <text x="395" y="172" fill="#23272E" font-size="11" text-anchor="middle">Cloudflare edge</text>
+  <text x="395" y="188" fill="#5B6B7B" font-size="10" text-anchor="middle">tunnel origin → live site only</text>
+  <text x="540" y="172" fill="#5B6B7B" font-size="10" font-style="italic">failover = lease flip,</text>
+  <text x="540" y="188" fill="#5B6B7B" font-size="10" font-style="italic">not a DNS change</text>
+
+  <!-- ===== OPERATOR CONTROL BAND ===== -->
+  <rect x="830" y="116" width="724" height="120" rx="8" fill="#F5F7FA" stroke="#AEB9C4"/>
+  <text x="846" y="135" fill="#5B7A95" font-size="11" font-weight="700">Operator control plane · every failover is a deliberate action</text>
+  <g transform="translate(872,148)">
+    <circle cx="23" cy="15" r="9" fill="url(#azSlate)"/>
+    <path d="M6,40 a17,15 0 0 1 34,0 Z" fill="url(#azSlate)"/>
+    <text x="23" y="62" fill="#23272E" font-size="11" text-anchor="middle">Operator</text>
+  </g>
+  <rect x="1000" y="146" width="330" height="60" rx="8" fill="#FFFFFF" stroke="#44546A" stroke-width="1.5"/>
+  <text x="1165" y="170" fill="#23272E" font-size="11" font-weight="700" text-anchor="middle">aaf-site {status | local | cloud}</text>
+  <text x="1165" y="188" fill="#5B6B7B" font-size="10" text-anchor="middle">flips lease · syncs shares · wakes / sleeps cloud</text>
+  <text x="1350" y="170" fill="#5B6B7B" font-size="10" font-style="italic">cloud --force = evacuation</text>
+  <text x="1350" y="186" fill="#5B6B7B" font-size="10" font-style="italic">(skips share sync · loud warning)</text>
+
+  <!-- ===== SELF-HOSTED PRIMARY SITE ===== -->
+  <rect x="100" y="262" width="690" height="716" rx="10" fill="none" stroke="#44546A" stroke-width="2" stroke-dasharray="8 4"/>
+  <g transform="translate(114,272)">
+    <rect x="0" y="2" width="26" height="18" rx="3" fill="url(#azSlate)"/>
+    <rect x="9" y="20" width="8" height="4" fill="url(#azSlate)"/>
+    <rect x="4" y="24" width="18" height="2" fill="url(#azSlate)"/>
+  </g>
+  <text x="148" y="290" fill="#44546A" font-size="12" font-weight="700">Self-hosted primary site · owned hardware (Apple-silicon mini / mini-PC / WSL2) · normally holds the lease</text>
+
+  <!-- Compose stack -->
+  <rect x="124" y="314" width="642" height="404" rx="6" fill="#F2F8FD" fill-opacity="0.9" stroke="#0B6BB0" stroke-width="1.5"/>
+  <text x="138" y="337" fill="#0B6BB0" font-size="11" font-weight="700">Docker Compose stack · deploy/mac-site (shared with windows-site) · brought up only via the site switch</text>
+
+  <rect x="146" y="354" width="290" height="88" rx="6" fill="#FFFFFF" stroke="#44546A" stroke-width="1.5"/>
+  <text x="158" y="376" fill="#1B2733" font-size="13" font-weight="700">lease-guard  (init container)</text>
+  <text x="160" y="400" fill="#5B6B7B" font-size="10">refuses to start the stack unless the</text>
+  <text x="160" y="414" fill="#5B6B7B" font-size="10">lease mirror (~/aaf/active-site) names this site</text>
+
+  <rect x="460" y="354" width="286" height="88" rx="6" fill="#FFF7EF" stroke="#E8862F" stroke-width="1.5"/>
+  <text x="472" y="376" fill="#1B2733" font-size="13" font-weight="700">cloudflared connector — LIVE</text>
+  <text x="474" y="400" fill="#5B6B7B" font-size="10">compose "live" profile · started only when</text>
+  <text x="474" y="414" fill="#5B6B7B" font-size="10">this site holds the lease · same tunnel as standby</text>
+
+  <rect x="146" y="462" width="290" height="88" rx="6" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="158" y="484" fill="#1B2733" font-size="13" font-weight="700">PaperClip</text>
+  <text x="160" y="508" fill="#5B6B7B" font-size="10">orchestrator + web UI · :3100</text>
+  <text x="160" y="522" fill="#5B6B7B" font-size="10">local bind-mounted workspace shares</text>
+
+  <rect x="460" y="462" width="286" height="88" rx="6" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="472" y="484" fill="#1B2733" font-size="13" font-weight="700">Hermes + Model Router</text>
+  <text x="474" y="508" fill="#5B6B7B" font-size="10">agent runtime · 13-role hierarchy · all inference</text>
+  <text x="474" y="522" fill="#5B6B7B" font-size="10">egress via the router (budgets + fallback)</text>
+
+  <rect x="146" y="570" width="290" height="88" rx="6" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <text x="158" y="592" fill="#1B2733" font-size="13" font-weight="700">Honcho</text>
+  <text x="160" y="616" fill="#5B6B7B" font-size="10">agent memory · no local Postgres —</text>
+  <text x="160" y="630" fill="#5B6B7B" font-size="10">connects out to the shared Flexible Server</text>
+
+  <rect x="460" y="570" width="286" height="88" rx="6" fill="#F7F8F5" stroke="#8593A1" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="472" y="592" fill="#1B2733" font-size="13" font-weight="700">Lease mirror  ~/aaf/active-site</text>
+  <text x="474" y="616" fill="#5B6B7B" font-size="10">written by the site switch before every bring-up —</text>
+  <text x="474" y="630" fill="#5B6B7B" font-size="10">the host never holds a service principal</text>
+
+  <!-- Host automation -->
+  <rect x="124" y="738" width="642" height="216" rx="6" fill="#F7F8F5" stroke="#8593A1" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <text x="138" y="761" fill="#5B6B7B" font-size="11" font-weight="700">Host automation · launchd (macOS) / Task Scheduler → WSL2 (Windows) · each job is a no-op without the lease</text>
+  <text x="154" y="793" fill="#42505E" font-size="10">boot-guard · startup + every 5 min — stops the stack if the authoritative lease moved (does nothing on Key Vault errors)</text>
+  <text x="154" y="825" fill="#42505E" font-size="10">image freshness · every 10 min — registry login + compose pull; roll the live profile only on a digest change</text>
+  <text x="154" y="857" fill="#42505E" font-size="10">firewall keeper · every 15 min — upsert the shared-PG "home-ip" rule when the home WAN address rotates</text>
+  <text x="154" y="889" fill="#42505E" font-size="10">warm-standby share sync · hourly — azcopy the file shares local→cloud; stamps standby_sync_completed for the watchdog</text>
+  <text x="154" y="921" fill="#42505E" font-size="10">skill curator · daily — one-shot maintenance job (compose "jobs" profile)</text>
+
+  <!-- ===== AZURE REGION ===== -->
+  <rect x="830" y="262" width="724" height="716" rx="10" fill="none" stroke="#0078D4" stroke-width="2" stroke-dasharray="8 4"/>
+  <g transform="translate(844,272)">
+    <rect x="0" y="0" width="26" height="26" rx="4" fill="url(#azBlue)"/>
+    <path d="M6,18 L13,6 L20,18 Z" fill="#FFFFFF"/>
+  </g>
+  <text x="878" y="290" fill="#0078D4" font-size="12" font-weight="700">Azure region · warm standby compute + the shared data plane</text>
+
+  <!-- Dormant CAE -->
+  <rect x="854" y="314" width="676" height="212" rx="6" fill="#F4F5F7" stroke="#8593A1" stroke-width="1.5" stroke-dasharray="5 3"/>
+  <g transform="translate(868,324)">
+    <rect x="0" y="0" width="24" height="24" rx="4" fill="url(#azGrey)"/>
+    <rect x="5" y="5" width="6" height="6" fill="#FFFFFF"/>
+    <rect x="13" y="5" width="6" height="6" fill="#FFFFFF"/>
+    <rect x="5" y="13" width="6" height="6" fill="#FFFFFF"/>
+  </g>
+  <text x="900" y="340" fill="#5B6B7B" font-size="11" font-weight="700">Container Apps Environment — DORMANT · scale-to-zero / asleep · woken only by aaf-site cloud</text>
+
+  <rect x="878" y="366" width="146" height="64" rx="6" fill="#FFFFFF" stroke="#8593A1" stroke-dasharray="5 3"/>
+  <text x="951" y="394" fill="#5B6B7B" font-size="11" text-anchor="middle">PaperClip</text>
+  <text x="951" y="410" fill="#5B6B7B" font-size="10" text-anchor="middle">(asleep)</text>
+  <rect x="1042" y="366" width="146" height="64" rx="6" fill="#FFFFFF" stroke="#8593A1" stroke-dasharray="5 3"/>
+  <text x="1115" y="394" fill="#5B6B7B" font-size="11" text-anchor="middle">Hermes + Router</text>
+  <text x="1115" y="410" fill="#5B6B7B" font-size="10" text-anchor="middle">(asleep)</text>
+  <rect x="1206" y="366" width="146" height="64" rx="6" fill="#FFFFFF" stroke="#8593A1" stroke-dasharray="5 3"/>
+  <text x="1279" y="394" fill="#5B6B7B" font-size="11" text-anchor="middle">Honcho</text>
+  <text x="1279" y="410" fill="#5B6B7B" font-size="10" text-anchor="middle">(asleep)</text>
+  <rect x="1370" y="366" width="146" height="64" rx="6" fill="#FFFFFF" stroke="#E8862F" stroke-dasharray="5 3"/>
+  <text x="1443" y="394" fill="#5B6B7B" font-size="11" text-anchor="middle">cloudflared</text>
+  <text x="1443" y="410" fill="#5B6B7B" font-size="10" text-anchor="middle">connector (idle)</text>
+  <text x="878" y="466" fill="#5B6B7B" font-size="10" font-style="italic">same images · same tunnel · same shared DB — a lease flip makes this the live site</text>
+  <text x="878" y="482" fill="#5B6B7B" font-size="10" font-style="italic">with shares at most one hour stale</text>
+
+  <!-- Shared data plane -->
+  <rect x="854" y="556" width="330" height="150" rx="6" fill="#F3FAF4" stroke="#3C7A47" stroke-width="1.5"/>
+  <g transform="translate(866,568)">
+    <path d="M4,6 a11,5 0 0 1 22,0 v14 a11,5 0 0 1 -22,0 Z" fill="url(#azGreen)"/>
+    <ellipse cx="15" cy="6" rx="11" ry="5" fill="#7BC98A"/>
+  </g>
+  <text x="904" y="582" fill="#1B2733" font-size="13" font-weight="700">PostgreSQL Flexible Server — SHARED</text>
+  <text x="868" y="620" fill="#5B6B7B" font-size="10">always-on · the failover pivot — the database never moves</text>
+  <text x="868" y="636" fill="#5B6B7B" font-size="10">both sites connect over the public endpoint, IP-firewalled,</text>
+  <text x="868" y="652" fill="#5B6B7B" font-size="10">sslmode=require · pgvector · RPO ≈ 0 for a site switch</text>
+  <g transform="translate(1148,568)">
+    <rect x="0" y="4" width="18" height="14" rx="2" fill="none" stroke="#3C7A47" stroke-width="1.6"/>
+    <path d="M4,4 v-1 a5,5 0 0 1 10,0 v1" fill="none" stroke="#3C7A47" stroke-width="1.6"/>
+  </g>
+
+  <rect x="1200" y="556" width="330" height="150" rx="6" fill="#F3FAF4" stroke="#3C7A47" stroke-width="1.5"/>
+  <g transform="translate(1212,568)">
+    <rect x="2" y="2" width="26" height="26" rx="4" fill="url(#azGreen)"/>
+    <circle cx="15" cy="12" r="5" fill="#FFFFFF"/>
+    <rect x="13" y="15" width="4" height="10" fill="#FFFFFF"/>
+  </g>
+  <text x="1250" y="582" fill="#1B2733" font-size="13" font-weight="700">Key Vault — the lease authority</text>
+  <text x="1214" y="620" fill="#5B6B7B" font-size="10">secret platform-active-site ∈ {cloud, local} —</text>
+  <text x="1214" y="636" fill="#5B6B7B" font-size="10">the single-writer lease (anti-split-brain)</text>
+  <text x="1214" y="652" fill="#5B6B7B" font-size="10">plus app credentials · public access default-deny + IP allowlist</text>
+
+  <!-- Supporting services -->
+  <rect x="854" y="736" width="200" height="118" rx="6" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <g transform="translate(866,748)">
+    <rect x="0" y="4" width="28" height="20" rx="3" fill="url(#azBlue)"/>
+    <rect x="5" y="9" width="7" height="5" fill="#FFFFFF"/>
+    <rect x="16" y="9" width="7" height="5" fill="#FFFFFF"/>
+    <rect x="5" y="16" width="7" height="5" fill="#FFFFFF"/>
+  </g>
+  <text x="902" y="764" fill="#1B2733" font-size="12" font-weight="700">Container Registry</text>
+  <text x="868" y="800" fill="#5B6B7B" font-size="10">one image source for both sites</text>
+  <text x="868" y="816" fill="#5B6B7B" font-size="10">(arm64 + amd64 tags)</text>
+
+  <rect x="1078" y="736" width="228" height="118" rx="6" fill="#FFFFFF" stroke="#0078D4" stroke-width="1.5"/>
+  <g transform="translate(1090,748)">
+    <path d="M2,8 h9 l3,-4 h12 v20 h-24 Z" fill="url(#azBlue)"/>
+  </g>
+  <text x="1126" y="764" fill="#1B2733" font-size="12" font-weight="700">Azure Files shares</text>
+  <text x="1092" y="800" fill="#5B6B7B" font-size="10">agent workspaces + gateway config</text>
+  <text x="1092" y="816" fill="#5B6B7B" font-size="10">standby copy, refreshed by the hourly</text>
+  <text x="1092" y="832" fill="#5B6B7B" font-size="10">sync — at most 1 h stale</text>
+
+  <rect x="1330" y="736" width="200" height="118" rx="6" fill="#FFFFFF" stroke="#8593A1" stroke-width="1.5"/>
+  <g transform="translate(1342,748)">
+    <rect x="0" y="0" width="28" height="24" rx="3" fill="url(#azGrey)"/>
+    <path d="M5,17 l5,-6 l4,3 l6,-8" fill="none" stroke="#FFFFFF" stroke-width="1.8"/>
+  </g>
+  <text x="1378" y="764" fill="#1B2733" font-size="12" font-weight="700">Log Analytics</text>
+  <text x="1344" y="800" fill="#5B6B7B" font-size="10">minimal retention</text>
+  <text x="1344" y="816" fill="#5B6B7B" font-size="10">(self-hosted-primary profile</text>
+  <text x="1344" y="832" fill="#5B6B7B" font-size="10">keeps logs lean)</text>
+
+  <text x="858" y="936" fill="#5B6B7B" font-size="10" font-style="italic">steady-state cloud spend ≈ $35–45/mo — the always-on shared server is the price of RPO-0 failover</text>
+
+  <!-- ===== LLM BACKENDS BAND ===== -->
+  <rect x="100" y="1002" width="690" height="120" rx="8" fill="#FBF7F0" stroke="#C9A45B"/>
+  <text x="116" y="1021" fill="#8A6D1F" font-size="11" font-weight="700">LLM backends (external inference)</text>
+  <g transform="translate(160,1036)">
+    <rect x="0" y="0" width="44" height="44" rx="6" fill="url(#azGold)"/>
+    <circle cx="22" cy="22" r="11" fill="#FFFFFF" opacity="0.9"/>
+    <circle cx="22" cy="22" r="5" fill="url(#azGold)"/>
+    <text x="22" y="62" fill="#23272E" font-size="11" text-anchor="middle">Azure AI Foundry</text>
+    <text x="22" y="76" fill="#8A6D1F" font-size="10" text-anchor="middle">(primary)</text>
+  </g>
+  <rect x="330" y="1034" width="180" height="60" rx="8" fill="#FFFFFF" stroke="#C9A45B" stroke-dasharray="5 3"/>
+  <text x="420" y="1058" fill="#23272E" font-size="11" text-anchor="middle">OpenAI-compatible</text>
+  <text x="420" y="1074" fill="#5B6B7B" font-size="10" text-anchor="middle">endpoint (fallback)</text>
+  <text x="540" y="1058" fill="#5B6B7B" font-size="10" font-style="italic">egress from whichever site is live,</text>
+  <text x="540" y="1074" fill="#5B6B7B" font-size="10" font-style="italic">always via the Model Router (budget caps)</text>
+
+  <!-- ===== REQUEST FLOW EDGES ===== -->
+  <!-- 1: user -> cf edge -->
+  <path d="M196,171 H278" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="228" y="160" width="20" height="20" rx="10" fill="#0B3D66"/>
+  <text x="238" y="174" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">1</text>
+
+  <!-- 2: cf edge -> live connector -->
+  <path d="M452,206 V250 H603 V352" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="520" y="240" width="20" height="20" rx="10" fill="#0B3D66"/>
+  <text x="530" y="254" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">2</text>
+  <text x="548" y="242" fill="#0B3D66" font-size="10" font-style="italic">live connector only (lease holder)</text>
+
+  <!-- 3: connector -> PaperClip (drops through the inter-row channel) -->
+  <path d="M490,442 V452 H364 V460" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="412" y="442" width="20" height="20" rx="10" fill="#0B3D66"/>
+  <text x="422" y="456" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">3</text>
+
+  <!-- 4: PaperClip -> Hermes -->
+  <path d="M436,506 H458" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="438" y="496" width="20" height="20" rx="10" fill="#0B3D66"/>
+  <text x="448" y="510" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">4</text>
+
+  <!-- 5: Hermes <-> Honcho -->
+  <path d="M532,550 V560 H291 V568" fill="none" stroke="#2E6CA3" stroke-width="2" marker-start="url(#arrBlueS)" marker-end="url(#arrBlueE)"/>
+  <rect x="400" y="550" width="20" height="20" rx="10" fill="#2E6CA3"/>
+  <text x="410" y="564" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">5</text>
+  <text x="300" y="564" fill="#2E6CA3" font-size="10" font-style="italic">memory read / write</text>
+
+  <!-- 6: Honcho <-> shared PG (below row 3, out through both site boundaries) -->
+  <path d="M291,658 V700 H798 V631 H852" fill="none" stroke="#3C7A47" stroke-width="2" marker-start="url(#arrGreenS)" marker-end="url(#arrGreenE)"/>
+  <rect x="788" y="650" width="20" height="20" rx="10" fill="#3C7A47"/>
+  <text x="798" y="664" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">6</text>
+  <text x="545" y="692" fill="#3C7A47" font-size="10" font-style="italic" text-anchor="middle">TLS · public endpoint · IP-firewalled — crosses both site boundaries; the DB itself never moves</text>
+
+  <!-- 7: Hermes/Router -> Foundry (right gutter, under the site, into the LLM band) -->
+  <path d="M746,530 H818 V988 H182 V1034" fill="none" stroke="#C9851F" stroke-width="2" marker-end="url(#arrGold)"/>
+  <rect x="300" y="978" width="20" height="20" rx="10" fill="#C9851F"/>
+  <text x="310" y="992" fill="#FFFFFF" font-size="10" font-weight="700" text-anchor="middle">7</text>
+  <!-- 7b: Foundry -> fallback (dotted gold) -->
+  <path d="M204,1080 H328 V1064" fill="none" stroke="#C9851F" stroke-width="1.5" stroke-dasharray="4 4" marker-end="url(#arrGold)"/>
+
+  <!-- ===== CONTROL / LEASE / SYNC EDGES ===== -->
+  <!-- aaf-site -> Key Vault (lease write, around the dormant CAE via the far-right gutter) -->
+  <path d="M1165,206 V246 H1542 V631 H1532" fill="none" stroke="#44546A" stroke-width="1.8" stroke-dasharray="2 4" marker-end="url(#arrSlate)"/>
+  <text x="1300" y="544" fill="#44546A" font-size="10" font-style="italic">writes the lease (platform-active-site)</text>
+
+  <!-- aaf-site -> standby wake/sleep -->
+  <path d="M1082,206 V228 H1361 V312" fill="none" stroke="#44546A" stroke-width="1.8" stroke-dasharray="2 4" marker-end="url(#arrSlate)"/>
+  <text x="1090" y="300" fill="#44546A" font-size="10" font-style="italic">wakes / sleeps the cloud apps</text>
+
+  <!-- aaf-site -> lease mirror (left gutter inside the home site; mirror box text explains it) -->
+  <path d="M998,176 H778 V614 H748" fill="none" stroke="#44546A" stroke-width="1.8" stroke-dasharray="2 4" marker-end="url(#arrSlate)"/>
+
+  <!-- boot-guard -> Key Vault -->
+  <path d="M760,789 H806 V726 H1282 V708" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+
+  <!-- firewall keeper -> PG -->
+  <path d="M772,853 H804 V714 H1019 V708" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+
+  <!-- image freshness -> ACR -->
+  <path d="M760,821 H796 V795 H852" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+
+  <!-- share sync -> Azure Files (green dashed) -->
+  <path d="M746,885 H1192 V856" fill="none" stroke="#3C7A47" stroke-width="2" stroke-dasharray="6 3" marker-end="url(#arrGreenE)"/>
+  <text x="860" y="878" fill="#3C7A47" font-size="10" font-style="italic">azcopy · hourly · shares only — never the database</text>
+
+  <!-- standby connector -> cf edge (idle tunnel) -->
+  <path d="M1443,364 V254 H524 V208" fill="none" stroke="#E8862F" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrOrange)"/>
+  <text x="800" y="250" fill="#B06318" font-size="10" font-style="italic">second connector · same tunnel · idle until the lease flips</text>
+
+  <!-- standby -> PG (same DB when live) -->
+  <path d="M1019,526 V554" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <text x="1032" y="546" fill="#7A8895" font-size="10" font-style="italic">same DB when live</text>
+
+  <!-- ===== LEGEND ===== -->
+  <rect x="830" y="1002" width="724" height="120" rx="6" fill="#FFFFFF" stroke="#AEB9C4"/>
+  <text x="844" y="1022" fill="#1B2733" font-size="11" font-weight="700">Legend</text>
+
+  <rect x="846" y="1036" width="34" height="20" rx="4" fill="none" stroke="#44546A" stroke-width="2" stroke-dasharray="8 4"/>
+  <text x="888" y="1050" fill="#42505E" font-size="10">dashed = site / trust boundary (slate = owned hardware, blue = Azure)</text>
+
+  <path d="M848,1072 H880" fill="none" stroke="#0B3D66" stroke-width="2" marker-end="url(#arrNavy)"/>
+  <rect x="856" y="1062" width="18" height="18" rx="9" fill="#0B3D66"/>
+  <text x="865" y="1075" fill="#FFFFFF" font-size="9" font-weight="700" text-anchor="middle">n</text>
+  <text x="888" y="1076" fill="#42505E" font-size="10">numbered request data-flow (live site)</text>
+
+  <path d="M848,1098 H880" fill="none" stroke="#7A8895" stroke-width="1.5" stroke-dasharray="2 4" marker-end="url(#arrGrey)"/>
+  <text x="888" y="1102" fill="#42505E" font-size="10">dotted = lease / control / secret access · green dashed = hourly share sync</text>
+
+  <rect x="1330" y="1036" width="34" height="20" rx="4" fill="#F4F5F7" stroke="#8593A1" stroke-dasharray="5 3"/>
+  <text x="1372" y="1044" fill="#42505E" font-size="10">grey dashed fill = dormant standby</text>
+  <text x="1372" y="1058" fill="#42505E" font-size="10">(woken by a lease flip)</text>
+
+  <rect x="1330" y="1072" width="34" height="20" rx="4" fill="#F3FAF4" stroke="#3C7A47"/>
+  <text x="1372" y="1080" fill="#42505E" font-size="10">green = shared data plane —</text>
+  <text x="1372" y="1094" fill="#42505E" font-size="10">never moves during failover</text>
+</svg>
