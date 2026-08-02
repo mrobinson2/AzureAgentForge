@@ -151,6 +151,33 @@ Inspect the trace with one command:
 curl -H "Authorization: Bearer $ROUTER_API_KEY" http://localhost:8080/debug/flight-recorder
 ```
 
+## Fail-Closed Resilience Pack
+
+Two governance controls over upstream dispatch, both refusing rather than rerouting. Full design, state machine, and operator workflow: [`docs/design/router-resilience-pack.md`](../../docs/design/router-resilience-pack.md).
+
+**Circuit breakers** — a three-state (closed → open → half-open) breaker per upstream *credential identity* (`api_base` + `api_key` pair, not tier name — a revoked key 401s for every deployment it fronts, and ephemeral passthrough tiers would otherwise mint a fresh breaker per model string). Trips only on a narrow allowlist: 401/403 auth failures, 429 quota exhaustion, connection-level failures. Model-content errors, empty responses, and 4xx/5xx application errors explicitly do **not** count. While OPEN the router returns a typed 503 (`UPSTREAM_BREAKER_OPEN`) without invoking the upstream — a credential outage can never silently fall through to metered inference.
+
+**Kill switch** — scoped operator control over metered dispatch: `paid_fallback` blocks fallback hops to metered models while primary and free local paths keep serving; `all_paid` blocks all metered dispatch. Engaged at boot via `ROUTER_KILL_SWITCH_SCOPES` or flipped at runtime via `POST /debug/kill-switch`. Affected requests get a typed 503 (`PAID_ACTIONS_DISABLED`); every engagement and release is recorded to the flight recorder with actor and reason.
+
+| Env var | Purpose |
+|---|---|
+| `ROUTER_BREAKER_ENABLED` | Evaluate breakers on upstream dispatch (default: `true`) |
+| `ROUTER_BREAKER_FAILURE_THRESHOLD` | Consecutive tripping failures before OPEN (default: `5`) |
+| `ROUTER_BREAKER_COOLDOWN_SECONDS` | OPEN duration before a half-open probe (default: `60`) |
+| `ROUTER_BREAKER_HALF_OPEN_PROBES` | Probe successes required to close (default: `1`) |
+| `ROUTER_BREAKER_FAIL_CLOSED` | Refuse metered fallback while the primary's breaker is OPEN (default: `true`) |
+| `ROUTER_KILL_SWITCH_SCOPES` | Scopes engaged at boot, comma-separated (default: empty — disengaged) |
+| `ROUTER_ADMIN_API_KEY` | Optional second credential (`X-Router-Admin-Key`) for state-changing operator routes |
+
+Check breaker state and flip the switch with one command each:
+
+```bash
+curl -H "Authorization: Bearer $ROUTER_API_KEY" http://localhost:8080/debug/circuit-breakers
+curl -X POST -H "Authorization: Bearer $ROUTER_API_KEY" -H "Content-Type: application/json" \
+  -d '{"scope": "paid_fallback", "action": "engage", "reason": "incident-42", "actor": "michael"}' \
+  http://localhost:8080/debug/kill-switch
+```
+
 ## Security
 
 - **API-key auth**: set `ROUTER_API_KEY` to require a matching credential on all `/v1/*` requests — either `Authorization: Bearer <key>` (OpenAI-style clients) or `x-api-key: <key>` (Anthropic-native clients; the Anthropic SDK sends x-api-key for any custom base_url, which is how Hermes's `anthropic_messages` transport reaches `/v1/messages`). Fails closed (503) when unset.
@@ -166,3 +193,7 @@ curl -H "Authorization: Bearer $ROUTER_API_KEY" http://localhost:8080/debug/flig
 | `POST` | `/v1/embeddings` | OpenAI-compatible embeddings passthrough (503 until `EMBEDDING_API_KEY` is set; see [Embeddings](#embeddings-optional--provider-flexible)) |
 | `GET` | `/debug/flight-recorder` | Recent call traces + recorder/breaker config (auth required; 404 if disabled). Query params: `limit`, `caller` |
 | `GET` | `/debug/flight-recorder/{event_id}` | One trace event in full (auth required) |
+| `GET` | `/debug/circuit-breakers` | Per-credential breaker states, trip counts, config (auth required) |
+| `POST` | `/debug/circuit-breakers/reset` | Force breakers CLOSED after a fix — one key or all (admin auth) |
+| `GET` | `/debug/kill-switch` | Engaged scopes, blocked counts, available scopes (auth required) |
+| `POST` | `/debug/kill-switch` | Engage/release a scope with actor + reason (admin auth) |
