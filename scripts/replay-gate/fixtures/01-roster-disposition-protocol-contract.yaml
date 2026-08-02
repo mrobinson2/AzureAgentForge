@@ -1,0 +1,23 @@
+# Every issue-scoped role prompt must carry the disposition protocol intact.
+# This is the composed-bytes counterpart to the raw-file lint in
+# agents/tests/test_profiles.py (test_disposition_protocol_present_in_issue_scoped_prompts
+# / test_disposition_protocol_forbids_silent_terminal_states): that test reads
+# the SOURCE file; this fixture checks the COMPOSED prompt (post frontmatter-
+# strip). They should always agree today (AAF has no other composition step),
+# but this fixture is what keeps agreeing true if a compose step is ever added
+# — a change that shifts where the frontmatter fence lands, or a future
+# include mechanism, could desync the source-file lint from what actually
+# ships without ever touching this file's assertions.
+fixture_id: "01-roster-disposition-protocol-contract"
+description: >
+  Every role in the roster must, in its composed prompt, carry the
+  "Completing an issue (disposition protocol)" section with the exact
+  no-silent-terminal-states / plan_only / missing_disposition language that
+  the platform's continuation logic keys off of.
+prompt_contract:
+  agents: "all"
+  must_contain:
+    - '# Completing an issue \(disposition protocol\)'
+    - "No silent terminal states"
+    - "plan_only"
+    - "missing_disposition"

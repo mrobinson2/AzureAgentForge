@@ -1,0 +1,18 @@
+# Security is the canonical implementation of the safety-critical carve-out:
+# critical findings escalate DIRECTLY to the operator, bypassing Orchestrator
+# as a gate (Orchestrator is a courtesy CC only). If Orchestrator is ever
+# compromised, this independent escalation path is the safety property. An
+# edit that quietly folds this back into normal Orchestrator-mediated routing
+# would remove that property without looking like a behavior change in a
+# text diff — this fixture makes it a build failure instead.
+fixture_id: "04-security-critical-escalation-contract"
+description: >
+  Security's critical-finding carve-out (direct-to-operator escalation,
+  independent of Orchestrator) must remain intact in the composed prompt.
+prompt_contract:
+  agents: [security]
+  must_contain:
+    - "CVSS"
+    - "directly to Operator"
+    - "courtesy CC, not a gate"
+    - "safety-critical carve-out"

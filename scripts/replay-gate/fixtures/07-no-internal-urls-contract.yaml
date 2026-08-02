@@ -1,0 +1,20 @@
+# These prompts are meant to be generic and platform-agnostic (every shipped
+# profile says so in its own header comment: "Adapt hostnames, tool names,
+# and peer IDs to your platform"). The only URLs that belong in shipped
+# prompt text are the local PaperClip dev endpoint (http://localhost:*) and
+# the RFC 2606 example domains used in illustrative snippets
+# (example.com/example.org). Anything else — a real vendor endpoint, a real
+# internal hostname — is either an accidental leak of a specific deployment's
+# config into the generic template, or exactly the class of internal
+# reference scripts/scan-internal-refs.sh's secret-adjacent scan exists to
+# catch, checked here at the composed-prompt-content layer instead of the
+# raw-tree layer.
+fixture_id: "07-no-internal-urls-contract"
+description: >
+  No role's composed prompt may reference a URL outside the local dev
+  endpoint and the RFC 2606 example domains — these prompts are meant to be
+  copy-and-adapt generic, not tied to one deployment.
+prompt_contract:
+  agents: "all"
+  must_not_contain:
+    - 'https?://(?!(?:localhost|127\.0\.0\.1|[a-zA-Z0-9.-]*\.?example\.(?:com|org))(?::[0-9]+)?(?:/|\b))[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}'

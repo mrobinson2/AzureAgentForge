@@ -1,0 +1,26 @@
+# The scope guard is the first thing a skim-reading model sees; it is what
+# stops a role from quietly doing off-lane work. The <!-- scope-guard:start
+# --> / <!-- scope-guard:end --> markers are also what a future tool would
+# key off of to find the block programmatically, so their presence is a
+# stronger signal than eyeballing the heading text.
+#
+# Exemption: `orchestrator` has no scope guard by design — it is the single
+# entry point / root of the routing tree (agents/README.md: "all other roles
+# report up through the tree" to Orchestrator). "Bounce off-lane work back to
+# Orchestrator" is meaningless for Orchestrator itself; it has no upstream
+# router to bounce to. A missing scope guard on any OTHER role would be the
+# defect this fixture exists to catch.
+fixture_id: "03-roster-scope-guard-intact-contract"
+description: >
+  Every non-root role's composed prompt must open with an intact scope-guard
+  block: both HTML comment markers present, the hard-rule heading present,
+  and the refuse-and-route instruction present. `orchestrator` is exempt —
+  see rationale above.
+prompt_contract:
+  agents: [business, coach, coder, cost-guardian, curator, generalist, infrastructure,
+           planner, psychology, qa, researcher, security, strategy]
+  must_contain:
+    - '<!--\s*scope-guard:start\s*-->'
+    - '<!--\s*scope-guard:end\s*-->'
+    - "## Hard rule"
+    - "bounce it"
