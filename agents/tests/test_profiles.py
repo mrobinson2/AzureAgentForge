@@ -60,8 +60,13 @@ def _issue_scoped_prompt_files():
 
 def test_prompt_files_discovered():
     files = _issue_scoped_prompt_files()
-    # 13 shipped profile prompts + 3 templates (generic, coordinator, intake).
-    assert len(files) == 16, f"expected 16 prompt files, found {len(files)}"
+    # 14 shipped profile prompts + 3 templates (generic, coordinator, intake).
+    # Was 13 profile prompts (16 total) until generalist.AGENTS.md was added:
+    # generalist.yaml had no matching system prompt — a role with a
+    # machine-readable contract and zero governance text. Found and fixed by
+    # scripts/replay-gate/compose_prompt.py, which now fails loudly on this
+    # exact gap; see docs/design/prompt-replay-gate.md.
+    assert len(files) == 17, f"expected 17 prompt files, found {len(files)}"
 
 def test_disposition_protocol_present_in_issue_scoped_prompts():
     missing = [
