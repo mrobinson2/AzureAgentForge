@@ -22,6 +22,23 @@ lessons. Absent → issues are filed but no lessons are written:
   GOVERNOR_BASE_URL       memory-governor base (e.g. http://memory-governor:8090)
   GOVERNOR_API_KEY        shared X-Governor-Key (KV: memory-governor-api-key)
   GOVERNOR_WORKSPACE      governed-memory workspace name (e.g. default)
+
+Agent Ops Alert Pack (docs/design/watchdog-agent-ops-alerts.md) — runaway
+run-loops and silent model degradation run every tick on the standard runs
+window (env below tunes their thresholds; model degradation is a no-op until
+WATCHDOG_EXPECTED_MODELS is set). Spend burn-rate uses its own smoothed,
+longer-window fetch:
+  RUN_LOOP_MAX_RUNS_PER_ISSUE     runs on one (agent, issue) pair to flag (default 8)
+  RUN_LOOP_CHURN_RATIO            crash-stop share of an agent's window to flag (default 0.6)
+  RUN_LOOP_MIN_RUNS               min runs before the churn-ratio signal applies (default 10)
+  WATCHDOG_EXPECTED_MODELS        JSON {agentName: model or [models]} (default {} → no-op)
+  MODEL_DEGRADATION_MIN_CALLS     min agent calls-with-model before scoring (default 5)
+  MODEL_DEGRADATION_THRESHOLD     mismatch share to flag, 0-1 (default 0.3)
+  SPEND_BURN_RATE_ENABLED         run the burn-rate detector (default true)
+  BURN_RATE_WINDOW_HOURS          smoothing window for the projection (default 24)
+  BURN_RATE_PACE_MULTIPLIER       projected/cap ratio for a "high" finding (default 2.0)
+  BURN_RATE_CRITICAL_PACE_MULTIPLIER  ratio for a "critical" finding (default 4.0)
+  BILLING_PERIOD_DAYS             period the cap covers, in days (default 30)
 """
 
 from __future__ import annotations
@@ -298,8 +315,37 @@ def main() -> int:
     print(f"[watchdog] window={window}m runs={len(runs)} events={len(events)} "
           f"standby_monitor={standby_monitor}")
 
-    findings = detectors.run_detectors(runs, events, agent_caps=DEFAULT_CAPS,
-                                       last_sync_ts=last_sync, monitor_standby_sync=standby_monitor)
+    try:
+        expected_models = json.loads(os.getenv("WATCHDOG_EXPECTED_MODELS", "{}"))
+    except json.JSONDecodeError as e:
+        print(f"[watchdog] WATCHDOG_EXPECTED_MODELS is not valid JSON ({e}); "
+              f"model-degradation detector disabled this run", file=sys.stderr)
+        expected_models = {}
+
+    findings = detectors.run_detectors(
+        runs, events, agent_caps=DEFAULT_CAPS,
+        last_sync_ts=last_sync, monitor_standby_sync=standby_monitor,
+        run_loop_max_per_key=int(os.getenv("RUN_LOOP_MAX_RUNS_PER_ISSUE", "8")),
+        run_loop_churn_ratio=float(os.getenv("RUN_LOOP_CHURN_RATIO", "0.6")),
+        run_loop_min_runs=int(os.getenv("RUN_LOOP_MIN_RUNS", "10")),
+        expected_models=expected_models,
+        model_degradation_min_calls=int(os.getenv("MODEL_DEGRADATION_MIN_CALLS", "5")),
+        model_degradation_threshold=float(os.getenv("MODEL_DEGRADATION_THRESHOLD", "0.3")))
+
+    # Spend burn-rate: opt-out (default on), but always its OWN longer, smoothed
+    # window fetch — the standard poll window is far too short to project a
+    # billing-period pace without every ordinary burst reading as a runaway
+    # (see detect_spend_burn_rate's docstring). One extra runs fetch per tick.
+    if os.getenv("SPEND_BURN_RATE_ENABLED", "true").lower() in ("1", "true", "yes"):
+        burn_window_h = float(os.getenv("BURN_RATE_WINDOW_HOURS", "24"))
+        burn_runs = _fetch_runs(base, company, jwt, int(burn_window_h * 60))
+        findings += detectors.detect_spend_burn_rate(
+            burn_runs, agent_caps=DEFAULT_CAPS, window_hours=burn_window_h,
+            period_days=int(os.getenv("BILLING_PERIOD_DAYS", "30")),
+            pace_multiplier=float(os.getenv("BURN_RATE_PACE_MULTIPLIER", "2.0")),
+            critical_pace_multiplier=float(
+                os.getenv("BURN_RATE_CRITICAL_PACE_MULTIPLIER", "4.0")))
+        print(f"[watchdog] burn-rate: {len(burn_runs)} runs over {burn_window_h:.0f}h window")
 
     # Key Vault secret-expiry monitoring (opt-in via WATCHDOG_KEY_VAULT_URI). A
     # lapsed credential fails the dependent agents indirectly, so flag it early.
