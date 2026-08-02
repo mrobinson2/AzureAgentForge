@@ -1,0 +1,20 @@
+# agents/README.md is explicit: "Do NOT add a `model` field here — the model
+# tier is set on the agent record / roster, not in the prompt." A hardcoded
+# model name baked into prompt text bypasses that abstraction: the
+# model-router's tier mapping (PERSONA_TIERS_JSON) can no longer swap a
+# deployment out from under a role without also editing every prompt that
+# mentions it by name. This fixture is the roster-wide guardrail for that
+# rule — model names belong in persona-tiers.json, never in prompt bytes.
+fixture_id: "06-no-hardcoded-model-names-contract"
+description: >
+  No role's composed prompt may hardcode a concrete model name. Model
+  selection is an abstract tier (frontier/standard/economy) resolved by the
+  model-router at runtime — never a literal in the prompt.
+prompt_contract:
+  agents: "all"
+  must_not_contain:
+    - '\bgpt-[0-9][a-zA-Z0-9.\-]*'
+    - '\bclaude-[0-9][a-zA-Z0-9.\-]*'
+    - '\bgemini-[0-9][a-zA-Z0-9.\-]*'
+    - '\bo[0-9]-(mini|preview)\b'
+    - '\bphi-?4[a-zA-Z0-9.\-]*'

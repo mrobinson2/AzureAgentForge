@@ -1,0 +1,26 @@
+# A silent `cancelled` PATCH leaves an operator with a dead task and no
+# signal to retry or redirect (the Discord bridge mirrors comments, not bare
+# status changes). Every ACTIVE shipped profile opens with this gate; a
+# persona edit that trims it out re-opens that failure mode roster-wide.
+#
+# Exemption: `curator` ships with an explicit "Status: design target — not
+# yet deployed" banner (agents/profiles/curator.AGENTS.md, top of file) —
+# Orchestrator absorbs Curator's would-be work today, so Curator issues no
+# PATCH calls in the deployed roster and the gate does not apply yet. This
+# mirrors the house convention already used for the disposition-protocol
+# lint (agents/tests/test_profiles.py's DISPOSITION_EXEMPT set). Unlike that
+# lint, nothing currently tracks this specific contract for curator — worth
+# a human call on whether to pre-emptively add the gate anyway, or explicitly
+# document the exemption in curator.AGENTS.md itself; not decided here.
+fixture_id: "02-roster-no-cancel-without-comment-contract"
+description: >
+  Every ACTIVE role's composed prompt must require a comment before any
+  `cancelled` status PATCH, in the required order (POST the comment, then
+  PATCH only after a 2xx). `curator` is exempt — see rationale above.
+prompt_contract:
+  agents: [business, coach, coder, cost-guardian, generalist, infrastructure,
+           orchestrator, planner, psychology, qa, researcher, security, strategy]
+  must_contain:
+    - "No-Cancel-Without-Comment Gate"
+    - "MUST POST a comment explaining why"
+    - "PATCH `/status` to `cancelled`\\*\\* ONLY after the POST returned 2xx"

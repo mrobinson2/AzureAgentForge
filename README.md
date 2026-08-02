@@ -208,7 +208,7 @@ Not everything runs automatically. Governed memory ships disabled and must be in
 
 **Deployment and operations.** A one-command local stack, an Azure deploy validated against a clean subscription, the Forge Console, an offline preflight (`./forge --check`), CI/CD scaffolding with OIDC and Key Vault seeding, image build and push, and operator approval gates. It supports a self-hosted-primary topology with an Azure warm standby and failover tooling, bring-your-own VNet, and optional Cloudflare ingress. Validated paths are distinguished from design references and scaffolds throughout the docs.
 
-**Human oversight and safer autonomy.** A destroy-aware approval gate at the infrastructure layer, an action-approval seam for runtime actions (shipped, not fully wired to live volume), role-based tool access with scope guards and forbidden-tool checks, an escalation SLA auditor (ship-dark), reproducible orchestration fixtures, and an audit trail.
+**Human oversight and safer autonomy.** A destroy-aware approval gate at the infrastructure layer, an action-approval seam for runtime actions (shipped, not fully wired to live volume), role-based tool access with scope guards and forbidden-tool checks, an escalation SLA auditor (ship-dark), reproducible orchestration fixtures, and an audit trail. A behavioural replay gate — CI for agent prompts — composes each persona edit's candidate prompt and fails the build if a behavioural contract that passed on the base ref fails on the candidate. Design doc: [`docs/design/prompt-replay-gate.md`](docs/design/prompt-replay-gate.md).
 
 **Integrations and examples.** Optional Teams, Slack, Telegram, and Discord bridges (default off, internal-ingress only), a webhook intake handler, a governed-UI pattern library, a Foundry chat-proxy sample, a governed transaction saga, a multi-tenant console demo, a multi-tenant reference architecture, and a sandbox-provider scaffold. These are labeled as examples and reference implementations, not turnkey production integrations.
 
@@ -464,6 +464,7 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Destroy-aware approval gate: Forge Console + reference CI/CD pipeline (OIDC, no stored secrets)
 - ✅ Governance & blast-radius walkthrough with demos
 - ✅ Key Vault secret pattern + private-by-default networking
+- ✅ Behavioural replay gate for agent prompts — composes candidate persona edits and fails CI on a behavioural-contract regression vs the base ref
 
 **Install & operate**
 - ✅ Forge Console (`./forge`): local web installer with live-streamed deploy
@@ -558,6 +559,7 @@ Start with the row that matches what you're trying to do; each doc opens with it
 | [`docs/releases/v1.8.0.md`](docs/releases/v1.8.0.md) | v1.8.0 release notes: deploy-path repair after the v1.7 firewall hardening, the DSN username guard, dependency bumps, upgrade notes |
 | [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md) | Full grouped v1.7.0 release notes: platform features, security, examples & samples, docs & dependencies, upgrade notes |
 | [`docs/design/vendored-config-schema-guard.md`](docs/design/vendored-config-schema-guard.md) | Why config drift into a vendored app fails silently, the `validate-vendored-config` CI job that closes it, and the per-app validation strategy (Honcho, Hermes, PaperClip) |
+| [`docs/design/prompt-replay-gate.md`](docs/design/prompt-replay-gate.md) | Behavioural Replay Gate — CI for agent prompts: why persona edits need regression testing, the compose/contract/diff pipeline, the fixture format, and how to add one |
 
 ---
 

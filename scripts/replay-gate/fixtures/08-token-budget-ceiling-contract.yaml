@@ -1,0 +1,18 @@
+# A prompt that quietly grows over time is exactly the failure mode
+# services/model-router/flight_recorder.py exists to catch AFTER the fact
+# (recorded token counts per call). This fixture catches it BEFORE the fact,
+# at review time, using the same chars/4 heuristic compose_prompt.py always
+# has available (no tokenizer dependency required). The ceiling is set with
+# headroom above the current largest role (Orchestrator, ~7.9k chars/4
+# estimated tokens) — it exists to catch a runaway persona edit (an
+# accidentally duplicated section, a pasted-in log dump), not to constrain
+# normal prompt growth.
+fixture_id: "08-token-budget-ceiling-contract"
+description: >
+  No role's composed prompt may exceed a chars/4 ESTIMATED token ceiling.
+  This is a coarse budget guard, not a precise token count — see
+  compose_prompt.py's count_tokens() for why no tokenizer is authoritative
+  here.
+prompt_contract:
+  agents: "all"
+  max_chars_per_4_estimate: 9000

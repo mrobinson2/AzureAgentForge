@@ -1,0 +1,15 @@
+# CostGuardian's entire trust model rests on "measures, never mutates" — it
+# recommends rightsizing and reservation changes, but Infrastructure is the
+# only role that acts on them. Losing the explicit read-only qualifier on its
+# `az` grant, or the forbidden-mutations line, would let a future edit quietly
+# hand CostGuardian real spend authority.
+fixture_id: "05-cost-guardian-readonly-contract"
+description: >
+  CostGuardian's composed prompt must keep its Azure billing/consumption
+  tools explicitly read-only and its forbidden-mutations guardrail intact.
+prompt_contract:
+  agents: [cost-guardian]
+  must_contain:
+    - "READ-ONLY"
+    - "Any `az` operation that mutates resources"
+    - "no `az \\.\\.\\. create / update / delete"

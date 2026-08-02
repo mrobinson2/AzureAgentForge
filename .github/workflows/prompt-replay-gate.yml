@@ -1,0 +1,127 @@
+name: Prompt Replay Gate
+
+# Behavioural Replay Gate — "CI for prompts". Agent persona changes
+# (agents/profiles/*.AGENTS.md) are code changes nobody tests by default: a
+# text edit that quietly deletes a guardrail section passes every existing
+# check (the files are still valid YAML-fronted Markdown, agents/tests/
+# test_profiles.py's disposition-protocol lint reads the same file the edit
+# just changed) and only shows up in production as a role that stops
+# escalating, or stops recording a disposition, or starts doing off-lane
+# work. This gate composes the CANDIDATE prompt (scripts/replay-gate/
+# compose_prompt.py — the one composition/validation implementation this
+# gate and any future deploy tooling share), runs the behavioural contract
+# fixtures (scripts/replay-gate/fixtures/*.yaml) against BASE (this PR's
+# merge-base) and CANDIDATE (this ref), and fails the build on any fixture
+# that passed on base and fails on candidate — a REGRESSION. See
+# docs/design/prompt-replay-gate.md for the full design rationale, the
+# fixture format, and how to add a fixture.
+#
+# Scoping note: this gate checks the COMPOSED PROMPT — the exact bytes a
+# role would run with — for required sections, forbidden content, and a
+# token-budget ceiling. It does not run a live model against the prompt; see
+# the design doc's "future: replay against recorded traffic" section for
+# what a live-behavioural extension would need and why it isn't built here.
+
+on:
+  pull_request:
+    paths:
+      - 'agents/profiles/**'
+      - 'scripts/replay-gate/**'
+      - '.github/workflows/prompt-replay-gate.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'agents/profiles/**'
+      - 'scripts/replay-gate/**'
+      - '.github/workflows/prompt-replay-gate.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  behavioural-replay:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0 # need the base ref's tree, not just this ref's tip
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: install gate dependencies
+        run: pip install pyyaml pytest tiktoken
+
+      - name: unit + integration tests
+        run: pytest -q scripts/replay-gate/tests
+
+      - name: self-test (prove the gate detects a seeded regression before trusting a pass)
+        run: python3 scripts/replay-gate/prompt_contract_check.py --self-test
+
+      - name: resolve base ref for the BASE snapshot
+        id: base
+        run: |
+          if [ -n "${{ github.event.pull_request.base.sha }}" ]; then
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          elif git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+            BASE_SHA="$(git rev-parse HEAD~1)"
+          else
+            BASE_SHA="$(git rev-parse HEAD)"
+          fi
+          echo "sha=$BASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "Base ref for BASE snapshot: $BASE_SHA"
+
+      - name: export BASE agents/profiles/ snapshot from base ref
+        run: |
+          mkdir -p /tmp/base-profiles
+          git ls-tree -r --name-only "${{ steps.base.outputs.sha }}" -- agents/profiles \
+            | grep -E '\.(AGENTS\.md|yaml)$' \
+            | while read -r f; do
+                git show "${{ steps.base.outputs.sha }}:$f" > "/tmp/base-profiles/$(basename "$f")"
+              done
+          echo "BASE snapshot:"; ls /tmp/base-profiles/ || true
+
+      - name: compose CANDIDATE roster (must succeed — this is what would ship)
+        run: |
+          python3 scripts/replay-gate/compose_prompt.py compose-many \
+            --out-dir /tmp/candidate-composed
+
+      - name: compose BASE roster (informational — a new role may not exist at base)
+        run: |
+          python3 scripts/replay-gate/compose_prompt.py compose-many \
+            --profiles-dir /tmp/base-profiles --out-dir /tmp/base-composed || true
+
+      - name: byte / token report (candidate)
+        run: |
+          {
+            echo "## Prompt Replay Gate — candidate composition report"
+            echo
+            python3 scripts/replay-gate/compose_prompt.py report --manifest /tmp/candidate-composed/manifest.json
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: behavioural gate — base vs candidate pass/fail delta
+        run: |
+          {
+            echo
+            echo "## Prompt Replay Gate — contract delta"
+            echo
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          set +e
+          python3 scripts/replay-gate/prompt_contract_check.py \
+            --profiles-dir agents/profiles --label candidate \
+            --compare-profiles-dir /tmp/base-profiles --compare-label base \
+            --junit results/prompt-contract.xml | tee -a "$GITHUB_STEP_SUMMARY"
+          status=${PIPESTATUS[0]}
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          exit $status
+
+      - name: upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: prompt-contract-results
+          path: results/prompt-contract.xml
+          if-no-files-found: ignore
