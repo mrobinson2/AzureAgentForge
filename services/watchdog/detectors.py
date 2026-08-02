@@ -340,6 +340,263 @@ def detect_trigram_fallback(events: Iterable[dict], *, min_events: int = 10,
         {"fallbacks": fallbacks, "total_with_mode": len(modes)}, "Infrastructure")]
 
 
+# ---------------------------------------------------------------------------
+# Agent Ops Alert Pack — runaway loops, silent model degradation, spend burn
+# rate. See docs/design/watchdog-agent-ops-alerts.md for the full design
+# rationale (signal choice, false-positive posture, why each window is sized
+# the way it is).
+# ---------------------------------------------------------------------------
+
+# Runs whose stopReason lands here are "churn" for loop purposes: the agent
+# tried and did not land cleanly, as distinct from a normal completion. Reuses
+# the same classification detect_adapter_failures already uses for crashes.
+_LOOP_CHURN_STOP_REASONS = CRASH_STOP_REASONS
+
+
+def detect_run_loop(runs: Iterable[dict], *, max_runs_per_key: int = 8,
+                    churn_ratio_threshold: float = 0.6,
+                    min_runs_for_ratio: int = 10) -> list[Finding]:
+    """Runaway agent run-loop: an agent re-running far more than a single pass
+    should require.
+
+    Two independent triggers, because a loop can take either shape:
+
+    - RAW COUNT — >= max_runs_per_key runs for the same (agent, issue) pair in
+      the window. Catches a loop pinned to one unit of work (an issue stuck in
+      a retry cycle) even while the platform's other agents look idle and
+      healthy.
+    - CHURN RATIO — an agent whose window volume is large (>= min_runs_for_ratio)
+      and where a high share of those runs end in a crash-class stopReason
+      (adapter_failed/error/timeout). Catches a loop spread thin across many
+      issues, or one that never trips the per-issue count because `issueId`
+      isn't available on the run record.
+
+    `issueId` is read opportunistically (`issueId` then `issue_id`) since
+    whether the PaperClip runs API includes it can vary by deployment/version;
+    runs without it collapse into an agent-scoped "(none)" bucket rather than
+    being silently dropped, so the ratio signal still catches the loop.
+    """
+    by_key: dict[tuple, list[dict]] = {}
+    by_agent: dict[str, list[dict]] = {}
+    for r in runs:
+        agent = r.get("agentName") or r.get("agentId") or "?"
+        issue = r.get("issueId") or r.get("issue_id") or "(none)"
+        by_key.setdefault((agent, issue), []).append(r)
+        by_agent.setdefault(agent, []).append(r)
+
+    out: list[Finding] = []
+    flagged_agents: set[str] = set()
+
+    for (agent, issue), group in sorted(by_key.items(), key=lambda kv: -len(kv[1])):
+        if len(group) < max_runs_per_key:
+            continue
+        flagged_agents.add(agent)
+        churned = sum(1 for r in group if r.get("stopReason") in _LOOP_CHURN_STOP_REASONS)
+        where = f"issue {issue}" if issue != "(none)" else "one unit of work"
+        lesson = (
+            f"Known failure pattern (auto-observed by the watchdog): you "
+            f"('{agent}') re-ran {len(group)}x on {where} within one window. "
+            f"That is a retry loop, not progress -- stop and report a platform "
+            f"issue rather than re-attempting the same call. Confirm you actually "
+            f"changed something before the next attempt."
+        )
+        out.append(_ev(
+            "critical", f"run-loop:{agent}:{issue}",
+            f"Agent '{agent}' re-ran {len(group)}x on {where} in window",
+            f"{agent} produced {len(group)} runs against {where} within the "
+            f"detection window ({churned} ended in a crash-class stopReason). "
+            f"A healthy agent completes or hands off a unit of work in one or "
+            f"two passes; this many re-runs without an operator noticing is how "
+            f"a loop turns into a bill before anyone sees the symptom.",
+            {"agent": agent, "issue": issue, "run_count": len(group),
+             "crash_stop_count": churned,
+             "run_ids": [r.get("id") for r in group][:10]},
+            "Orchestrator", subject_agent=agent, lesson=lesson))
+
+    for agent, group in by_agent.items():
+        if agent in flagged_agents or len(group) < min_runs_for_ratio:
+            continue
+        churned = sum(1 for r in group if r.get("stopReason") in _LOOP_CHURN_STOP_REASONS)
+        ratio = churned / len(group)
+        if ratio < churn_ratio_threshold:
+            continue
+        lesson = (
+            f"Known failure pattern (auto-observed by the watchdog): you "
+            f"('{agent}') closed {ratio:.0%} of {len(group)} runs this window "
+            f"with a crash-class stop reason -- a churn pattern, not scattered "
+            f"bad luck. Stop and report a platform issue rather than continuing "
+            f"to retry."
+        )
+        out.append(_ev(
+            "high", f"run-loop-churn:{agent}",
+            f"Agent '{agent}' churning ({ratio:.0%} crash-stopped, {len(group)} runs)",
+            f"{agent} had {len(group)} runs in the window with {churned} "
+            f"({ratio:.0%}) ending in a crash-class stopReason, spread across "
+            f"more than one unit of work so no single issue crossed the "
+            f"per-issue threshold. High churn without a concentrated hot spot "
+            f"still burns compute and time for zero progress.",
+            {"agent": agent, "run_count": len(group), "crash_stop_count": churned,
+             "churn_ratio": round(ratio, 3)},
+            "Orchestrator", subject_agent=agent, lesson=lesson))
+    return out
+
+
+def _normalize_model_set(value) -> frozenset:
+    if value is None:
+        return frozenset()
+    if isinstance(value, str):
+        return frozenset({value})
+    return frozenset(value)
+
+
+def detect_model_degradation(runs: Iterable[dict], *, expected_models: Optional[dict] = None,
+                             min_calls: int = 5, threshold: float = 0.3) -> list[Finding]:
+    """Silent model degradation: an agent's calls sustainedly served by a model
+    other than the one configured for it.
+
+    A router falling back to a cheaper/available model when a preferred tier's
+    stream won't open is CORRECT behaviour -- a call should degrade rather than
+    drop. The failure mode this catches is that fallback going unnoticed: it
+    typically logs at a level nobody reads, so the configured-model table and
+    the served-model table quietly diverge and the only symptom is the invoice
+    (a cheaper intended model served for less; a rate-limited primary served by
+    a pricier fallback costs more) at the end of the billing period.
+
+    `expected_models` maps agentName/agentId -> the expected model id, or an
+    iterable of acceptable model ids (a tier with more than one acceptable
+    deployment). Agents absent from the map are skipped -- this detector is
+    opt-in-by-configuration, matching detect_budget_anomaly's agent_caps
+    pattern: unconfigured, it is a documented no-op rather than a guess.
+    Fires one finding per agent whose mismatch rate is >= threshold over
+    >= min_calls calls with a recorded `model` -- enough volume that one
+    transient fallback can't trip it.
+    """
+    expected = {k: _normalize_model_set(v) for k, v in (expected_models or {}).items()}
+    if not expected:
+        return []
+
+    by_agent: dict[str, list[dict]] = {}
+    for r in runs:
+        agent = r.get("agentName") or r.get("agentId")
+        if agent in expected and r.get("model"):
+            by_agent.setdefault(agent, []).append(r)
+
+    out: list[Finding] = []
+    for agent, calls in by_agent.items():
+        total = len(calls)
+        if total < min_calls:
+            continue
+        wanted = expected[agent]
+        mismatched = [r for r in calls if r["model"] not in wanted]
+        rate = len(mismatched) / total
+        if rate < threshold:
+            continue
+        served_counts: dict[str, int] = {}
+        for r in mismatched:
+            served_counts[r["model"]] = served_counts.get(r["model"], 0) + 1
+        top_served = max(served_counts, key=served_counts.get)
+        mismatch_cost = sum(
+            c for r in mismatched if isinstance((c := r.get("cost_usd")), (int, float)))
+        wanted_display = "/".join(sorted(wanted))
+        lesson = (
+            f"Known failure pattern (auto-observed by the watchdog): calls "
+            f"routed to you ('{agent}') were served by '{top_served}' instead of "
+            f"the expected '{wanted_display}' in {rate:.0%} of {total} calls this "
+            f"window. If you can see which model actually answered, treat a "
+            f"persistent mismatch as a platform issue to report, not something "
+            f"to silently work around."
+        )
+        evidence = {"agent": agent, "expected_models": sorted(wanted),
+                    "top_served_model": top_served, "mismatch_count": len(mismatched),
+                    "total_calls": total, "mismatch_rate": round(rate, 3)}
+        if mismatch_cost:
+            evidence["mismatch_spend_usd"] = round(mismatch_cost, 2)
+        out.append(_ev(
+            "high", f"model-degradation:{agent}:{top_served}",
+            f"Agent '{agent}' served by '{top_served}' instead of "
+            f"'{wanted_display}' in {rate:.0%} of calls",
+            f"{agent} expects '{wanted_display}' but {len(mismatched)}/{total} "
+            f"({rate:.0%}) calls this window were actually served by "
+            f"'{top_served}'. The configured and served model tables have "
+            f"diverged -- check the router for quota exhaustion, a dead "
+            f"endpoint, or a de-registered deployment on the expected model.",
+            evidence, "Infrastructure", subject_agent=agent, lesson=lesson))
+    return out
+
+
+def detect_spend_burn_rate(runs: Iterable[dict], *, agent_caps: dict, window_hours: float,
+                           period_days: int = 30, pace_multiplier: float = 2.0,
+                           critical_pace_multiplier: float = 4.0) -> list[Finding]:
+    """Spend burn-rate: an agent's current spend rate, projected across the
+    full billing period, on pace to blow through its cap well before the
+    period ends.
+
+    Deliberately projection-based rather than a running-total check (that's
+    detect_budget_anomaly's job): a runaway loop is loud on the MONEY side
+    well before it is loud anywhere else, and "spend so far" alone doesn't
+    say whether that's on pace or already flattening out. `window_hours` is
+    the length of time `runs` actually spans -- callers should supply a
+    smoothed window (a day, not the platform's regular short polling tick)
+    since a short window massively over-projects any ordinary burst (a
+    legitimate backlog-recovery run looks identical to a runaway loop under a
+    30-minute lens; a day of smoothing tells them apart while still catching
+    real multi-hour overspend). `agent_caps` reuses the same
+    {agentName: monthly_cap_usd} mapping detect_budget_anomaly takes, so a
+    deployment configures spend limits once.
+
+    Fires `critical` at >= critical_pace_multiplier x pace (default 4x -- the
+    cap would be gone in a quarter of the period), else `high` at
+    >= pace_multiplier x pace (default 2x). Evidence includes an ETA to
+    cap-exhaustion at the current rate.
+    """
+    if window_hours <= 0:
+        return []
+    spend: dict[str, float] = {}
+    for r in runs:
+        c = r.get("cost_usd")
+        if isinstance(c, (int, float)):
+            agent = r.get("agentName") or "?"
+            spend[agent] = spend.get(agent, 0.0) + c
+
+    out: list[Finding] = []
+    for agent, total in spend.items():
+        cap = agent_caps.get(agent)
+        if not cap:
+            continue
+        rate_per_hour = total / window_hours
+        projected = rate_per_hour * period_days * 24
+        pace = projected / cap
+        if pace < pace_multiplier:
+            continue
+        severity = "critical" if pace >= critical_pace_multiplier else "high"
+        eta_hours = (cap / rate_per_hour) if rate_per_hour > 0 else None
+        lesson = (
+            f"Known failure pattern (auto-observed by the watchdog): your "
+            f"('{agent}') spend over the last {window_hours:.0f}h projects to "
+            f"${projected:.2f} across the {period_days}-day period against a "
+            f"${cap:.2f} cap ({pace:.1f}x pace). Be economical: confirm a call "
+            f"is making progress before repeating it, and stop and report a "
+            f"platform issue rather than looping."
+        )
+        evidence = {"agent": agent, "window_hours": round(window_hours, 1),
+                    "spend_in_window_usd": round(total, 2),
+                    "projected_period_spend_usd": round(projected, 2),
+                    "cap_usd": cap, "pace_multiplier": round(pace, 2),
+                    "period_days": period_days}
+        if eta_hours is not None:
+            evidence["eta_hours_to_cap"] = round(eta_hours, 1)
+        out.append(_ev(
+            severity, f"burn-rate:{agent}",
+            f"Agent '{agent}' spend on pace for {pace:.1f}x its {period_days}-day cap",
+            f"{agent} spent ${total:.2f} over the last {window_hours:.0f}h, "
+            f"projecting to ${projected:.2f} across the {period_days}-day "
+            f"period against a ${cap:.2f} cap ({pace:.1f}x pace)"
+            + (f", exhausting the cap in ~{eta_hours:.0f}h at this rate" if eta_hours else "")
+            + ". Investigate for a loop or a misrouted model before the hard cap trips.",
+            evidence, "CostGuardian", subject_agent=agent, lesson=lesson))
+    return out
+
+
 ALL_DETECTORS = (
     detect_adapter_failures,
     detect_stuck_wakes,
@@ -347,6 +604,8 @@ ALL_DETECTORS = (
     detect_fabrication_signals,
     detect_stale_sync,
     detect_trigram_fallback,
+    detect_run_loop,
+    detect_model_degradation,
 )
 
 
@@ -354,12 +613,27 @@ def run_detectors(runs: list[dict], events: list[dict],
                   agent_caps: Optional[dict] = None, *,
                   last_sync_ts: Optional[datetime] = None,
                   now: Optional[datetime] = None,
-                  monitor_standby_sync: bool = False) -> list[Finding]:
+                  monitor_standby_sync: bool = False,
+                  run_loop_max_per_key: int = 8,
+                  run_loop_churn_ratio: float = 0.6,
+                  run_loop_min_runs: int = 10,
+                  expected_models: Optional[dict] = None,
+                  model_degradation_min_calls: int = 5,
+                  model_degradation_threshold: float = 0.3) -> list[Finding]:
     """Run every detector over the window; return all findings (caller dedups).
 
     Standby-site sync freshness is opt-in (`monitor_standby_sync=True`, set by
     watchdog.py when STANDBY_SYNC_MONITOR is configured) so plain deployments
-    never file false sync-stale issues."""
+    never file false sync-stale issues.
+
+    Run-loop and model-degradation are always on (they need only the standard
+    runs window already fetched every tick): run-loop has sane built-in
+    defaults, model-degradation is a documented no-op until `expected_models`
+    is configured -- same posture detect_budget_anomaly already has with
+    `agent_caps`. Spend burn-rate is NOT run here -- it needs its own smoothed,
+    longer-window fetch (see detect_spend_burn_rate's docstring), so
+    watchdog.py calls it directly, the same way it already calls
+    detect_expiring_secrets and detect_research_backends."""
     caps = agent_caps or {}
     findings: list[Finding] = []
     findings += detect_adapter_failures(runs)
@@ -367,6 +641,12 @@ def run_detectors(runs: list[dict], events: list[dict],
     findings += detect_budget_anomaly(runs, agent_caps=caps)
     findings += detect_fabrication_signals(events)
     findings += detect_trigram_fallback(events)
+    findings += detect_run_loop(runs, max_runs_per_key=run_loop_max_per_key,
+                               churn_ratio_threshold=run_loop_churn_ratio,
+                               min_runs_for_ratio=run_loop_min_runs)
+    findings += detect_model_degradation(runs, expected_models=expected_models,
+                                        min_calls=model_degradation_min_calls,
+                                        threshold=model_degradation_threshold)
     if monitor_standby_sync:
         findings += detect_stale_sync(last_sync_ts, now=now or datetime.now(timezone.utc))
     return findings
