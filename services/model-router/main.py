@@ -38,6 +38,13 @@ import budget_enforcement
 import flight_recorder
 import waste_breakers
 
+# Local modules (same directory): fail-closed resilience pack — three-state
+# circuit breakers keyed per upstream credential, plus the scoped paid-action
+# kill switch. See the "Fail-Closed Resilience Pack" section below and
+# docs/design/router-resilience-pack.md.
+import circuit_breaker
+import kill_switch
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("router")
 
@@ -738,6 +745,361 @@ def _emit_flight_event(
         prompt_excerpt=prompt_excerpt,
         response_excerpt=response_excerpt,
     )
+
+
+# ─── Fail-Closed Resilience Pack ──────────────────────────────────────────────
+# Two governance controls over upstream dispatch, both refusing rather than
+# rerouting. Full design + operator workflow:
+# docs/design/router-resilience-pack.md.
+#
+#   1. CIRCUIT BREAKERS (circuit_breaker.py) — three states per upstream
+#      *credential identity*, tripped only by auth failures, quota exhaustion,
+#      and connection-level failures. While OPEN the router returns a typed
+#      503 and never invokes that upstream. Enabled by default: a breaker is
+#      fail-safe by construction, it can only stop calls that are already
+#      failing a narrow, explicit set of checks.
+#
+#   2. KILL SWITCH (kill_switch.py) — scoped operator control over metered
+#      dispatch (`paid_fallback`, `all_paid`). Disengaged by default: it is a
+#      deliberate incident action, not a posture.
+#
+# The two compose. `ROUTER_BREAKER_FAIL_CLOSED` (default on) is the seam: when
+# a request's primary upstream is OPEN, a *metered* fallback hop is refused
+# instead of attempted — the automatic version of engaging `paid_fallback` for
+# the duration of one request. Free local tiers still serve, so an edge host
+# going offline still degrades to Foundry the way it always did.
+
+
+def _flag(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None or not raw.strip():
+        return default
+    return raw.strip().lower() in ("1", "true", "yes")
+
+
+BREAKERS_ENABLED = _flag("ROUTER_BREAKER_ENABLED", True)
+_BREAKER_FAIL_CLOSED = _flag("ROUTER_BREAKER_FAIL_CLOSED", True)
+_BREAKER_CONFIG = circuit_breaker.BreakerConfig(
+    enabled=BREAKERS_ENABLED,
+    failure_threshold=circuit_breaker.positive_int(
+        os.environ.get("ROUTER_BREAKER_FAILURE_THRESHOLD"), 5
+    ),
+    cooldown_seconds=circuit_breaker.positive_float(
+        os.environ.get("ROUTER_BREAKER_COOLDOWN_SECONDS"), 60.0
+    ),
+    half_open_probes=circuit_breaker.positive_int(
+        os.environ.get("ROUTER_BREAKER_HALF_OPEN_PROBES"), 1
+    ),
+)
+
+
+def _on_breaker_transition(event: dict) -> None:
+    """Log + record every breaker state change. A trip is a governance event:
+    it says the router stopped spending on an upstream, which is exactly the
+    thing an operator needs in the trace when they ask why traffic stopped."""
+    log.warning(
+        "circuit_breaker_transition key=%s %s->%s reason=%s failures=%s trips=%s",
+        event["key"], event["from_state"], event["to_state"],
+        event.get("reason"), event.get("failures"), event.get("trips"),
+    )
+    if _flight_recorder is None:
+        return
+    _flight_recorder.record(
+        endpoint="circuit_breaker",
+        event_type="breaker_transition",
+        outcome=(
+            flight_recorder.OUTCOME_ERROR
+            if event["to_state"] == circuit_breaker.STATE_OPEN
+            else flight_recorder.OUTCOME_SUCCESS
+        ),
+        error_class=f"breaker_{event['to_state']}",
+        breaker_key=event["key"],
+        breaker_from_state=event["from_state"],
+        breaker_to_state=event["to_state"],
+        breaker_reason=event.get("reason"),
+        breaker_failures=event.get("failures"),
+        breaker_trips=event.get("trips"),
+    )
+
+
+_breakers = circuit_breaker.CircuitBreakerRegistry(
+    _BREAKER_CONFIG, on_transition=_on_breaker_transition
+)
+
+_KILL_SWITCH_BOOT_SCOPES, _kill_switch_unknown_scopes = kill_switch.parse_scopes(
+    os.environ.get("ROUTER_KILL_SWITCH_SCOPES")
+)
+if _kill_switch_unknown_scopes:
+    # Loud, but non-fatal: a typo must not stop the router booting, and must
+    # not silently look like an engaged kill switch either.
+    log.error(
+        "kill_switch_unknown_scopes ignored=%s valid=%s",
+        _kill_switch_unknown_scopes, list(kill_switch.ALL_SCOPES),
+    )
+
+
+def _on_kill_switch_event(event: dict) -> None:
+    log.warning(
+        "kill_switch event=%s scope=%s actor=%s changed=%s engaged=%s reason=%s",
+        event["event"], event["scope"], event.get("actor"),
+        event.get("changed"), event.get("engaged_scopes"), event.get("reason"),
+    )
+    if _flight_recorder is None:
+        return
+    _flight_recorder.record(
+        endpoint="kill_switch",
+        event_type=event["event"],
+        outcome=(
+            flight_recorder.OUTCOME_ERROR
+            if event["event"] == kill_switch.EVENT_ENGAGED
+            else flight_recorder.OUTCOME_SUCCESS
+        ),
+        error_class=event["event"],
+        kill_switch_scope=event["scope"],
+        kill_switch_actor=event.get("actor"),
+        kill_switch_reason=event.get("reason"),
+        kill_switch_changed=event.get("changed"),
+        kill_switch_engaged=event.get("engaged_scopes"),
+    )
+
+
+_kill_switch = kill_switch.KillSwitch(
+    _KILL_SWITCH_BOOT_SCOPES, on_event=_on_kill_switch_event
+)
+
+# Optional second credential for the MUTATING admin route. When unset, flipping
+# the kill switch at runtime needs only ROUTER_API_KEY — the same auth every
+# /debug/* route already uses, which is the documented pattern here. Set it to
+# separate "can call the router" from "can turn the router's spend controls
+# off": every in-mesh agent holds ROUTER_API_KEY, and none of them should be
+# able to release a kill switch an operator engaged during an incident.
+_ROUTER_ADMIN_API_KEY = os.environ.get("ROUTER_ADMIN_API_KEY", "").strip()
+
+log.info(
+    "resilience breakers_enabled=%s threshold=%s cooldown_s=%s half_open_probes=%s "
+    "fail_closed_fallback=%s kill_switch_boot_scopes=%s admin_key_required=%s",
+    BREAKERS_ENABLED, _BREAKER_CONFIG.failure_threshold, _BREAKER_CONFIG.cooldown_seconds,
+    _BREAKER_CONFIG.half_open_probes, _BREAKER_FAIL_CLOSED,
+    sorted(_KILL_SWITCH_BOOT_SCOPES) or "(none)", bool(_ROUTER_ADMIN_API_KEY),
+)
+
+
+class ResilienceBlocked(HTTPException):
+    """A dispatch the resilience pack refused, as a typed 503.
+
+    Its own class (rather than a bare HTTPException) so the fallback loops can
+    re-raise it instead of swallowing it into "all tiers failed". A caller
+    must be able to tell "your credential is broken / spending is halted"
+    apart from "every model we tried errored" — they need different responses
+    from a human.
+    """
+
+    def __init__(self, *, code: str, detail: dict, headers: dict[str, str] | None = None):
+        super().__init__(status_code=503, detail=detail, headers=headers or {})
+        self.code = code
+
+
+def _is_metered_tier(tier: str) -> bool:
+    """True when dispatching to `tier` spends real per-token money.
+
+    False only for local Ollama tiers: inference on an edge host the operator
+    already owns has zero marginal cost, so it is the free recovery path a
+    cost control must never turn into an availability incident.
+    """
+    cfg = MODELS.get(tier) or {}
+    return not bool(cfg.get("is_ollama"))
+
+
+def _breaker_key(tier: str) -> str:
+    """Breaker key for a tier: its upstream credential identity, not its name.
+    See circuit_breaker.credential_key for why."""
+    cfg = MODELS.get(tier) or {}
+    return circuit_breaker.credential_key(
+        api_base=cfg.get("api_base"), api_key=cfg.get("api_key")
+    )
+
+
+def _resilience_gate(
+    candidate: str, *, primary_tier: str, is_fallback: bool
+) -> circuit_breaker.AdmitVerdict:
+    """Decide whether ONE upstream dispatch may proceed.
+
+    Raises ResilienceBlocked (typed 503) instead of returning, so there is no
+    way to accidentally ignore the verdict and dispatch anyway. Returns the
+    breaker's admit verdict, which the caller must hand back to
+    _record_dispatch_outcome exactly once (a half-open admission consumes the
+    breaker's single probe).
+
+    Order is deliberate: operator intent first, then automatic policy, then
+    upstream health. The breaker's admit() call is LAST because it is the only
+    step with a side effect — no path may consume a probe and then refuse.
+    """
+    metered = _is_metered_tier(candidate)
+    intent = kill_switch.DispatchIntent(
+        tier=candidate, metered=metered, is_fallback=is_fallback, primary_tier=primary_tier,
+    )
+    decision = _kill_switch.evaluate(intent)
+    if decision.blocked:
+        detail = kill_switch.block_detail(decision, intent)
+        log.warning(
+            "dispatch_blocked code=%s scope=%s tier=%s primary=%s",
+            kill_switch.KILL_SWITCH_ERROR_CODE, decision.scope, candidate, primary_tier,
+        )
+        raise ResilienceBlocked(
+            code=kill_switch.KILL_SWITCH_ERROR_CODE,
+            detail=detail,
+            headers={
+                "X-Router-Error-Code": kill_switch.KILL_SWITCH_ERROR_CODE,
+                "X-Router-Kill-Switch-Scope": decision.scope or "",
+                "X-Router-Retryable": "false",
+            },
+        )
+
+    # Fail-closed cost posture: the primary upstream is shut off, so this
+    # request is already an incident. Falling through to a metered model is
+    # exactly the silent spend this pack exists to stop. A free local fallback
+    # is untouched.
+    if (
+        is_fallback
+        and metered
+        and _BREAKER_FAIL_CLOSED
+        and _breakers.is_open(_breaker_key(primary_tier))
+    ):
+        verdict = circuit_breaker.AdmitVerdict(
+            allowed=False,
+            state=circuit_breaker.STATE_OPEN,
+            key=_breaker_key(primary_tier),
+        )
+        detail = circuit_breaker.open_detail(
+            verdict, tier=candidate, fail_closed_fallback=True, primary_tier=primary_tier,
+        )
+        log.warning(
+            "dispatch_blocked code=%s reason=fail_closed_fallback tier=%s primary=%s",
+            circuit_breaker.BREAKER_OPEN_ERROR_CODE, candidate, primary_tier,
+        )
+        raise ResilienceBlocked(
+            code=circuit_breaker.BREAKER_OPEN_ERROR_CODE,
+            detail=detail,
+            headers=_breaker_headers(detail),
+        )
+
+    verdict = _breakers.admit(_breaker_key(candidate))
+    if not verdict.allowed:
+        detail = circuit_breaker.open_detail(
+            verdict, tier=candidate, primary_tier=primary_tier,
+        )
+        log.warning(
+            "dispatch_blocked code=%s state=%s tier=%s key=%s",
+            circuit_breaker.BREAKER_OPEN_ERROR_CODE, verdict.state, candidate, verdict.key,
+        )
+        raise ResilienceBlocked(
+            code=circuit_breaker.BREAKER_OPEN_ERROR_CODE,
+            detail=detail,
+            headers=_breaker_headers(detail),
+        )
+    return verdict
+
+
+def _breaker_headers(detail: dict) -> dict[str, str]:
+    retry_after = max(1, int(round(detail.get("retry_after_seconds") or 0))) if detail.get(
+        "retryable"
+    ) else 0
+    headers = {
+        "X-Router-Error-Code": circuit_breaker.BREAKER_OPEN_ERROR_CODE,
+        "X-Router-Breaker-State": str(detail.get("breaker_state", "")),
+        "X-Router-Retryable": "true" if detail.get("retryable") else "false",
+    }
+    if retry_after:
+        headers["Retry-After"] = str(retry_after)
+    return headers
+
+
+def _record_dispatch_outcome(
+    tier: str, verdict: circuit_breaker.AdmitVerdict | None, exc: BaseException | None = None
+) -> str | None:
+    """Report the result of one admitted dispatch back to its breaker.
+
+    Returns the trip reason recorded, or None when the failure was not
+    breaker-eligible. The half-open case is the subtle one: a probe that
+    failed for a NON-eligible reason must still resolve the probe, or the
+    breaker sits half-open with a verdict nobody ever delivers.
+    """
+    if not BREAKERS_ENABLED:
+        return None
+    key = _breaker_key(tier)
+    if exc is None:
+        _breakers.record_success(key)
+        return None
+    reason = circuit_breaker.classify_failure(exc)
+    if reason is None:
+        if verdict is not None and verdict.state == circuit_breaker.STATE_HALF_OPEN:
+            _breakers.record_failure(key, reason=circuit_breaker.TRIP_PROBE_FAILED)
+            return circuit_breaker.TRIP_PROBE_FAILED
+        log.debug(
+            "breaker_ignored_failure tier=%s error_class=%s (not a trip signal)",
+            tier, type(exc).__name__,
+        )
+        return None
+    _breakers.record_failure(key, reason=reason)
+    return reason
+
+
+async def _guarded_call_model(
+    candidate: str, body: dict, *, primary_tier: str, is_fallback: bool
+) -> dict:
+    """_call_model behind the resilience gate. The gate raises BEFORE the call,
+    so an OPEN breaker means the upstream is genuinely never invoked."""
+    verdict = _resilience_gate(candidate, primary_tier=primary_tier, is_fallback=is_fallback)
+    try:
+        result = await _call_model(candidate, body)
+    except Exception as exc:
+        _record_dispatch_outcome(candidate, verdict, exc)
+        raise
+    _record_dispatch_outcome(candidate, verdict)
+    return result
+
+
+async def _guarded_open_stream(
+    candidate: str, body: dict, *, primary_tier: str, is_fallback: bool
+):
+    """_open_stream behind the resilience gate. Opening the stream is where the
+    upstream connection (and its auth) is actually exercised, so it is the
+    right place to score the breaker for the streaming path."""
+    verdict = _resilience_gate(candidate, primary_tier=primary_tier, is_fallback=is_fallback)
+    try:
+        stream_iter = await _open_stream(candidate, body)
+    except Exception as exc:
+        _record_dispatch_outcome(candidate, verdict, exc)
+        raise
+    _record_dispatch_outcome(candidate, verdict)
+    return stream_iter
+
+
+def _breaker_state_by_tier() -> dict[str, str]:
+    """Per-tier breaker state for the health probe. Several tiers can share one
+    state — that is the credential keying working as designed."""
+    return {tier: _breakers.state(_breaker_key(tier)) for tier in MODELS}
+
+
+def _resilience_status(*, include_keys: bool) -> dict:
+    status: dict[str, Any] = {
+        "circuit_breakers": {
+            "enabled": BREAKERS_ENABLED,
+            "fail_closed_fallback": _BREAKER_FAIL_CLOSED,
+            "failure_threshold": _BREAKER_CONFIG.failure_threshold,
+            "cooldown_seconds": _BREAKER_CONFIG.cooldown_seconds,
+            "half_open_probes": _BREAKER_CONFIG.half_open_probes,
+            "by_tier": _breaker_state_by_tier(),
+            "open_keys": len(_breakers.open_keys()),
+        },
+        "kill_switch": _kill_switch.snapshot(),
+    }
+    if include_keys:
+        # Per-key detail is auth-gated. The key itself is a salted per-process
+        # fingerprint (no hostname, no key material), but the trip history it
+        # carries is operational detail an unauthenticated probe doesn't need.
+        status["circuit_breakers"]["by_key"] = _breakers.snapshot_all()
+    return status
 
 
 # ─── Observability (GenAI semconv) ────────────────────────────────────────────
@@ -1554,6 +1916,7 @@ def _build_messages_passthrough_kwargs(cfg: dict, body: dict, request: Request) 
 async def _stream_anthropic_messages_sse(
     client, kwargs: dict[str, Any], tier: str, t_start: float,
     caller: str | None = None,
+    breaker_verdict: "circuit_breaker.AdmitVerdict | None" = None,
 ):
     """Yield raw Anthropic SSE events as the upstream stream produces them.
 
@@ -1593,8 +1956,13 @@ async def _stream_anthropic_messages_sse(
             tier, MODELS[tier]["litellm_model"].split("/", 1)[1],
             type("U", (), usage_acc)(), caller=caller,
         )
+        # The upstream connection for this path is not established until the
+        # stream is iterated, so this is the first point where the breaker can
+        # honestly be scored for a native Messages stream.
+        _record_dispatch_outcome(tier, breaker_verdict)
         log.info("messages_stream_ok tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
     except Exception as e:
+        _record_dispatch_outcome(tier, breaker_verdict, e)
         log.warning("messages_stream_failed tier=%s error=%s", tier, e)
         # aaf-0016: generic client-facing message; real error stays in the log.
         err_payload = {"type": "error", "error": {"type": "api_error", "message": "upstream provider error"}}
@@ -1907,37 +2275,22 @@ async def chat_completions(request: Request):
 
     if stream:
         last_error: Exception | None = None
+        # A resilience refusal is remembered, not raised inline: a later
+        # candidate may still be servable (a free local tier is exempt from
+        # the paid-fallback rules), and only if the whole chain is exhausted
+        # does the typed 503 become the response. What it must never do is
+        # collapse into the generic 502 below — "spending is halted" and
+        # "every model errored" are different incidents.
+        blocked: ResilienceBlocked | None = None
 
-        for candidate in [tier] + fallback_chain:
+        for position, candidate in enumerate([tier] + fallback_chain):
             try:
-                stream_iter = await _open_stream(candidate, body)
-                log.info(
-                    "streaming tier=%s latency=%.2fs",
-                    candidate,
-                    time.monotonic() - t_start,
+                stream_iter = await _guarded_open_stream(
+                    candidate, body, primary_tier=tier, is_fallback=position > 0,
                 )
-                # Streaming responses are consumed by the caller after we
-                # return, so real usage/cost isn't known here — record what
-                # IS known now (tier, tokens estimate, latency-to-open) and
-                # flag it as an estimate via streamed=True.
-                _emit_flight_event(
-                    fc_ctx, t_start=t_start,
-                    outcome=(
-                        flight_recorder.OUTCOME_DOWNGRADED if candidate != tier
-                        else flight_recorder.OUTCOME_SUCCESS
-                    ),
-                    served_tier=candidate, served_model=MODELS.get(candidate, {}).get("litellm_model"),
-                    input_tokens=estimated, breaker_verdicts=breaker_verdicts, streamed=True,
-                )
-                return StreamingResponse(
-                    _iter_stream(stream_iter, candidate),
-                    media_type="text/event-stream",
-                    headers={
-                        "Cache-Control": "no-cache",
-                        "Connection": "keep-alive",
-                        **bd_headers,
-                    },
-                )
+            except ResilienceBlocked as rb:
+                blocked = rb
+                continue
             except Exception as e:
                 last_error = e
                 log.warning("stream_init_failed tier=%s error=%s", candidate, e)
@@ -1946,6 +2299,43 @@ async def chat_completions(request: Request):
                     candidate,
                     traceback.format_exc(),
                 )
+                continue
+
+            log.info(
+                "streaming tier=%s latency=%.2fs",
+                candidate,
+                time.monotonic() - t_start,
+            )
+            # Streaming responses are consumed by the caller after we
+            # return, so real usage/cost isn't known here — record what
+            # IS known now (tier, tokens estimate, latency-to-open) and
+            # flag it as an estimate via streamed=True.
+            _emit_flight_event(
+                fc_ctx, t_start=t_start,
+                outcome=(
+                    flight_recorder.OUTCOME_DOWNGRADED if candidate != tier
+                    else flight_recorder.OUTCOME_SUCCESS
+                ),
+                served_tier=candidate, served_model=MODELS.get(candidate, {}).get("litellm_model"),
+                input_tokens=estimated, breaker_verdicts=breaker_verdicts, streamed=True,
+            )
+            return StreamingResponse(
+                _iter_stream(stream_iter, candidate),
+                media_type="text/event-stream",
+                headers={
+                    "Cache-Control": "no-cache",
+                    "Connection": "keep-alive",
+                    **bd_headers,
+                },
+            )
+
+        if blocked is not None:
+            _emit_flight_event(
+                fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+                input_tokens=estimated, error_class=f"resilience_block:{blocked.code}",
+                breaker_verdicts=breaker_verdicts, streamed=True,
+            )
+            raise blocked
 
         # aaf-0016: don't echo the raw last_error string to the client; it's logged
         # per-tier above.
@@ -1959,45 +2349,60 @@ async def chat_completions(request: Request):
             detail="All tiers failed to initialise stream",
         )
 
-    # Non-streaming path
-    try:
-        result = await _call_model(tier, body)
-        result["_router"] = {"tier": tier, "estimated_input_tokens": estimated, **bd_meta}
-        log.info("success tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
-        _model, _in, _out = _usage_from_result(result, fallback_tier=tier)
+    # Non-streaming path. One loop over [primary] + fallbacks so every hop goes
+    # through the same resilience gate; position 0 is the caller's originally
+    # selected tier, everything after it is a fallback dispatch.
+    blocked = None
+    for position, candidate in enumerate([tier] + fallback_chain):
+        try:
+            result = await _guarded_call_model(
+                candidate, body, primary_tier=tier, is_fallback=position > 0,
+            )
+        except ResilienceBlocked as rb:
+            blocked = rb
+            continue
+        except Exception as e:
+            if position == 0:
+                log.warning("primary_failed tier=%s error=%s", candidate, e)
+                log.debug("primary_failed_traceback tier=%s\n%s", candidate, traceback.format_exc())
+            else:
+                log.warning("fallback_failed tier=%s error=%s", candidate, e)
+                log.debug(
+                    "fallback_failed_traceback tier=%s\n%s", candidate, traceback.format_exc()
+                )
+            continue
+
+        router_meta: dict[str, Any] = {"tier": candidate}
+        if position > 0:
+            router_meta["fallback_from"] = tier
+        router_meta["estimated_input_tokens"] = estimated
+        router_meta.update(bd_meta)
+        result["_router"] = router_meta
+        log.info(
+            "%s tier=%s latency=%.2fs",
+            "success" if position == 0 else "fallback_success",
+            candidate, time.monotonic() - t_start,
+        )
+        _model, _in, _out = _usage_from_result(result, fallback_tier=candidate)
         _emit_flight_event(
             fc_ctx, t_start=t_start,
             outcome=(
-                flight_recorder.OUTCOME_DOWNGRADED if bd_meta else flight_recorder.OUTCOME_SUCCESS
+                flight_recorder.OUTCOME_DOWNGRADED
+                if (position > 0 or bd_meta)
+                else flight_recorder.OUTCOME_SUCCESS
             ),
-            served_tier=tier, served_model=_model, input_tokens=_in, output_tokens=_out,
+            served_tier=candidate, served_model=_model, input_tokens=_in, output_tokens=_out,
             cost_usd=result.pop("__router_cost_usd__", 0.0), breaker_verdicts=breaker_verdicts,
         )
         return JSONResponse(content=result, headers=bd_headers)
-    except Exception as e:
-        log.warning("primary_failed tier=%s error=%s", tier, e)
-        log.debug("primary_failed_traceback tier=%s\n%s", tier, traceback.format_exc())
 
-    for fb in fallback_chain:
-        try:
-            result = await _call_model(fb, body)
-            result["_router"] = {
-                "tier": fb,
-                "fallback_from": tier,
-                "estimated_input_tokens": estimated,
-                **bd_meta,
-            }
-            log.info("fallback_success tier=%s latency=%.2fs", fb, time.monotonic() - t_start)
-            _model, _in, _out = _usage_from_result(result, fallback_tier=fb)
-            _emit_flight_event(
-                fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_DOWNGRADED,
-                served_tier=fb, served_model=_model, input_tokens=_in, output_tokens=_out,
-                cost_usd=result.pop("__router_cost_usd__", 0.0), breaker_verdicts=breaker_verdicts,
-            )
-            return JSONResponse(content=result, headers=bd_headers)
-        except Exception as e:
-            log.warning("fallback_failed tier=%s error=%s", fb, e)
-            log.debug("fallback_failed_traceback tier=%s\n%s", fb, traceback.format_exc())
+    if blocked is not None:
+        _emit_flight_event(
+            fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+            input_tokens=estimated, error_class=f"resilience_block:{blocked.code}",
+            breaker_verdicts=breaker_verdicts,
+        )
+        raise blocked
 
     _emit_flight_event(
         fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
@@ -2120,6 +2525,33 @@ async def messages(request: Request):
     client = _make_anthropic_client(cfg)
     kwargs = _build_messages_passthrough_kwargs(cfg, body, request)
 
+    # Resilience gate. This endpoint has no fallback chain — the response must
+    # stay Anthropic-shaped end to end — so only the `all_paid` kill-switch
+    # scope and this tier's own breaker can refuse here. The refusal is
+    # returned in the Anthropic error envelope for the same reason the budget
+    # block above is: an anthropic_messages transport must be able to parse it
+    # like any other upstream error.
+    try:
+        breaker_verdict = _resilience_gate(tier, primary_tier=tier, is_fallback=False)
+    except ResilienceBlocked as rb:
+        _emit_flight_event(
+            fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+            served_tier=tier, error_class=f"resilience_block:{rb.code}",
+            breaker_verdicts=breaker_verdicts,
+        )
+        return JSONResponse(
+            status_code=503,
+            content={
+                "type": "error",
+                "error": {
+                    "type": "api_error",
+                    "message": rb.detail.get("message", "dispatch refused"),
+                    "detail": rb.detail,
+                },
+            },
+            headers=rb.headers,
+        )
+
     if stream:
         _emit_flight_event(
             fc_ctx, t_start=t_start,
@@ -2128,7 +2560,10 @@ async def messages(request: Request):
             input_tokens=estimated, breaker_verdicts=breaker_verdicts, streamed=True,
         )
         return StreamingResponse(
-            _stream_anthropic_messages_sse(client, kwargs, tier, t_start, caller=caller),
+            _stream_anthropic_messages_sse(
+                client, kwargs, tier, t_start, caller=caller,
+                breaker_verdict=breaker_verdict,
+            ),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
@@ -2143,6 +2578,7 @@ async def messages(request: Request):
     try:
         resp = await client.messages.create(**kwargs)
     except Exception as e:
+        _record_dispatch_outcome(tier, breaker_verdict, e)
         log.warning("messages_failed tier=%s error=%s", tier, e)
         log.debug("messages_failed_traceback tier=%s\n%s", tier, traceback.format_exc())
         # Surface Anthropic-shaped error so callers' anthropic_messages
@@ -2161,6 +2597,8 @@ async def messages(request: Request):
             served_tier=tier, error_class=type(e).__name__, breaker_verdicts=breaker_verdicts,
         )
         return JSONResponse(status_code=status, content=err_body)
+
+    _record_dispatch_outcome(tier, breaker_verdict)
 
     # A6: accrue this call's spend to the daily ledger — the native path never
     # goes through _call_model, so without this the enforcement above would
@@ -2376,10 +2814,17 @@ async def health():
     # spend figures stay on the in-process ledger (daily_cost_rollup / record_cost),
     # reachable only in-process, not over HTTP.
     _reset_if_new_day()
+    # Resilience state rides alongside `tiers` rather than inside it: an
+    # operator watching a credential outage needs "which upstreams is the
+    # router refusing to call, and is the kill switch engaged" from the same
+    # probe that tells them the service is alive. Breaker keys are salted
+    # per-process fingerprints (no hostname, no key material), and per-key trip
+    # history stays on the auth-gated /debug/circuit-breakers route.
     return {
         "status": "ok",
         "date": _budget_date,
         "tiers": {t: {"over_budget": is_over_budget(t)} for t in MODELS},
+        **_resilience_status(include_keys=False),
     }
 
 
@@ -2449,3 +2894,100 @@ async def debug_flight_recorder_event(event_id: str, request: Request):
             detail="Event not found (may have rotated out of the ring buffer)",
         )
     return event
+
+
+# ─── Resilience operator surface ──────────────────────────────────────────────
+# Read routes are auth-gated with ROUTER_API_KEY, the same posture as the
+# /debug/flight-recorder routes. The MUTATING routes additionally require
+# X-Router-Admin-Key when ROUTER_ADMIN_API_KEY is set — see _verify_admin.
+
+def _verify_admin(request: Request) -> None:
+    """Gate a state-changing operator action.
+
+    Always requires the ordinary router credential first. When
+    ROUTER_ADMIN_API_KEY is configured it ALSO requires a matching
+    X-Router-Admin-Key header, which is what separates "may call the router"
+    from "may turn the router's spend controls off". Left unset, this behaves
+    exactly like the existing /debug/* routes — deliberately, so the feature
+    is usable out of the box — but a deployment where every agent holds
+    ROUTER_API_KEY should set it.
+    """
+    _verify_auth(request)
+    if not _ROUTER_ADMIN_API_KEY:
+        return
+    provided = (request.headers.get("x-router-admin-key") or "").strip()
+    if not provided:
+        raise HTTPException(
+            status_code=403,
+            detail="Missing X-Router-Admin-Key (required when ROUTER_ADMIN_API_KEY is set)",
+        )
+    expected = hashlib.sha256(_ROUTER_ADMIN_API_KEY.encode()).digest()
+    if not hmac.compare_digest(expected, hashlib.sha256(provided.encode()).digest()):
+        raise HTTPException(status_code=403, detail="Invalid admin key")
+
+
+@app.get("/debug/circuit-breakers")
+async def debug_circuit_breakers(request: Request):
+    _verify_auth(request)
+    return _resilience_status(include_keys=True)
+
+
+@app.post("/debug/circuit-breakers/reset")
+async def debug_circuit_breakers_reset(request: Request):
+    """Force breakers back to CLOSED after the underlying problem is fixed —
+    rotating a credential shouldn't mean waiting out a cooldown. Body may carry
+    {"key": "cred:..."} to reset one; omit it to reset all."""
+    _verify_admin(request)
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — an empty body means "reset everything"
+        body = {}
+    key = (body or {}).get("key")
+    cleared = _breakers.reset(key if isinstance(key, str) and key else None)
+    log.warning("circuit_breaker_reset key=%s cleared=%s", key or "(all)", cleared)
+    return {"ok": True, "cleared": cleared, **_resilience_status(include_keys=True)}
+
+
+@app.get("/debug/kill-switch")
+async def debug_kill_switch_state(request: Request):
+    _verify_auth(request)
+    return {"kill_switch": _kill_switch.snapshot(), "scopes_available": list(kill_switch.ALL_SCOPES)}
+
+
+@app.post("/debug/kill-switch")
+async def debug_kill_switch_set(request: Request):
+    """Engage or release one kill-switch scope at runtime.
+
+    Body: {"scope": "paid_fallback"|"all_paid", "action": "engage"|"release",
+           "reason": "<free text>", "actor": "<who>"}
+
+    Both the engagement and the release are recorded to the flight recorder,
+    so the post-incident question "who stopped paid dispatch, when, and why"
+    has an answer that does not depend on anyone remembering.
+    """
+    _verify_admin(request)
+    try:
+        body = await request.json()
+    except Exception:  # noqa: BLE001 — malformed body is a client error, not a 500
+        raise HTTPException(status_code=400, detail="Request body must be JSON")
+
+    scope = str((body or {}).get("scope") or "").strip().lower()
+    action = str((body or {}).get("action") or "").strip().lower()
+    if scope not in kill_switch.ALL_SCOPES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown scope {scope!r}; valid scopes: {list(kill_switch.ALL_SCOPES)}",
+        )
+    if action not in kill_switch.ALL_ACTIONS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unknown action {action!r}; valid actions: {list(kill_switch.ALL_ACTIONS)}",
+        )
+
+    reason = (body or {}).get("reason")
+    actor = request.headers.get("x-router-actor") or (body or {}).get("actor")
+    if action == kill_switch.ACTION_ENGAGE:
+        event = _kill_switch.engage(scope, actor=actor, reason=reason)
+    else:
+        event = _kill_switch.release(scope, actor=actor, reason=reason)
+    return {"ok": True, "event": event, "kill_switch": _kill_switch.snapshot()}
