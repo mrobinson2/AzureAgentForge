@@ -103,11 +103,35 @@ RUN node /tmp/patch-plugin-secrets-handler.mjs
 COPY apps/paperclip/patch-plugin-worker-manager.mjs /tmp/patch-plugin-worker-manager.mjs
 RUN node /tmp/patch-plugin-worker-manager.mjs
 
+# ZERO-LLM metadata fastpath: dark unless PAPERCLIP_METADATA_FASTPATH=1.
+# Short-circuits heartbeat wakes for pure platform-metadata questions ("what
+# LLM are you running", billing route, run provenance, run duration) with a
+# deterministic comment + done PATCH — zero LLM calls, zero agent spawn.
+# Same stage/timing as the other server/src/*.ts patches above (must run
+# BEFORE the tsc build below — editing the .ts source after compilation
+# would be a silent no-op). Also writes metadata-fastpath.d.mts so tsc can
+# type-check the plain-.mjs sibling import; see the patch script header for
+# why that's required. Fails the build loudly if either anchor (the
+# issues.js import, or the issueId/issueContext resolution point in
+# executeRun) has drifted. Tests: tests/paperclip/metadata-fastpath.test.mjs
+COPY apps/paperclip/patch-metadata-fastpath.mjs /tmp/patch-metadata-fastpath.mjs
+RUN node /tmp/patch-metadata-fastpath.mjs
+
 # Build all packages
 RUN pnpm --filter @paperclipai/ui build
 RUN pnpm --filter @paperclipai/plugin-sdk build
 RUN pnpm --filter @paperclipai/server build
 RUN test -f server/dist/index.js || (echo "ERROR: server build output missing" && exit 1)
+
+# Runtime half of the metadata fastpath above: tsc only emits files compiled
+# from .ts sources, so the plain-JS helper module heartbeat.js now imports
+# (./metadata-fastpath.mjs) has to be copied into the build output by hand —
+# same reason the plugin-loader / board-mutation-guard sed patches below
+# operate on compiled output rather than TS source. Placed here (into
+# server/dist/services/, still inside /app) so the "Copy compiled output"
+# step just below carries it into /server-prod/dist alongside everything
+# else tsc produced.
+COPY apps/paperclip/metadata-fastpath.mjs server/dist/services/metadata-fastpath.mjs
 
 # ── Stage 2b: minimal production deploy ───────────────────────────────────────
 # pnpm deploy creates a self-contained deployment with only the server's
