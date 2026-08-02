@@ -107,6 +107,14 @@ def _isolate_router_state():
     main._meter = meter_snapshot
     main._meter_initialised = meter_initialised_snapshot
     main._rate_windows.clear()
+    # Resilience pack: both controls hold process-global state that outlives a
+    # request (that is the point of a breaker), so it has to be cleared between
+    # tests or one test's tripped breaker silently blocks the next test's
+    # dispatch. reset() returns the kill switch to its boot-time env posture,
+    # not to "empty", so a suite run with ROUTER_KILL_SWITCH_SCOPES set still
+    # tests what the operator configured.
+    main._breakers.reset()
+    main._kill_switch.reset()
 
 
 class FakeRequest:
