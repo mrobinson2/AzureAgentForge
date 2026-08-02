@@ -278,3 +278,234 @@ def test_trigram_fallback_registered_in_run_detectors():
     events = [_inj_event("trigram_fallback")] * 12
     out = detectors.run_detectors([], events)
     assert any(f.signature == "trigram-fallback-sustained" for f in out)
+
+
+# ---------------------------------------------------------------------------
+# Agent Ops Alert Pack — runaway run-loop
+# ---------------------------------------------------------------------------
+
+def _loop_run(i, agent="Orchestrator", issue="ISSUE-1", stop="done"):
+    return {"id": f"r{i}", "agentName": agent, "status": "failed" if stop != "done" else "completed",
+            "stopReason": stop, "issueId": issue}
+
+
+def test_run_loop_flags_hot_issue_by_raw_count():
+    runs = [_loop_run(i) for i in range(8)]
+    out = detectors.detect_run_loop(runs, max_runs_per_key=8)
+    assert len(out) == 1
+    f = out[0]
+    assert f.signature == "run-loop:Orchestrator:ISSUE-1"
+    assert f.severity == "critical"
+    assert f.recommended_owner == "Orchestrator"
+    assert f.subject_agent == "Orchestrator"
+    assert f.evidence["run_count"] == 8
+
+
+def test_run_loop_below_max_per_key_not_flagged():
+    runs = [_loop_run(i) for i in range(7)]
+    assert detectors.detect_run_loop(runs, max_runs_per_key=8) == []
+
+
+def test_run_loop_boundary_at_threshold_is_flagged():
+    # exactly max_runs_per_key IS flagged (>=, not >).
+    runs = [_loop_run(i) for i in range(8)]
+    out = detectors.detect_run_loop(runs, max_runs_per_key=8)
+    assert len(out) == 1
+
+
+def test_run_loop_different_issues_not_flagged():
+    runs = [_loop_run(i, issue=f"ISSUE-{i}") for i in range(8)]
+    assert detectors.detect_run_loop(runs, max_runs_per_key=8, min_runs_for_ratio=100) == []
+
+
+def test_run_loop_missing_issue_id_falls_back_to_none_bucket():
+    runs = [{"id": f"r{i}", "agentName": "Orchestrator", "status": "failed",
+             "stopReason": "error"} for i in range(8)]
+    out = detectors.detect_run_loop(runs, max_runs_per_key=8)
+    assert len(out) == 1
+    assert out[0].evidence["issue"] == "(none)"
+
+
+def test_run_loop_churn_ratio_flags_spread_across_issues():
+    # 10 runs, 7 crash-stopped, spread across 10 different issues so the
+    # per-issue raw-count signal never trips.
+    runs = [_loop_run(i, issue=f"ISSUE-{i}", stop="error" if i < 7 else "done")
+            for i in range(10)]
+    out = detectors.detect_run_loop(runs, max_runs_per_key=8, churn_ratio_threshold=0.6,
+                                    min_runs_for_ratio=10)
+    assert len(out) == 1
+    f = out[0]
+    assert f.signature == "run-loop-churn:Orchestrator"
+    assert f.severity == "high"
+    assert f.evidence["churn_ratio"] == 0.7
+
+
+def test_run_loop_churn_ratio_below_min_runs_not_flagged():
+    runs = [_loop_run(i, issue=f"ISSUE-{i}", stop="error") for i in range(5)]
+    assert detectors.detect_run_loop(runs, min_runs_for_ratio=10) == []
+
+
+def test_run_loop_healthy_runs_produce_no_findings():
+    runs = [_loop_run(i, issue=f"ISSUE-{i}", stop="done") for i in range(20)]
+    assert detectors.detect_run_loop(runs) == []
+
+
+def test_run_loop_registered_in_run_detectors():
+    runs = [_loop_run(i) for i in range(8)]
+    out = detectors.run_detectors(runs, [])
+    assert any(f.signature.startswith("run-loop:") for f in out)
+
+
+# ---------------------------------------------------------------------------
+# Agent Ops Alert Pack — silent model degradation
+# ---------------------------------------------------------------------------
+
+def _model_run(i, agent="Researcher", model="deepseek-v4-flash", cost=None):
+    r = {"id": f"r{i}", "agentName": agent, "model": model}
+    if cost is not None:
+        r["cost_usd"] = cost
+    return r
+
+
+def test_model_degradation_flags_sustained_mismatch():
+    runs = ([_model_run(i, model="deepseek-v4-flash") for i in range(3)]
+            + [_model_run(i + 3, model="gpt-5.4-mini", cost=1.0) for i in range(7)])
+    out = detectors.detect_model_degradation(
+        runs, expected_models={"Researcher": "deepseek-v4-flash"}, min_calls=5, threshold=0.3)
+    assert len(out) == 1
+    f = out[0]
+    assert f.signature == "model-degradation:Researcher:gpt-5.4-mini"
+    assert f.severity == "high"
+    assert f.recommended_owner == "Infrastructure"
+    assert f.evidence["mismatch_count"] == 7
+    assert f.evidence["total_calls"] == 10
+    assert f.evidence["mismatch_spend_usd"] == 7.0
+
+
+def test_model_degradation_no_config_is_no_op():
+    runs = [_model_run(i, model="gpt-5.4-mini") for i in range(10)]
+    assert detectors.detect_model_degradation(runs, expected_models=None) == []
+    assert detectors.detect_model_degradation(runs, expected_models={}) == []
+
+
+def test_model_degradation_unconfigured_agent_ignored():
+    runs = [_model_run(i, agent="Coder", model="gpt-5.4-mini") for i in range(10)]
+    out = detectors.detect_model_degradation(
+        runs, expected_models={"Researcher": "deepseek-v4-flash"})
+    assert out == []
+
+
+def test_model_degradation_below_min_calls_not_flagged():
+    runs = [_model_run(i, model="gpt-5.4-mini") for i in range(4)]
+    out = detectors.detect_model_degradation(
+        runs, expected_models={"Researcher": "deepseek-v4-flash"}, min_calls=5)
+    assert out == []
+
+
+def test_model_degradation_below_threshold_not_flagged():
+    runs = ([_model_run(i, model="deepseek-v4-flash") for i in range(8)]
+            + [_model_run(i + 8, model="gpt-5.4-mini") for i in range(2)])
+    out = detectors.detect_model_degradation(
+        runs, expected_models={"Researcher": "deepseek-v4-flash"}, min_calls=5, threshold=0.3)
+    assert out == []
+
+
+def test_model_degradation_accepts_multiple_expected_models():
+    runs = [_model_run(i, model="deepseek-v4-flash") for i in range(5)] + \
+           [_model_run(i + 5, model="deepseek-v4-fast") for i in range(5)]
+    out = detectors.detect_model_degradation(
+        runs, expected_models={"Researcher": ["deepseek-v4-flash", "deepseek-v4-fast"]})
+    assert out == []
+
+
+def test_model_degradation_runs_without_model_field_ignored():
+    runs = [{"id": "r1", "agentName": "Researcher"}] * 10
+    out = detectors.detect_model_degradation(
+        runs, expected_models={"Researcher": "deepseek-v4-flash"}, min_calls=1)
+    assert out == []
+
+
+def test_model_degradation_registered_in_run_detectors_when_configured():
+    runs = [_model_run(i, model="gpt-5.4-mini") for i in range(10)]
+    out = detectors.run_detectors(
+        runs, [], expected_models={"Researcher": "deepseek-v4-flash"})
+    assert any(f.signature.startswith("model-degradation:") for f in out)
+
+
+def test_model_degradation_absent_from_run_detectors_by_default():
+    runs = [_model_run(i, model="gpt-5.4-mini") for i in range(10)]
+    out = detectors.run_detectors(runs, [])
+    assert not any(f.signature.startswith("model-degradation:") for f in out)
+
+
+# ---------------------------------------------------------------------------
+# Agent Ops Alert Pack — spend burn-rate
+# ---------------------------------------------------------------------------
+
+def _burn_run(agent, cost):
+    return {"agentName": agent, "cost_usd": cost}
+
+
+def test_burn_rate_flags_high_pace():
+    # $10 over 24h -> $300/30d projected against a $100 cap = 3x pace.
+    runs = [_burn_run("Orchestrator", 10.0)]
+    out = detectors.detect_spend_burn_rate(
+        runs, agent_caps={"Orchestrator": 100.0}, window_hours=24, period_days=30)
+    assert len(out) == 1
+    f = out[0]
+    assert f.signature == "burn-rate:Orchestrator"
+    assert f.severity == "high"
+    assert f.recommended_owner == "CostGuardian"
+    assert f.evidence["projected_period_spend_usd"] == 300.0
+    assert f.evidence["pace_multiplier"] == 3.0
+    assert "eta_hours_to_cap" in f.evidence
+
+
+def test_burn_rate_critical_at_high_multiplier():
+    # $20 over 24h -> $600/30d projected against a $100 cap = 6x pace.
+    runs = [_burn_run("Orchestrator", 20.0)]
+    out = detectors.detect_spend_burn_rate(
+        runs, agent_caps={"Orchestrator": 100.0}, window_hours=24, period_days=30)
+    assert len(out) == 1 and out[0].severity == "critical"
+
+
+def test_burn_rate_under_pace_multiplier_not_flagged():
+    # $1 over 24h -> $30/30d projected against a $100 cap = 0.3x pace.
+    runs = [_burn_run("Orchestrator", 1.0)]
+    out = detectors.detect_spend_burn_rate(
+        runs, agent_caps={"Orchestrator": 100.0}, window_hours=24, period_days=30)
+    assert out == []
+
+
+def test_burn_rate_unconfigured_agent_ignored():
+    runs = [_burn_run("Researcher", 50.0)]
+    out = detectors.detect_spend_burn_rate(
+        runs, agent_caps={"Orchestrator": 100.0}, window_hours=24, period_days=30)
+    assert out == []
+
+
+def test_burn_rate_zero_window_hours_returns_empty():
+    runs = [_burn_run("Orchestrator", 10.0)]
+    assert detectors.detect_spend_burn_rate(
+        runs, agent_caps={"Orchestrator": 100.0}, window_hours=0) == []
+
+
+def test_burn_rate_short_window_does_not_falsely_amplify_a_one_off():
+    # A single $5 burst over a 30-minute window would project to an absurd
+    # monthly figure -- the detector doesn't know the window is "too short",
+    # it trusts the caller's window_hours, which is exactly why
+    # detect_spend_burn_rate's docstring tells watchdog.py to always supply a
+    # smoothed (e.g. 24h) window rather than the platform's short poll tick.
+    runs = [_burn_run("Orchestrator", 5.0)]
+    out = detectors.detect_spend_burn_rate(
+        runs, agent_caps={"Orchestrator": 100.0}, window_hours=0.5, period_days=30)
+    assert len(out) == 1
+    assert out[0].evidence["pace_multiplier"] > 50   # illustrates why the window matters
+
+
+def test_burn_rate_not_registered_in_run_detectors():
+    # burn-rate needs its own longer-window fetch; watchdog.py calls it
+    # directly rather than through run_detectors().
+    runs = [_burn_run("Orchestrator", 20.0)]
+    out = detectors.run_detectors(runs, [], agent_caps={"Orchestrator": 100.0})
+    assert not any(f.signature.startswith("burn-rate:") for f in out)
