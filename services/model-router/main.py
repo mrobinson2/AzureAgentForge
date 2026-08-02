@@ -33,6 +33,11 @@ from fastapi.responses import JSONResponse, StreamingResponse
 # enforcement (A6) — see the "Acting budget enforcement" section below.
 import budget_enforcement
 
+# Local modules (same directory): bounded call trace + waste-pattern decision
+# logic — see the "Flight Recorder + Waste Breakers" section below.
+import flight_recorder
+import waste_breakers
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("router")
 
@@ -551,6 +556,188 @@ def _budget_downgrade_meta(body: dict) -> dict:
     if not isinstance(marker, dict) or not marker.get("from"):
         return {}
     return {"budget_downgraded_from": marker["from"]}
+
+
+# ─── Flight Recorder + Waste Breakers ─────────────────────────────────────────
+# A replayable, bounded trace of every /v1/chat/completions and /v1/messages
+# call (who called, requested vs served model, tokens, latency, cost estimate,
+# outcome, breaker verdicts) plus pattern detection for wasteful call shapes
+# (retry storms, oversized prompts, repeated identical calls). Design + full
+# rationale: docs/design/router-flight-recorder.md.
+#
+# FLIGHT_RECORDER_ENABLED defaults ON (unlike OBSERVABILITY_ENABLED's
+# default-off OTel tracing) because it is self-contained — no exporter, no
+# collector, nothing to stand up — and redacted by default, so leaving it on
+# is safe out of the box. Disabling it removes the recorder entirely
+# (`_flight_recorder` stays None) for a genuinely zero-overhead no-op path.
+FLIGHT_RECORDER_ENABLED = os.environ.get("FLIGHT_RECORDER_ENABLED", "true").strip().lower() in (
+    "1", "true", "yes",
+)
+_FLIGHT_RECORDER_REDACT = os.environ.get("FLIGHT_RECORDER_REDACT", "true").strip().lower() in (
+    "1", "true", "yes",
+)
+_FLIGHT_RECORDER_MAX_EVENTS = int(os.environ.get("FLIGHT_RECORDER_MAX_EVENTS", "500"))
+_FLIGHT_RECORDER_JSONL_PATH = os.environ.get("FLIGHT_RECORDER_JSONL_PATH", "").strip() or None
+_FLIGHT_RECORDER_JSONL_MAX_BYTES = int(
+    os.environ.get("FLIGHT_RECORDER_JSONL_MAX_BYTES", "10000000")
+)
+
+_flight_recorder: flight_recorder.FlightRecorder | None = None
+_flight_recorder_init_error: str | None = None
+if FLIGHT_RECORDER_ENABLED:
+    try:
+        _flight_recorder = flight_recorder.FlightRecorder(
+            max_events=_FLIGHT_RECORDER_MAX_EVENTS,
+            redact=_FLIGHT_RECORDER_REDACT,
+            jsonl_path=_FLIGHT_RECORDER_JSONL_PATH,
+            jsonl_max_bytes=_FLIGHT_RECORDER_JSONL_MAX_BYTES,
+        )
+    except Exception as exc:  # noqa: BLE001 — a telemetry init failure must not
+        # stop the router from booting; it just runs without a flight recorder.
+        _flight_recorder_init_error = f"{type(exc).__name__}: {exc}"
+        log.error("flight_recorder_init_failed: %s", _flight_recorder_init_error)
+log.info(
+    "flight_recorder enabled=%s redact=%s max_events=%s jsonl_path=%s",
+    FLIGHT_RECORDER_ENABLED, _FLIGHT_RECORDER_REDACT, _FLIGHT_RECORDER_MAX_EVENTS,
+    _FLIGHT_RECORDER_JSONL_PATH or "(in-memory only)",
+)
+
+# Waste breakers read their history from the flight recorder's ring buffer
+# (count_recent / consecutive_failures), so they naturally degrade rather
+# than fail when the recorder is disabled: oversized-prompt still works (it
+# only needs the current request), repeated-identical-calls and retry-storm
+# simply never trip (no history to evaluate against).
+WASTE_BREAKERS_ENABLED = os.environ.get("WASTE_BREAKERS_ENABLED", "true").strip().lower() in (
+    "1", "true", "yes",
+)
+_WASTE_BREAKER_ENFORCE_MODE = waste_breakers.resolve_mode(
+    os.environ.get("WASTE_BREAKER_ENFORCE_MODE")
+)
+_WASTE_BREAKER_THRESHOLDS = waste_breakers.BreakerThresholds(
+    repeated_identical_calls=int(os.environ.get("WASTE_BREAKER_REPEAT_THRESHOLD", "5")),
+    repeated_identical_window_seconds=int(
+        os.environ.get("WASTE_BREAKER_REPEAT_WINDOW_SECONDS", "60")
+    ),
+    retry_storm_calls=int(os.environ.get("WASTE_BREAKER_RETRY_STORM_CALLS", "20")),
+    retry_storm_window_seconds=int(
+        os.environ.get("WASTE_BREAKER_RETRY_STORM_WINDOW_SECONDS", "60")
+    ),
+    oversized_prompt_tokens=int(
+        os.environ.get("WASTE_BREAKER_OVERSIZED_PROMPT_TOKENS", "100000")
+    ),
+    consecutive_failures=int(os.environ.get("WASTE_BREAKER_CONSECUTIVE_FAILURES", "4")),
+)
+log.info(
+    "waste_breakers enabled=%s enforce_mode=%s thresholds=%s",
+    WASTE_BREAKERS_ENABLED, _WASTE_BREAKER_ENFORCE_MODE, _WASTE_BREAKER_THRESHOLDS,
+)
+
+
+def _flight_context(
+    *, endpoint: str, body: dict, headers, caller: str | None,
+) -> dict[str, Any]:
+    """Per-request facts gathered once at the top of an endpoint, reused by
+    both the waste-breaker check and every later _emit_flight_event call."""
+    messages = body.get("messages") or []
+    return {
+        "endpoint": endpoint,
+        "caller": caller,
+        "correlation_id": resolve_correlation_id(headers),
+        "requested_model": body.get("model"),
+        "prompt_fingerprint": flight_recorder.prompt_fingerprint(messages, body.get("tools")),
+        "prompt_tokens_estimated": _estimate_tokens(messages),
+        "message_count": len(messages),
+    }
+
+
+def _waste_breaker_observation(ctx: dict) -> waste_breakers.CallerObservation:
+    caller = ctx.get("caller")
+    calls_in_window = identical_in_window = consecutive = 0
+    if _flight_recorder is not None:
+        calls_in_window = _flight_recorder.count_recent(
+            caller=caller, seconds=_WASTE_BREAKER_THRESHOLDS.retry_storm_window_seconds,
+        )
+        identical_in_window = _flight_recorder.count_recent(
+            caller=caller,
+            fingerprint=ctx.get("prompt_fingerprint"),
+            seconds=_WASTE_BREAKER_THRESHOLDS.repeated_identical_window_seconds,
+        )
+        consecutive = _flight_recorder.consecutive_failures(caller=caller)
+    return waste_breakers.CallerObservation(
+        caller=caller,
+        calls_in_window=calls_in_window,
+        identical_calls_in_window=identical_in_window,
+        consecutive_failures=consecutive,
+        estimated_prompt_tokens=ctx.get("prompt_tokens_estimated", 0),
+    )
+
+
+def _apply_waste_breakers(ctx: dict, t_start: float) -> list[waste_breakers.BreakerVerdict]:
+    """Evaluate waste breakers for this request. Always observes; only
+    refuses the request when WASTE_BREAKER_ENFORCE_MODE=block AND a breaker
+    tripped. Returns every verdict (tripped or not) so the caller can attach
+    the full picture to the eventual success/error flight event."""
+    if not WASTE_BREAKERS_ENABLED:
+        return []
+    obs = _waste_breaker_observation(ctx)
+    verdicts = waste_breakers.evaluate(obs, _WASTE_BREAKER_THRESHOLDS)
+    tripped = waste_breakers.tripped_only(verdicts)
+    for v in tripped:
+        log.warning(
+            "waste_breaker_tripped breaker=%s caller=%s mode=%s detail=%s",
+            v.breaker, ctx.get("caller"), _WASTE_BREAKER_ENFORCE_MODE, v.detail,
+        )
+    if tripped and _WASTE_BREAKER_ENFORCE_MODE == waste_breakers.MODE_BLOCK:
+        _emit_flight_event(
+            ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+            error_class=f"waste_breaker:{tripped[0].breaker}",
+            breaker_verdicts=verdicts,
+        )
+        raise HTTPException(status_code=429, detail=waste_breakers.trip_detail(tripped[0]))
+    return verdicts
+
+
+def _emit_flight_event(
+    ctx: dict,
+    *,
+    t_start: float,
+    outcome: str,
+    served_tier: str | None = None,
+    served_model: str | None = None,
+    input_tokens: int = 0,
+    output_tokens: int = 0,
+    cost_usd: float = 0.0,
+    error_class: str | None = None,
+    breaker_verdicts: list[waste_breakers.BreakerVerdict] | None = None,
+    streamed: bool = False,
+    prompt_excerpt: str | None = None,
+    response_excerpt: str | None = None,
+) -> None:
+    """Record one call to the flight recorder. No-ops instantly (and for
+    free) when the recorder is disabled — this is the zero-overhead path."""
+    if _flight_recorder is None:
+        return
+    _flight_recorder.record(
+        correlation_id=ctx.get("correlation_id"),
+        caller=ctx.get("caller"),
+        endpoint=ctx.get("endpoint"),
+        requested_model=ctx.get("requested_model"),
+        served_tier=served_tier,
+        served_model=served_model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+        latency_ms=round((time.monotonic() - t_start) * 1000, 2),
+        cost_usd=cost_usd,
+        outcome=outcome,
+        error_class=error_class,
+        prompt_fingerprint=ctx.get("prompt_fingerprint"),
+        prompt_tokens_estimated=ctx.get("prompt_tokens_estimated"),
+        message_count=ctx.get("message_count"),
+        breaker_verdicts=[v.as_dict() for v in (breaker_verdicts or [])],
+        streamed=streamed,
+        prompt_excerpt=prompt_excerpt,
+        response_excerpt=response_excerpt,
+    )
 
 
 # ─── Observability (GenAI semconv) ────────────────────────────────────────────
@@ -1541,8 +1728,9 @@ async def _call_model(tier: str, body: dict) -> dict:
                 # Anthropic SDK doesn't surface response_cost — estimate from
                 # list price so Claude calls are cost-tracked + observable (B3b).
                 _model, _in, _out = _usage_from_result(result, fallback_tier=tier)
+                _cost = _estimate_anthropic_cost(_model, _in, _out)
                 record_cost(
-                    tier, _estimate_anthropic_cost(_model, _in, _out),
+                    tier, _cost,
                     model=_model, input_tokens=_in, output_tokens=_out,
                     caller=caller,
                 )
@@ -1550,11 +1738,17 @@ async def _call_model(tier: str, body: dict) -> dict:
                 response = await litellm.acompletion(**kwargs)
                 result = response.model_dump()
                 _model, _in, _out = _usage_from_result(result, fallback_tier=tier)
+                _cost = response._hidden_params.get("response_cost") or 0.0
                 record_cost(
-                    tier, response._hidden_params.get("response_cost") or 0.0,
+                    tier, _cost,
                     model=_model, input_tokens=_in, output_tokens=_out,
                     caller=caller,
                 )
+            # Flight recorder (private key, same convention as
+            # __router_caller__ / __router_extra_headers__): stash this
+            # attempt's cost so the endpoint can attach it to a flight event
+            # without recomputing or changing this function's return shape.
+            result["__router_cost_usd__"] = _cost
 
             for choice in result.get("choices", []):
                 msg = choice.get("message") or {}
@@ -1656,6 +1850,15 @@ async def chat_completions(request: Request):
     if caller:
         body["__router_caller__"] = caller
 
+    # Flight Recorder + Waste Breakers: gather the per-request facts once
+    # (fingerprint, token estimate, correlation id) and evaluate waste
+    # patterns BEFORE any tier/budget spend — a 429 here (enforce mode only;
+    # default is observe-only) never touches a model credential.
+    fc_ctx = _flight_context(
+        endpoint="chat_completions", body=body, headers=request.headers, caller=caller,
+    )
+    breaker_verdicts = _apply_waste_breakers(fc_ctx, t_start)
+
     tier = select_tier(body)
     # A6: select_tier stashes a __budget_downgrade__ marker in the body when
     # enforcement swapped the tier; surface it as a response header + _router
@@ -1684,7 +1887,7 @@ async def chat_completions(request: Request):
     if extra_headers:
         body["__router_extra_headers__"] = extra_headers
 
-    estimated = _estimate_tokens(body["messages"])
+    estimated = fc_ctx["prompt_tokens_estimated"]
     requested_max = body.get("max_tokens", MODELS[tier]["max_tokens"])
 
     if not _fits_model(tier, estimated, requested_max):
@@ -1713,6 +1916,19 @@ async def chat_completions(request: Request):
                     candidate,
                     time.monotonic() - t_start,
                 )
+                # Streaming responses are consumed by the caller after we
+                # return, so real usage/cost isn't known here — record what
+                # IS known now (tier, tokens estimate, latency-to-open) and
+                # flag it as an estimate via streamed=True.
+                _emit_flight_event(
+                    fc_ctx, t_start=t_start,
+                    outcome=(
+                        flight_recorder.OUTCOME_DOWNGRADED if candidate != tier
+                        else flight_recorder.OUTCOME_SUCCESS
+                    ),
+                    served_tier=candidate, served_model=MODELS.get(candidate, {}).get("litellm_model"),
+                    input_tokens=estimated, breaker_verdicts=breaker_verdicts, streamed=True,
+                )
                 return StreamingResponse(
                     _iter_stream(stream_iter, candidate),
                     media_type="text/event-stream",
@@ -1733,6 +1949,11 @@ async def chat_completions(request: Request):
 
         # aaf-0016: don't echo the raw last_error string to the client; it's logged
         # per-tier above.
+        _emit_flight_event(
+            fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+            input_tokens=estimated, error_class="all_tiers_failed_to_stream",
+            breaker_verdicts=breaker_verdicts, streamed=True,
+        )
         raise HTTPException(
             status_code=502,
             detail="All tiers failed to initialise stream",
@@ -1743,6 +1964,15 @@ async def chat_completions(request: Request):
         result = await _call_model(tier, body)
         result["_router"] = {"tier": tier, "estimated_input_tokens": estimated, **bd_meta}
         log.info("success tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
+        _model, _in, _out = _usage_from_result(result, fallback_tier=tier)
+        _emit_flight_event(
+            fc_ctx, t_start=t_start,
+            outcome=(
+                flight_recorder.OUTCOME_DOWNGRADED if bd_meta else flight_recorder.OUTCOME_SUCCESS
+            ),
+            served_tier=tier, served_model=_model, input_tokens=_in, output_tokens=_out,
+            cost_usd=result.pop("__router_cost_usd__", 0.0), breaker_verdicts=breaker_verdicts,
+        )
         return JSONResponse(content=result, headers=bd_headers)
     except Exception as e:
         log.warning("primary_failed tier=%s error=%s", tier, e)
@@ -1758,11 +1988,22 @@ async def chat_completions(request: Request):
                 **bd_meta,
             }
             log.info("fallback_success tier=%s latency=%.2fs", fb, time.monotonic() - t_start)
+            _model, _in, _out = _usage_from_result(result, fallback_tier=fb)
+            _emit_flight_event(
+                fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_DOWNGRADED,
+                served_tier=fb, served_model=_model, input_tokens=_in, output_tokens=_out,
+                cost_usd=result.pop("__router_cost_usd__", 0.0), breaker_verdicts=breaker_verdicts,
+            )
             return JSONResponse(content=result, headers=bd_headers)
         except Exception as e:
             log.warning("fallback_failed tier=%s error=%s", fb, e)
             log.debug("fallback_failed_traceback tier=%s\n%s", fb, traceback.format_exc())
 
+    _emit_flight_event(
+        fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+        input_tokens=estimated, error_class="all_tiers_failed",
+        breaker_verdicts=breaker_verdicts,
+    )
     raise HTTPException(status_code=502, detail="All tiers failed")
 
 
@@ -1788,8 +2029,16 @@ async def messages(request: Request):
         raise HTTPException(status_code=400, detail="Request must include max_tokens")
 
     # aaf-0005: same per-caller budget gate as /v1/chat/completions.
-    if is_over_caller_budget(resolve_caller_id(request.headers)):
+    caller = resolve_caller_id(request.headers)
+    if is_over_caller_budget(caller):
         raise HTTPException(status_code=429, detail="Per-caller daily budget exceeded")
+
+    # Flight Recorder + Waste Breakers: same pre-spend check as
+    # /v1/chat/completions — see that endpoint for the rationale.
+    fc_ctx = _flight_context(
+        endpoint="messages", body=body, headers=request.headers, caller=caller,
+    )
+    breaker_verdicts = _apply_waste_breakers(fc_ctx, t_start)
 
     tier = _select_anthropic_tier_for_model(body)
     if not _is_anthropic_tier(tier):
@@ -1829,6 +2078,10 @@ async def messages(request: Request):
     bd_meta: dict[str, str] = {}
     if decision.action == budget_enforcement.ACTION_BLOCK:
         log.warning("budget_enforce_block tier=%s %s (messages)", tier, decision.reason)
+        _emit_flight_event(
+            fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+            error_class="budget_blocked", breaker_verdicts=breaker_verdicts,
+        )
         return JSONResponse(
             status_code=429,
             content={
@@ -1854,7 +2107,7 @@ async def messages(request: Request):
     cfg = MODELS[tier]
     stream = bool(body.get("stream", False))
 
-    estimated = _estimate_tokens(body["messages"])
+    estimated = fc_ctx["prompt_tokens_estimated"]
     requested_max = body.get("max_tokens", cfg["max_tokens"])
     if not _fits_model(tier, estimated, requested_max):
         raise HTTPException(status_code=413, detail="Request exceeds model context limit")
@@ -1866,9 +2119,14 @@ async def messages(request: Request):
 
     client = _make_anthropic_client(cfg)
     kwargs = _build_messages_passthrough_kwargs(cfg, body, request)
-    caller = resolve_caller_id(request.headers)
 
     if stream:
+        _emit_flight_event(
+            fc_ctx, t_start=t_start,
+            outcome=flight_recorder.OUTCOME_DOWNGRADED if bd_meta else flight_recorder.OUTCOME_SUCCESS,
+            served_tier=tier, served_model=cfg["litellm_model"].split("/", 1)[-1],
+            input_tokens=estimated, breaker_verdicts=breaker_verdicts, streamed=True,
+        )
         return StreamingResponse(
             _stream_anthropic_messages_sse(client, kwargs, tier, t_start, caller=caller),
             media_type="text/event-stream",
@@ -1898,15 +2156,17 @@ async def messages(request: Request):
             "type": "error",
             "error": {"type": "api_error", "message": "upstream provider error"},
         }
+        _emit_flight_event(
+            fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
+            served_tier=tier, error_class=type(e).__name__, breaker_verdicts=breaker_verdicts,
+        )
         return JSONResponse(status_code=status, content=err_body)
 
     # A6: accrue this call's spend to the daily ledger — the native path never
     # goes through _call_model, so without this the enforcement above would
     # never see the spend it is supposed to act on.
-    _record_anthropic_usage(
-        tier, cfg["litellm_model"].split("/", 1)[1], getattr(resp, "usage", None),
-        caller=caller,
-    )
+    _deployment = cfg["litellm_model"].split("/", 1)[1]
+    _record_anthropic_usage(tier, _deployment, getattr(resp, "usage", None), caller=caller)
 
     try:
         result = resp.model_dump(exclude_unset=False, mode="json")
@@ -1914,6 +2174,15 @@ async def messages(request: Request):
         result = getattr(resp, "to_dict", lambda: {})() or {}
     result["_router"] = {"tier": tier, "estimated_input_tokens": estimated, **bd_meta}
     log.info("messages success tier=%s latency=%.2fs", tier, time.monotonic() - t_start)
+    _usage = getattr(resp, "usage", None)
+    _in = int(getattr(_usage, "input_tokens", 0) or 0)
+    _out = int(getattr(_usage, "output_tokens", 0) or 0)
+    _emit_flight_event(
+        fc_ctx, t_start=t_start,
+        outcome=flight_recorder.OUTCOME_DOWNGRADED if bd_meta else flight_recorder.OUTCOME_SUCCESS,
+        served_tier=tier, served_model=_deployment, input_tokens=_in, output_tokens=_out,
+        cost_usd=_estimate_anthropic_cost(_deployment, _in, _out), breaker_verdicts=breaker_verdicts,
+    )
     return JSONResponse(content=result, headers=bd_headers)
 
 
@@ -2129,3 +2398,54 @@ async def get_model(model_id: str):
     if model_id in MODELS:
         return {"id": model_id, "object": "model"}
     raise HTTPException(status_code=404, detail="Model not found")
+
+
+# ─── Flight Recorder debug surface ────────────────────────────────────────────
+# One-command way to inspect the trace: `curl -H "Authorization: Bearer
+# $ROUTER_API_KEY" http://localhost:8080/debug/flight-recorder`. Auth-gated
+# like every /v1/* route — traces carry caller ids and cost estimates, so
+# this must not be reachable without the router credential (same posture
+# note as /health's redacted spend figures).
+@app.get("/debug/flight-recorder")
+async def debug_flight_recorder(request: Request, limit: int = 50, caller: str | None = None):
+    _verify_auth(request)
+    if _flight_recorder is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Flight recorder is disabled (FLIGHT_RECORDER_ENABLED=false)",
+        )
+    return {
+        "enabled": True,
+        "stats": _flight_recorder.stats(),
+        "waste_breakers": {
+            "enabled": WASTE_BREAKERS_ENABLED,
+            "enforce_mode": _WASTE_BREAKER_ENFORCE_MODE,
+            "thresholds": {
+                "repeated_identical_calls": _WASTE_BREAKER_THRESHOLDS.repeated_identical_calls,
+                "repeated_identical_window_seconds":
+                    _WASTE_BREAKER_THRESHOLDS.repeated_identical_window_seconds,
+                "retry_storm_calls": _WASTE_BREAKER_THRESHOLDS.retry_storm_calls,
+                "retry_storm_window_seconds": _WASTE_BREAKER_THRESHOLDS.retry_storm_window_seconds,
+                "oversized_prompt_tokens": _WASTE_BREAKER_THRESHOLDS.oversized_prompt_tokens,
+                "consecutive_failures": _WASTE_BREAKER_THRESHOLDS.consecutive_failures,
+            },
+        },
+        "recent": _flight_recorder.recent(limit=limit, caller=caller),
+    }
+
+
+@app.get("/debug/flight-recorder/{event_id}")
+async def debug_flight_recorder_event(event_id: str, request: Request):
+    _verify_auth(request)
+    if _flight_recorder is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Flight recorder is disabled (FLIGHT_RECORDER_ENABLED=false)",
+        )
+    event = _flight_recorder.get(event_id)
+    if event is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Event not found (may have rotated out of the ring buffer)",
+        )
+    return event
