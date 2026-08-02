@@ -1,0 +1,7 @@
+name: AgentB
+role: agent-b
+description: Fixture agent for the roster-cost-gate pass scenario.
+model_tier: economy
+toolsets: [file]
+reports_to: null
+daily_budget_usd: 0.20

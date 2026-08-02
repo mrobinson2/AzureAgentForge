@@ -1,0 +1,3 @@
+name: Broken
+role: [this is not closed properly
+description: Fixture agent with invalid YAML syntax.

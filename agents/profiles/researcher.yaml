@@ -6,3 +6,4 @@ description: >-
 model_tier: frontier
 toolsets: [terminal, file, browser]
 reports_to: Planner
+daily_budget_usd: 1.25

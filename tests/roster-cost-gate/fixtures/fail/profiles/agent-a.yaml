@@ -1,0 +1,7 @@
+name: AgentA
+role: agent-a
+description: Fixture agent for the roster-cost-gate over-cap scenario.
+model_tier: frontier
+toolsets: [file]
+reports_to: null
+daily_budget_usd: 1.00

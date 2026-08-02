@@ -6,3 +6,4 @@ description: >-
 model_tier: economy
 toolsets: [terminal, file]
 reports_to: Strategy
+daily_budget_usd: 0.20

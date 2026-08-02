@@ -6,3 +6,4 @@ description: >-
 model_tier: economy
 toolsets: [terminal, file]
 reports_to: Coder
+daily_budget_usd: 0.20

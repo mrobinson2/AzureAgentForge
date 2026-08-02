@@ -1,0 +1,5 @@
+# Fixture: valid compose, but the paired profile is missing daily_budget_usd.
+# Expected roster-cost-gate.py result: FATAL (exit 2) -- an undeclared
+# ceiling can't be summed, so the gate refuses to render a pass/fail verdict.
+x-roster-cost-gate:
+  PLATFORM_MONTHLY_BUDGET_USD: ${PLATFORM_MONTHLY_BUDGET_USD:-50.00}

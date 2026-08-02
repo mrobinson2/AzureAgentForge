@@ -1,0 +1,7 @@
+name: AgentC
+role: agent-c
+description: Fixture agent for the roster-cost-gate over-cap scenario.
+model_tier: economy
+toolsets: [file]
+reports_to: null
+daily_budget_usd: 0.50

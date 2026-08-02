@@ -1,0 +1,4 @@
+# Fixture: roster ceiling ($0.10 + $0.20)/day * 30 = $9.00/mo, well within
+# the $20.00/mo cap below. Expected roster-cost-gate.py result: PASS (exit 0).
+x-roster-cost-gate:
+  PLATFORM_MONTHLY_BUDGET_USD: ${PLATFORM_MONTHLY_BUDGET_USD:-20.00}
