@@ -1,0 +1,6 @@
+name: NoBudget
+role: no-budget
+description: Fixture agent that never declared a daily_budget_usd ceiling.
+model_tier: economy
+toolsets: [file]
+reports_to: null

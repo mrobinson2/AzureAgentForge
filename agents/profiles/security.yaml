@@ -6,3 +6,4 @@ description: >-
 model_tier: standard
 toolsets: [terminal, file]
 reports_to: Infrastructure
+daily_budget_usd: 0.50

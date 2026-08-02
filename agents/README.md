@@ -107,6 +107,9 @@ Each profile is a YAML file validated against `profile.schema.json`.
 | `model_tier` | enum (see below)| yes      | Abstract tier resolved by the model-router at runtime    |
 | `toolsets`   | array of enums  | yes      | Capability grants for this role (see below)              |
 | `reports_to` | string or null  | yes      | Parent role name; `null` for the root (Orchestrator)     |
+| `daily_budget_usd` | number ≥ 0 | no      | Per-agent cost ceiling in USD/day (a cap, not a spend forecast) |
+
+`daily_budget_usd` feeds the **Roster Cost Gate** (`scripts/roster-cost-gate.py`, `.github/workflows/roster-cost-gate.yml`): it sums every shipped profile's ceiling, projects the sum across a 30-day month, and fails CI if that exceeds `PLATFORM_MONTHLY_BUDGET_USD` (`docker-compose.yml`). See [`docs/design/roster-cost-gate.md`](../docs/design/roster-cost-gate.md).
 
 ### `model_tier` values
 
@@ -135,3 +138,8 @@ Each profile is a YAML file validated against `profile.schema.json`.
    ```
    Expected output: `OK: <N> profiles valid.`
 3. If the new role needs a non-default tier mapping, add an entry to your `persona-tiers.json` override (see `services/model-router/README.md`).
+4. Set `daily_budget_usd` to a real ceiling for the role, then re-run the roster cost gate to confirm the roster still fits the committed cap:
+   ```
+   python scripts/roster-cost-gate.py
+   ```
+   A `FAIL` means the new agent pushed the roster's 30-day ceiling over `PLATFORM_MONTHLY_BUDGET_USD` — raise the cap or lower a `daily_budget_usd` value; see `docs/design/roster-cost-gate.md`.

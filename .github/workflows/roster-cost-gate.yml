@@ -1,0 +1,45 @@
+# Roster Cost Gate — config-time check that the sum of every agent's
+# committed daily_budget_usd ceiling, projected across a 30-day month, still
+# fits under PLATFORM_MONTHLY_BUDGET_USD (docker-compose.yml). Nothing else
+# in CI reconciles these two numbers: agents/tests validates each profile in
+# isolation, and the "compose" job in ci.yml only checks docker-compose.yml
+# parses. This is the one job that sums the roster and compares it to the
+# platform's committed cap. docs/design/roster-cost-gate.md.
+name: roster-cost-gate
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'agents/profiles/**'
+      - 'agents/profile.schema.json'
+      - 'docker-compose.yml'
+      - 'scripts/roster-cost-gate.py'
+      - 'tests/roster-cost-gate/**'
+      - '.github/workflows/roster-cost-gate.yml'
+  pull_request:
+    paths:
+      - 'agents/profiles/**'
+      - 'agents/profile.schema.json'
+      - 'docker-compose.yml'
+      - 'scripts/roster-cost-gate.py'
+      - 'tests/roster-cost-gate/**'
+      - '.github/workflows/roster-cost-gate.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  roster-cost-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: install deps
+        run: pip install -r agents/requirements-dev.txt
+      - name: roster cost gate — test suite
+        run: pytest -q tests/roster-cost-gate
+      - name: roster cost gate — run for real against agents/profiles + docker-compose.yml
+        run: python scripts/roster-cost-gate.py

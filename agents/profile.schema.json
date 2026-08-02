@@ -13,6 +13,11 @@
       "type": "array", "minItems": 1, "uniqueItems": true,
       "items": { "type": "string", "enum": ["terminal", "file", "browser"] }
     },
-    "reports_to": { "type": ["string", "null"] }
+    "reports_to": { "type": ["string", "null"] },
+    "daily_budget_usd": {
+      "type": "number",
+      "minimum": 0,
+      "description": "Per-agent cost ceiling in USD/day (a cap, not a spend forecast). Summed and projected to a 30-day month by scripts/roster-cost-gate.py against PLATFORM_MONTHLY_BUDGET_USD in docker-compose.yml. See docs/design/roster-cost-gate.md."
+    }
   }
 }

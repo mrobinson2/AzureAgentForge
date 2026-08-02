@@ -1,0 +1,4 @@
+# Fixture: valid compose, but the paired profiles/ dir has invalid YAML.
+# Expected roster-cost-gate.py result: FATAL (exit 2).
+x-roster-cost-gate:
+  PLATFORM_MONTHLY_BUDGET_USD: ${PLATFORM_MONTHLY_BUDGET_USD:-50.00}

@@ -5,3 +5,4 @@ description: >-
 model_tier: economy
 toolsets: [file]
 reports_to: Business
+daily_budget_usd: 0.20

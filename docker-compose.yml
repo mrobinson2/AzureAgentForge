@@ -22,6 +22,18 @@ x-router-models: &router-models
   PHI_MAX_TOKENS: ${PHI_MAX_TOKENS:-2048}
   PHI_DAILY_BUDGET_USD: ${PHI_DAILY_BUDGET_USD:-0.50}
 
+# ── Roster Cost Gate — committed platform monthly cap ────────────────────────
+# Config-time only: NOT merged into any service's environment (nothing at
+# runtime reads this — the *_DAILY_BUDGET_USD tiers above are the ones a
+# running container consumes). scripts/roster-cost-gate.py reads this value
+# straight from this file and compares it against the sum of every
+# agents/profiles/*.yaml daily_budget_usd ceiling, projected across a 30-day
+# month. That gate is what actually enforces this number means something;
+# editing it here has no effect on any running service.
+# docs/design/roster-cost-gate.md.
+x-roster-cost-gate:
+  PLATFORM_MONTHLY_BUDGET_USD: ${PLATFORM_MONTHLY_BUDGET_USD:-200.00}
+
 services:
   postgres:
     image: pgvector/pgvector:pg16
