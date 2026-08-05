@@ -208,7 +208,9 @@ Not everything runs automatically. Governed memory ships disabled and must be in
 
 **Deployment and operations.** A one-command local stack, an Azure deploy validated against a clean subscription, the Forge Console, an offline preflight (`./forge --check`), CI/CD scaffolding with OIDC and Key Vault seeding, image build and push, and operator approval gates. It supports a self-hosted-primary topology with an Azure warm standby and failover tooling, bring-your-own VNet, and optional Cloudflare ingress. Validated paths are distinguished from design references and scaffolds throughout the docs.
 
-**Human oversight and safer autonomy.** A destroy-aware approval gate at the infrastructure layer, an action-approval seam for runtime actions (shipped, not fully wired to live volume), role-based tool access with scope guards and forbidden-tool checks, an escalation SLA auditor (ship-dark), reproducible orchestration fixtures, and an audit trail. A behavioural replay gate — CI for agent prompts — composes each persona edit's candidate prompt and fails the build if a behavioural contract that passed on the base ref fails on the candidate. Design doc: [`docs/design/prompt-replay-gate.md`](docs/design/prompt-replay-gate.md).
+**Human oversight and safer autonomy.** A destroy-aware approval gate at the infrastructure layer, an action-approval seam wired into the agent outbound-comment path (gate fails closed, telemetry emit fails open; inert by default until `APPROVAL_REQUIRED_KINDS` opts a kind in), role-based tool access with scope guards and forbidden-tool checks, an escalation SLA auditor (ship-dark, fed by the approval seam's `escalation_*` events), reproducible orchestration fixtures, and an audit trail. A behavioural replay gate — CI for agent prompts — composes each persona edit's candidate prompt and fails the build if a behavioural contract that passed on the base ref fails on the candidate. Design doc: [`docs/design/prompt-replay-gate.md`](docs/design/prompt-replay-gate.md).
+
+**Cost governance.** A prevention → enforcement → detection → forensics loop across the platform (shipped in [v20260802](docs/releases/v20260802.md)): a roster cost gate fails CI when the agents' summed `daily_budget_usd` ceilings exceed the committed platform monthly budget; fail-closed circuit breakers and a scoped paid-action kill switch stop dispatch to dead or disabled upstreams (free local tiers still serve); watchdog detectors alert on runaway run-loops, silent model degradation, and burn-rate pace; and a redacted-by-default flight recorder keeps a replayable trace of every routed LLM call (`GET /debug/flight-recorder`), with waste breakers flagging retry storms, identical-call repetition, and oversized prompts. A dark-flagged zero-LLM fastpath answers platform-metadata questions deterministically.
 
 **Integrations and examples.** Optional Teams, Slack, Telegram, and Discord bridges (default off, internal-ingress only), a webhook intake handler, a governed-UI pattern library, a Foundry chat-proxy sample, a governed transaction saga, a multi-tenant console demo, a multi-tenant reference architecture, and a sandbox-provider scaffold. These are labeled as examples and reference implementations, not turnkey production integrations.
 
@@ -264,9 +266,9 @@ Every service logs to a shared Log Analytics workspace. Optionally, each model-r
 
 Agents can be reached from Teams, Slack, Telegram, and Discord, plus a webhook intake path. Teams and Slack are Bot Framework and Events API bridge services; Telegram and Discord are PaperClip bridges. All are off by default and internal-ingress only — going live requires additional exposure (a Cloudflare tunnel) and, for Teams, Bot Framework JWT validation. Treat these as optional, reference-quality bridges rather than fully hardened integrations validated in every environment.
 
-### Voice (planned)
+### Voice (offline core shipped; live surfaces pending)
 
-First-class Microsoft Voice Live integration remains planned and is not included as a completed v1.7 capability. See the [Planned and future](#planned-and-future) note below.
+An offline voice core ships in [`services/voice-core/`](services/voice-core/): a provider-agnostic turn pipeline (VAD with debounced end-of-speech and barge-in, persona overlay, injected agent turn), a web session with a hard consent gate and a recording-retention hook, a Twilio surface (fail-closed DTMF PIN gate, G.711 μ-law decode, Media Streams event parsing), a Discord surface (RTP parsing + sequence tracking), and per-turn latency + cost attribution — 42 offline tests in CI. The Microsoft Voice Live adapter is present but isolated and **unverified**; the live surfaces (WebSocket/WebRTC bridge, a real Twilio number, the Discord voice gateway) are not built. See the [Planned and future](#planned-and-future) note below.
 
 ---
 
@@ -292,17 +294,23 @@ Maturity labels below are drawn from the tests, flags, and behavior in the repo,
 | Agent memory identity (per-agent peers, roster check, alias map) | Shipped — verified on Azure, unverified self-hosted ([see below](#agent-memory-identity-across-the-deployment-flavors)) |
 | Governor ship-dark endpoints (review-queue digest, escalation SLA auditor) | Shipped, disabled by default |
 | Obsidian memory interface (two-way memory ↔ vault CLI) | Available (operator-run) |
-| Human action-approval seam (`apps/paperclip/approval.mjs`) | Shipped, not fully wired |
+| Human action-approval seam (`apps/paperclip/approval.mjs`) | Shipped, wired to the outbound-comment path — inert until `APPROVAL_REQUIRED_KINDS` opts a kind in |
+| Flight recorder + waste breakers (model-router) | Shipped — recorder on by default (redacted), breakers observe-only |
+| Circuit breakers + paid-action kill switch (model-router) | Shipped — fail-closed by default |
+| Watchdog agent ops alerts (run-loop, model degradation, burn-rate) | Shipped, observe-only |
+| Prompt replay gate (CI for agent prompts) | Validated in CI |
+| Roster cost gate (budget solvency in CI) | Validated in CI ($183/mo roster vs $200 cap) |
+| Zero-LLM metadata fastpath (PaperClip) | Shipped dark, `PAPERCLIP_METADATA_FASTPATH` off by default |
 | Chat bridges (Teams, Slack, Telegram, Discord) | Available, off by default (internal ingress) |
 | Sandbox provider (`local` default; `aca-job` present) | Scaffold (`aca-job` unverified against a live pool) |
-| Multi-tenant platform (`experimental/multi-tenant/`, `demos/tenant-console/`) | Reference design and demo |
+| Multi-tenant platform (`infrastructure/modules/multi-tenant/`, `experimental/multi-tenant/`, `demos/tenant-console/`) | Flag-gated deployable module + offline identity/RBAC/budget/onboarding cores (37 tests); live wiring pending |
 | Governance examples & samples (UI patterns, chat proxy, transaction saga) | Reference implementations |
-| Voice (Microsoft Voice Live and other surfaces) | Planned |
+| Voice (`services/voice-core/`) | Offline core shipped (42 tests); providers and live surfaces unverified/pending |
 
 The local quickstart brings up PostgreSQL and the model router; the full platform runs locally with one command; the end-to-end Azure deploy is automated through `scripts/build-and-push.sh`, `scripts/seed-keyvault.sh`, the Forge Console, and the reference deploy pipeline.
 
 <a id="planned-and-future"></a>
-**Planned and future.** First-class Microsoft Voice Live integration, a second agent runtime, Discord as a control plane, full multi-tenant support with per-user RBAC, scheduled agent routines, a skills manager, more chat surfaces (WhatsApp, a web widget), the rest of the observability pipeline, private enterprise RAG over Azure AI Search, and Foundry Agent Service / Microsoft 365 publishing are on the roadmap, not shipped. See [`ROADMAP.md`](ROADMAP.md).
+**Planned and future.** The live half of the voice track (a verified Voice Live provider, the WebSocket/WebRTC bridge, a real Twilio number, the Discord voice gateway — the offline core is shipped), the live half of multi-tenant (per-user RLS keying, persistent per-tenant spend, live provisioning — the deployable module and offline identity/RBAC/budget/onboarding cores are shipped), a second agent runtime, Discord as a control plane, scheduled agent routines, a skills manager, more chat surfaces (WhatsApp, a web widget), the rest of the observability pipeline, private enterprise RAG over Azure AI Search, and Foundry Agent Service / Microsoft 365 publishing are on the roadmap, not shipped. See [`ROADMAP.md`](ROADMAP.md).
 
 ---
 
@@ -465,6 +473,14 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Governance & blast-radius walkthrough with demos
 - ✅ Key Vault secret pattern + private-by-default networking
 - ✅ Behavioural replay gate for agent prompts — composes candidate persona edits and fails CI on a behavioural-contract regression vs the base ref
+- ✅ HITL action-approval seam wired to the agent outbound-comment path — fails closed, inert until a kind is opted in, emits `escalation_*` events for the SLA auditor
+
+**Cost governance** *(the v20260802 loop: prevention → enforcement → detection → forensics)*
+- ✅ Roster cost gate — CI fails when summed per-agent `daily_budget_usd` ceilings exceed the committed platform monthly budget
+- ✅ Fail-closed circuit breakers per upstream credential + scoped paid-action kill switch (`paid_fallback` / `all_paid`)
+- ✅ Watchdog ops alerts: runaway run-loops, silent model degradation, spend burn-rate
+- ✅ Flight recorder (redacted, on by default) + waste breakers (retry storms, identical calls, oversized prompts)
+- ✅ Zero-LLM metadata fastpath (dark flag, off by default)
 
 **Install & operate**
 - ✅ Forge Console (`./forge`): local web installer with live-streamed deploy
@@ -474,7 +490,8 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 
 **Interfaces & scale**
 - ✅ Optional Telegram + Discord surfaces
-- ✅ Multi-tenant architecture designed + early scaffolding
+- ✅ Multi-tenant: flag-gated deployable module (control-plane + memory-store on ACA) + offline per-user identity, RBAC, budget-cap, and onboarding cores (37 tests)
+- ✅ Voice offline core (`services/voice-core/`): turn pipeline with VAD/barge-in, consent-gated web session, Twilio PIN gate + codec, Discord RTP parsing, per-turn cost ops (42 tests; live surfaces + verified provider pending)
 
 **Governed memory** *(shipped, flag-gated off; code bundled + unit-tested in CI, not yet deployed end-to-end)*
 - 🧠 Governor service + four-plane retrieval planner + six memory classes + computed trust + admission control + background loops + hybrid pgvector retrieval + the self-improvement watchdog ([`services/memory-governor/`](services/memory-governor/), [`services/watchdog/`](services/watchdog/)). Every feature flag seeds OFF. Architecture + the explicitly-not-built long tail: [`docs/design/memory-system.md`](docs/design/memory-system.md).
@@ -489,7 +506,7 @@ See [`docs/getting-started.md`](docs/getting-started.md) for the full Azure walk
 - ✅ Canonical user-peer identity, closing a memory-fragmentation risk
 - ✅ Vendored incident-fix defaults ported from production incident history
 
-For item-by-item detail, the next-steps queue, and the longer-term roadmap (a second agent runtime, voice, Discord-as-control-plane, complete multi-tenant support, and more), see **[`ROADMAP.md`](ROADMAP.md)**.
+For item-by-item detail, the next-steps queue, and the longer-term roadmap (a second agent runtime, live voice surfaces, Discord-as-control-plane, live multi-tenant wiring, and more), see **[`ROADMAP.md`](ROADMAP.md)**.
 
 ---
 
