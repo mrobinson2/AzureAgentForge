@@ -120,7 +120,7 @@ jobs:
 
       - name: upload JUnit results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: prompt-contract-results
           path: results/prompt-contract.xml
