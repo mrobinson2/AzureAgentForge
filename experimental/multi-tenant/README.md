@@ -27,7 +27,7 @@ The single-tenant stack is what CI validates and what actually runs. Nothing in 
 | Path | What it is |
 |------|-----------|
 | `ARCHITECTURE.md` | Full reference design: isolation strategy, data-layer changes, agent routing, Terraform module design, onboarding flow, cost model, security controls, and migration plan. Start here. |
-| `control-plane/` | Scaffolding for a tenant provisioning API (FastAPI). Covers create/get/list tenant endpoints and Azure Key Vault + Search client wiring. **Reference only — not wired in.** |
+| `control-plane/` | Tenant provisioning plus durable daily-budget reservations, onboarding checkpoints, signed-principal/RLS binding, and operator audit endpoints (FastAPI + PostgreSQL). **Reference only — not deployed.** |
 | `memory-store/` | Scaffolding for a per-tenant memory service (FastAPI + pgvector). Covers vector insert/search/delete endpoints. **Reference only — not wired in.** |
 | `tenant-console/` | Scaffolding for playbook-driven tenant onboarding: a headless provision/decommission executor, an operator GUI (FastAPI + SSE, Forge Console pattern), a vertical playbook pack, and per-tenant budget/memory seams. **Reference only — not wired in.** |
 
@@ -43,9 +43,12 @@ The single-tenant stack is what CI validates and what actually runs. Nothing in 
 - Audit logging schema and triggers
 - Cross-tenant prevention checklist and penetration-testing queries
 
-### Built (scaffold only)
+### Built (reference implementation)
 
-- Control-plane API: `POST /tenants`, `GET /tenants/{id}`, `GET /tenants` (FastAPI, untested)
+- Control-plane API: tenant CRUD, resumable onboarding, atomic daily-budget
+  reserve/settle/release operations, and operator budget-event inspection
+- Model-router integration: signed tenant principal verification and
+  reserve-before-provider/settle-after-provider for non-streaming chat
 - Memory-store service: vector insert/search/delete endpoints (FastAPI, untested)
 - SQL schema for tenant records and memory records
 - Tenant console (playbook-driven onboarding, per-tenant budget, operator UI): headless executor + FastAPI/SSE GUI + example vertical pack (offline-testable, not deployed)
@@ -63,7 +66,9 @@ The single-tenant stack is what CI validates and what actually runs. Nothing in 
 Implementation follows four broad phases:
 
 1. **Foundation** — Add `tenant_id` column to all tables; apply RLS policies; provision the initial tenant record via the control-plane API.
-2. **Router + agents** — Add `X-Tenant-ID` header propagation in the model router; wire per-tenant budget limits; configure tenant-scoped Honcho app IDs in Hermes.
+2. **Router + agents** — Propagate signed control-plane user tokens to the model
+   router; enable durable per-tenant reservations; configure tenant-scoped
+   Honcho app IDs in Hermes.
 3. **Routing + orchestrator** — Configure Cloudflare wildcard DNS; add tenant-resolver middleware to Paperclip; extend the onboarding API to trigger Terraform.
 4. **Production + second tenant** — Apply the Terraform tenant module; seed Key Vault secrets; validate a second tenant end-to-end; enable audit log.
 

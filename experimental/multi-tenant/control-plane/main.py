@@ -2,9 +2,10 @@
 # (see experimental/multi-tenant/README.md). Not wired into the runnable stack;
 # provided to illustrate the intended design.
 
-from fastapi import FastAPI, HTTPException, Depends, Header
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, Depends, Header, Query
+from pydantic import BaseModel, Field
 from typing import Optional, List
+from decimal import Decimal
 import hmac
 import psycopg2
 import os
@@ -16,6 +17,9 @@ from azure.search.documents.indexes.models import (
     VectorSearchProfile, HnswAlgorithmConfiguration
 )
 from azure.core.exceptions import ResourceNotFoundError
+from budget_api import build_budget_router
+from onboarding import OnboardingStateError, PostgresOnboardingStateStore
+from tenant_budget_store import BudgetStoreError, PostgresTenantBudget
 
 app = FastAPI(title="AzureAgentForge Platform API", version="1.0.0")
 
@@ -57,6 +61,11 @@ def get_db():
     finally:
         conn.close()
 
+
+app.include_router(
+    build_budget_router(get_db=get_db, require_operator=require_operator)
+)
+
 # Key Vault client
 credential = DefaultAzureCredential()
 kv_client = SecretClient(vault_url=os.environ["KV_URI"], credential=credential)
@@ -73,6 +82,7 @@ class TenantCreate(BaseModel):
     primary_email: str
     use_orchestrator: bool = True
     plan_name: str = "personal"
+    daily_budget_cap: float = Field(gt=0)
 
 class TenantResponse(BaseModel):
     id: str
@@ -81,7 +91,30 @@ class TenantResponse(BaseModel):
     mem0_namespace: str
     vector_index_name: str
     agent_vault_path: str
+    daily_budget_cap: float
     status: str
+
+
+class BudgetEventResponse(BaseModel):
+    tenant_id: str
+    day: str
+    request_id: str
+    amount_usd: Decimal
+    cap_usd: Decimal
+    spent_before_usd: Decimal
+    spent_after_usd: Decimal
+    decision: str
+
+
+class OnboardingRunResponse(BaseModel):
+    run_id: str
+    status: str
+    current_index: int | None
+    total_steps: int
+    completed_steps: List[str]
+    compensated_steps: List[str]
+    error: str | None
+    compensation_errors: List[str]
 
 @app.get("/health")
 def health_check():
@@ -103,13 +136,14 @@ def create_tenant(tenant: TenantCreate, conn = Depends(get_db), _op: None = Depe
         cur.execute("""
             INSERT INTO tenants (
                 slug, display_name, mem0_namespace, vector_index_name,
-                use_orchestrator, agent_vault_path, plan_name, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'active')
+                use_orchestrator, agent_vault_path, plan_name,
+                daily_budget_cap, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active')
             RETURNING id
         """, (
             tenant.slug, tenant.display_name, mem0_namespace,
             vector_index_name, tenant.use_orchestrator, agent_vault_path,
-            tenant.plan_name
+            tenant.plan_name, tenant.daily_budget_cap
         ))
         tenant_id = cur.fetchone()[0]
 
@@ -140,6 +174,7 @@ def create_tenant(tenant: TenantCreate, conn = Depends(get_db), _op: None = Depe
             mem0_namespace=mem0_namespace,
             vector_index_name=vector_index_name,
             agent_vault_path=agent_vault_path,
+            daily_budget_cap=tenant.daily_budget_cap,
             status="active"
         )
 
@@ -195,7 +230,7 @@ def get_tenant(slug: str, conn = Depends(get_db), _op: None = Depends(require_op
     cur = conn.cursor()
     cur.execute("""
         SELECT id, slug, display_name, mem0_namespace, vector_index_name,
-               agent_vault_path, status
+               agent_vault_path, daily_budget_cap, status
         FROM tenants WHERE slug = %s
     """, (slug,))
     row = cur.fetchone()
@@ -211,7 +246,8 @@ def get_tenant(slug: str, conn = Depends(get_db), _op: None = Depends(require_op
         mem0_namespace=row[3],
         vector_index_name=row[4],
         agent_vault_path=row[5],
-        status=row[6]
+        daily_budget_cap=float(row[6]),
+        status=row[7]
     )
 
 @app.get("/tenants", response_model=List[TenantResponse])
@@ -220,7 +256,7 @@ def list_tenants(conn = Depends(get_db), _op: None = Depends(require_operator)):
     cur = conn.cursor()
     cur.execute("""
         SELECT id, slug, display_name, mem0_namespace, vector_index_name,
-               agent_vault_path, status
+               agent_vault_path, daily_budget_cap, status
         FROM tenants WHERE status = 'active'
     """)
     rows = cur.fetchall()
@@ -234,10 +270,91 @@ def list_tenants(conn = Depends(get_db), _op: None = Depends(require_operator)):
             mem0_namespace=row[3],
             vector_index_name=row[4],
             agent_vault_path=row[5],
-            status=row[6]
+            daily_budget_cap=float(row[6]),
+            status=row[7]
         )
         for row in rows
     ]
+
+
+@app.get("/tenants/{slug}/budget/events", response_model=List[BudgetEventResponse])
+def list_tenant_budget_events(
+    slug: str,
+    day: str = Query(..., description="UTC budget day in YYYY-MM-DD format"),
+    limit: int = Query(default=100, ge=1, le=1000),
+    conn=Depends(get_db),
+    _op: None = Depends(require_operator),
+):
+    """Explain recent budget decisions for an operator audit view."""
+    cur = conn.cursor()
+    try:
+        cur.execute("SELECT id FROM tenants WHERE slug = %s", (slug,))
+        row = cur.fetchone()
+    finally:
+        cur.close()
+
+    if not row:
+        raise HTTPException(status_code=404, detail="Tenant not found")
+
+    try:
+        events = PostgresTenantBudget(conn).events(str(row[0]), day, limit=limit)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except BudgetStoreError as exc:
+        print(f"[control-plane] budget audit lookup failed: {exc}")
+        raise HTTPException(status_code=500, detail="budget audit lookup failed") from exc
+
+    return [
+        BudgetEventResponse(
+            tenant_id=event.tenant_id,
+            day=event.day,
+            request_id=event.request_id,
+            amount_usd=event.amount,
+            cap_usd=event.cap,
+            spent_before_usd=event.spent_before,
+            spent_after_usd=event.spent_after,
+            decision=event.decision.value,
+        )
+        for event in events
+    ]
+
+
+@app.get("/onboarding/runs/{run_id}", response_model=OnboardingRunResponse)
+def get_onboarding_run(
+    run_id: str,
+    conn=Depends(get_db),
+    _op: None = Depends(require_operator),
+):
+    """Return safe progress information for an operator onboarding view."""
+    try:
+        run = PostgresOnboardingStateStore(conn).load(run_id)
+    except OnboardingStateError as exc:
+        print(f"[control-plane] onboarding status lookup failed: {exc}")
+        raise HTTPException(status_code=500, detail="onboarding status unavailable") from exc
+
+    if run is None:
+        raise HTTPException(status_code=404, detail="Onboarding run not found")
+
+    completed_indexes = {item.index for item in run.completed}
+    compensated_indexes = set(run.compensated)
+    return OnboardingRunResponse(
+        run_id=run.run_id,
+        status=run.status,
+        current_index=run.current_index,
+        total_steps=len(run.steps),
+        completed_steps=[
+            run.steps[index].action
+            for index in sorted(completed_indexes)
+            if index < len(run.steps)
+        ],
+        compensated_steps=[
+            run.steps[index].action
+            for index in sorted(compensated_indexes)
+            if index < len(run.steps)
+        ],
+        error=run.error,
+        compensation_errors=list(run.compensation_errors),
+    )
 
 @app.get("/tenants/{slug}/config")
 def get_tenant_config(slug: str, conn = Depends(get_db), _op: None = Depends(require_operator)):

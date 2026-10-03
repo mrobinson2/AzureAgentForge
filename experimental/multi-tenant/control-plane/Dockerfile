@@ -11,7 +11,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application
-COPY main.py .
+COPY main.py budget_api.py tenant_budget.py tenant_budget_store.py tenant_context.py user_tokens.py onboarding.py ./
 
 # Expose port
 EXPOSE 8000

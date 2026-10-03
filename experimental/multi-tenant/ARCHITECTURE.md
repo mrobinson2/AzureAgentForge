@@ -293,7 +293,8 @@ Tenant "acme"     -->  HONCHO_APP_ID = "hermes-dev-acme"
 
 Changes to Hermes:
 - Maintain a `tenant_id -> honcho_app_id` mapping (loaded from config or platform API).
-- Pass `tenant_id` in the `X-Tenant-ID` header to the router sidecar for budget tracking.
+- Pass the control-plane user token in `X-Tenant-Token`; the router derives the
+  tenant and caller from verified claims for durable budget tracking.
 - Use tenant-scoped directories on the file share: `/opt/data/{tenant_slug}/config.yaml`.
 
 **Option B (>20 tenants): Dedicated Hermes container per tenant**
@@ -319,15 +320,51 @@ Regardless of option, Honcho session isolation is enforced by:
 
 ### Current State
 
-Budget tracking in `services/model-router/main.py` uses a global in-memory dict:
+The standard router still keeps its existing per-tier and optional per-caller
+in-memory ledgers. The multi-tenant reference path adds a separate,
+PostgreSQL-backed daily tenant ledger in the control plane and an authenticated
+reservation client in `services/model-router`.
 
-```python
-_spend: dict[str, float] = defaultdict(float)  # keyed by tier name
+For non-streaming `/v1/chat/completions`, native `/v1/messages`, and
+`/v1/embeddings`, the router verifies a control-plane HS256 user token from
+`X-Tenant-Token`, derives `tenant_id` and `sub` from the signed claims, reserves
+a fixed maximum before provider dispatch, and settles to actual model cost
+afterward. A provider failure releases the hold. A settlement outage leaves
+the conservative hold charged for later operator reconciliation.
+
+```text
+Caller
+  | ROUTER_API_KEY + X-Tenant-Token
+  v
+Model router
+  | 1. Verify signed tenant principal (ignore X-Tenant-ID/X-Agent-ID)
+  | 2. Mint server-side reservation id
+  | 3. POST /internal/budget/reservations
+  v
+Control plane + PostgreSQL
+  | row-lock tenant ledger; allow/warn/block; persist audit record
+  v
+Model provider
+  | success -> settle(actual cost)
+  | failure -> release(hold)
 ```
 
-This tracks spend per model tier (gpt4o-mini, phi4, etc.) with a daily reset. There is no tenant dimension.
+The control-plane API is authenticated separately with
+`TENANT_BUDGET_API_KEY`. Configure it with
+`TENANT_BUDGET_CONTROL_PLANE_URL`, `TENANT_BUDGET_TOKEN_SECRET`,
+`TENANT_BUDGET_RESERVATION_USD`, and optionally
+`TENANT_BUDGET_TIMEOUT_SECONDS`. Partial configuration fails closed.
 
-### Multi-Tenant Budget Tracking
+The durable seam covers every non-streaming paid endpoint. Streaming requires
+usage-aware final reservation settlement before it can join this ledger. The
+standard Terraform stack does not deploy the experimental control plane.
+
+### Superseded in-memory proposal (historical)
+
+> Do not implement this draft. It trusts a caller-supplied tenant header and
+> flushes mutable in-memory totals, so it cannot provide authoritative identity,
+> atomic reservations, or restart-safe enforcement. It remains here only to
+> preserve the design history that led to the implemented reservation model.
 
 Replace the flat `_spend` dict with a nested `tenant -> tier -> spend` structure, backed by PostgreSQL for persistence across restarts.
 
@@ -449,7 +486,7 @@ CREATE TABLE IF NOT EXISTS tenant_budget_limits (
 );
 ```
 
-### Request Flow
+### Superseded request flow
 
 ```
 Hermes/Paperclip

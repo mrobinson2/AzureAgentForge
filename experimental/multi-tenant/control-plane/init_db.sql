@@ -23,6 +23,8 @@ CREATE TABLE tenants (
     default_channel text NOT NULL DEFAULT 'web',
     default_locale text NOT NULL DEFAULT 'en-US',
     plan_name text NOT NULL DEFAULT 'personal',
+    daily_budget_cap numeric(18,6) NOT NULL DEFAULT 0
+        CHECK (daily_budget_cap >= 0),
     monthly_memory_limit int,
     monthly_token_limit bigint,
     created_at timestamptz NOT NULL DEFAULT now(),
@@ -31,6 +33,81 @@ CREATE TABLE tenants (
 
 CREATE INDEX idx_tenants_slug ON tenants(slug);
 CREATE INDEX idx_tenants_status ON tenants(status);
+
+-- Durable daily spend ledger. Charges are serialized on the parent tenant row
+-- by tenant_budget_store.py before this table is read or updated.
+CREATE TABLE tenant_budget_daily (
+    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    day date NOT NULL,
+    spent_usd numeric(18,6) NOT NULL DEFAULT 0 CHECK (spent_usd >= 0),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, day)
+);
+
+CREATE INDEX idx_tenant_budget_daily_day ON tenant_budget_daily(day);
+
+-- Immutable decision audit. Blocked attempts are intentionally recorded here
+-- even though they never increase tenant_budget_daily.spent_usd. request_id
+-- makes client retries idempotent and prevents a charge from being applied
+-- twice after a network timeout.
+CREATE TABLE tenant_budget_events (
+    id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    day date NOT NULL,
+    request_id text NOT NULL,
+    amount_usd numeric(18,6) NOT NULL CHECK (amount_usd >= 0),
+    cap_usd numeric(18,6) NOT NULL CHECK (cap_usd >= 0),
+    spent_before_usd numeric(18,6) NOT NULL CHECK (spent_before_usd >= 0),
+    spent_after_usd numeric(18,6) NOT NULL CHECK (spent_after_usd >= 0),
+    decision text NOT NULL CHECK (decision IN ('allow', 'warn', 'block')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    UNIQUE (tenant_id, request_id)
+);
+
+CREATE INDEX idx_tenant_budget_events_day
+    ON tenant_budget_events(tenant_id, day, created_at DESC);
+
+-- Pre-dispatch holds used by model-router. A pending reservation contributes
+-- to tenant_budget_daily immediately, preventing concurrent requests from both
+-- consuming the same remaining cap. Settlement replaces the hold with actual
+-- provider cost; release removes it when no provider call succeeds.
+CREATE TABLE tenant_budget_reservations (
+    tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+    day date NOT NULL,
+    request_id text NOT NULL,
+    caller_id text NOT NULL,
+    reserved_usd numeric(18,6) NOT NULL CHECK (reserved_usd > 0),
+    actual_usd numeric(18,6) CHECK (actual_usd >= 0),
+    cap_usd numeric(18,6) NOT NULL CHECK (cap_usd >= 0),
+    spent_before_usd numeric(18,6) NOT NULL CHECK (spent_before_usd >= 0),
+    spent_after_usd numeric(18,6) NOT NULL CHECK (spent_after_usd >= 0),
+    decision text NOT NULL CHECK (decision IN ('allow', 'warn', 'block')),
+    status text NOT NULL CHECK (status IN ('pending', 'settled', 'released', 'blocked')),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY (tenant_id, request_id)
+);
+
+CREATE INDEX idx_tenant_budget_reservations_day
+    ON tenant_budget_reservations(tenant_id, day, created_at DESC);
+
+-- Checkpointed operator onboarding runs. This table intentionally has no
+-- tenant_id: a run may exist before the tenant row is created, and it is
+-- therefore readable/writable only through the control-plane BYPASSRLS role.
+CREATE TABLE tenant_onboarding_runs (
+    run_id text PRIMARY KEY,
+    contract_fingerprint text NOT NULL,
+    state_json jsonb NOT NULL,
+    status text NOT NULL CHECK (
+        status IN ('pending', 'running', 'failed', 'complete',
+                   'rolling_back', 'rollback_failed', 'rolled_back')
+    ),
+    created_at timestamptz NOT NULL DEFAULT now(),
+    updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_tenant_onboarding_runs_status
+    ON tenant_onboarding_runs(status, updated_at DESC);
 
 -- Users: accounts under a tenant
 CREATE TABLE users (
@@ -147,6 +224,24 @@ CREATE POLICY tenant_api_keys_tenant_isolation ON tenant_api_keys
 ALTER TABLE tenant_features ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenant_features FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_features_tenant_isolation ON tenant_features
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE tenant_budget_daily ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_budget_daily FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_budget_daily_tenant_isolation ON tenant_budget_daily
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE tenant_budget_events ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_budget_events FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_budget_events_tenant_isolation ON tenant_budget_events
+    USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
+    WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
+
+ALTER TABLE tenant_budget_reservations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenant_budget_reservations FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_budget_reservations_tenant_isolation ON tenant_budget_reservations
     USING (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid)
     WITH CHECK (tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::uuid);
 

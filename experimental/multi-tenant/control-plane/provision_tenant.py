@@ -4,26 +4,58 @@
 # provided to illustrate the intended design.
 """
 Tenant Provisioning Script for AzureAgentForge Platform
-Usage: python provision_tenant.py --slug acme --name "Acme Corp" --email admin@example.com
+Usage: python provision_tenant.py --slug acme --name "Acme Corp" \
+    --email admin@example.com --daily-budget-cap 5
 """
 
 import argparse
+import math
 import requests
 import sys
 import json
 
-def provision_tenant(api_base: str, slug: str, display_name: str, email: str,
-                     use_orchestrator: bool = True, plan: str = "personal"):
-    """Provision a new tenant with all associated resources."""
 
-    url = f"{api_base}/tenants"
-    payload = {
+def build_tenant_payload(
+    *,
+    slug: str,
+    display_name: str,
+    email: str,
+    daily_budget_cap: float,
+    use_orchestrator: bool = True,
+    plan: str = "personal",
+) -> dict:
+    """Build the API contract without allowing an implicit unlimited budget."""
+    if (
+        isinstance(daily_budget_cap, bool)
+        or not isinstance(daily_budget_cap, (int, float))
+        or not math.isfinite(daily_budget_cap)
+        or daily_budget_cap <= 0
+    ):
+        raise ValueError("daily_budget_cap must be a finite positive number")
+    return {
         "slug": slug,
         "display_name": display_name,
         "primary_email": email,
         "use_orchestrator": use_orchestrator,
-        "plan_name": plan
+        "plan_name": plan,
+        "daily_budget_cap": daily_budget_cap,
     }
+
+
+def provision_tenant(api_base: str, slug: str, display_name: str, email: str,
+                     daily_budget_cap: float, use_orchestrator: bool = True,
+                     plan: str = "personal"):
+    """Provision a new tenant with all associated resources."""
+
+    url = f"{api_base}/tenants"
+    payload = build_tenant_payload(
+        slug=slug,
+        display_name=display_name,
+        email=email,
+        daily_budget_cap=daily_budget_cap,
+        use_orchestrator=use_orchestrator,
+        plan=plan,
+    )
 
     try:
         response = requests.post(url, json=payload, timeout=60)
@@ -53,6 +85,8 @@ def main():
     parser.add_argument("--slug", required=True, help="Tenant slug (e.g., 'acme')")
     parser.add_argument("--name", required=True, help="Display name")
     parser.add_argument("--email", required=True, help="Primary email")
+    parser.add_argument("--daily-budget-cap", required=True, type=float,
+                       help="Positive daily USD budget cap")
     parser.add_argument("--orchestrator", action="store_true", default=True,
                        help="Enable orchestrator agent")
     parser.add_argument("--plan", default="personal",
@@ -66,6 +100,7 @@ def main():
         slug=args.slug,
         display_name=args.name,
         email=args.email,
+        daily_budget_cap=args.daily_budget_cap,
         use_orchestrator=args.orchestrator,
         plan=args.plan
     )
