@@ -12,7 +12,7 @@
 # services/paperclip/Dockerfile (ARG) and docker-compose.yml. On a version
 # bump the guard fails until someone re-validates this list against the new
 # release and updates the pin — deliberately loud.
-pinned_version: v2026.707.0
+pinned_version: v2026.1001.0
 
 accepted_env:
   - key: DATABASE_URL

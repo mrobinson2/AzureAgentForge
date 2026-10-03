@@ -199,8 +199,8 @@ services:
       context: .
       dockerfile: services/paperclip/Dockerfile
       args:
-        PAPERCLIP_VERSION: ${PAPERCLIP_VERSION:-v2026.707.0}
-        PAPERCLIP_EXPECTED_SHA: ${PAPERCLIP_EXPECTED_SHA:-390627b46eb333309d357004384b220ecf8a65af}
+        PAPERCLIP_VERSION: ${PAPERCLIP_VERSION:-v2026.1001.0}
+        PAPERCLIP_EXPECTED_SHA: ${PAPERCLIP_EXPECTED_SHA:-8f8a0ab7effbd6a0584107d8038736c134ee5047}
     depends_on:
       postgres:
         condition: service_healthy

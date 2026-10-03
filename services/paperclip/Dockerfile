@@ -11,11 +11,11 @@
 # Port: 3100 (Paperclip default)
 # Data: /paperclip (mount an Azure File Share here for persistence)
 
-ARG PAPERCLIP_VERSION=v2026.707.0
+ARG PAPERCLIP_VERSION=v2026.1001.0
 # Guard against git-tag drift: the build fails if the cloned tag resolves to a
 # commit other than this. Resolve with:
 #   git ls-remote https://github.com/paperclipai/paperclip refs/tags/<tag>
-ARG PAPERCLIP_EXPECTED_SHA=390627b46eb333309d357004384b220ecf8a65af
+ARG PAPERCLIP_EXPECTED_SHA=8f8a0ab7effbd6a0584107d8038736c134ee5047
 ARG NODE_VERSION=lts-trixie-slim
 
 # ── Stage 0: upstream-style base image ────────────────────────────────────────
@@ -54,7 +54,7 @@ WORKDIR /app
 # Clone the pinned release tag, then verify the resolved commit matches the
 # expected SHA. A git tag is not immutable; this fails the build on tag drift.
 # CACHE_BUST invalidates Docker layer cache so a version change actually takes effect.
-ARG CACHE_BUST=2026-07-11
+ARG CACHE_BUST=2026-10-03
 RUN echo "cache-bust=${CACHE_BUST}" \
  && git clone --depth=1 --branch ${PAPERCLIP_VERSION} \
     https://github.com/paperclipai/paperclip.git . \
@@ -78,23 +78,17 @@ FROM deps AS build
 # the patch had been a build-time no-op for the entire lifetime of
 # this pin. See docs/research/paperclip-version-upgrade-analysis.md §3.)
 
-# Fix plugin SDK gap: sessions.sendMessage/agents.invoke don't deliver prompt to agent.
-# Patch plugin-host-services.ts to materialize a backing issue per call so the existing
-# assignee-wake path delivers the prompt via issue body.
-COPY apps/paperclip/patch-plugin-host.mjs /tmp/patch-plugin-host.mjs
-RUN node /tmp/patch-plugin-host.mjs
+# (patch-plugin-host.mjs deleted as part of the v2026.1001.0 bump — upstream
+# sendMessage/invoke now deliver the prompt natively via the
+# `paperclipAgentMessage` contextSnapshot key, which enrichWakeContextSnapshot
+# reads as first-class wake content. The backing-issue workaround is obsolete.)
 
-# Restore pre-gate plugin secret-refs resolver. A later upstream change
-# ("fail closed plugin secret refs") replaced the entire
-# createPluginSecretsHandler.resolve() body with an unconditional throw,
-# breaking every plugin that resolves a secret-ref at init (e.g. the
-# discord plugin's discordBotTokenRef). The stated rationale is
-# cross-tenancy isolation, which doesn't apply to AzureAgentForge's single-operator
-# deployment. The patch restores the pre-gate implementation verbatim
-# from commit 87011615^. Drop this patch once upstream lands "company-
-# scoped plugin config" and the gate's followup work.
-COPY apps/paperclip/patch-plugin-secrets-handler.mjs /tmp/patch-plugin-secrets-handler.mjs
-RUN node /tmp/patch-plugin-secrets-handler.mjs
+# (patch-plugin-secrets-handler.mjs deleted as part of the v2026.1001.0 bump —
+# its stated drop condition landed: upstream now ships company-scoped plugin
+# config with real secret bindings (companySecretBindings) and a working
+# createPluginSecretsHandler.resolve(). NOTE: string secret-refs now throw;
+# a plugin secret (e.g. the discord plugin's bot token) must be registered as
+# a company secret binding instead of a raw ref.)
 
 # Extend plugin-worker-manager env-var allow-list for paperclip-plugin-discord.
 # Secrets stay file-mounted under /secrets/<name>; this only passes through

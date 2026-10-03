@@ -247,52 +247,37 @@ describe("buildMetadataAnswer", () => {
 
 // ── The patch transform itself, against a real (trimmed, verbatim) fixture ──
 //
-// Source: paperclipai/paperclip, tag v2026.707.0 (the pin in
+// Source: paperclipai/paperclip, tag v2026.1001.0 (the pin in
 // services/paperclip/Dockerfile's PAPERCLIP_VERSION arg, SHA
-// 390627b46eb333309d357004384b220ecf8a65af — verified against the real
-// upstream tag during development of this patch), server/src/services/
+// 8f8a0ab7effbd6a0584107d8038736c134ee5047 — verified against the real
+// upstream tag during the v2026.1001.0 bump), server/src/services/
 // heartbeat.ts. Two segments, verbatim, joined with a truncation marker —
-// the real file is ~14.8k lines; these are the two regions
-// patch-metadata-fastpath.mjs anchors on (near line 113 and line 10070).
+// the real file is ~20k+ lines; these are the two regions
+// patch-metadata-fastpath.mjs anchors on (near line 385 and line 20197).
 
 const VENDORED_FIXTURE = [
-  // --- server/src/services/heartbeat.ts, near the local imports (~L108-115) ---
-  '  type RealizedExecutionWorkspace,',
-  '  sanitizeRuntimeServiceBaseEnv,',
-  '} from "./workspace-runtime.js";',
+  // --- server/src/services/heartbeat.ts, near the local imports (~L382-387) ---
+  '  readManagedWorktreeInstanceOwnership,',
+  '  WORKTREE_INSTANCE_ROOT_METADATA_KEY,',
+  '} from "./workspace-instance-cleanup.js";',
   'import { issueService } from "./issues.js";',
   'import {',
-  '  ISSUE_BLOCKERS_RESOLVED_WAKE_REASON,',
+  '  blockRunnerGoalRecovery,',
   '',
-  '// ... (trimmed — ~9,900 lines of unrelated service code) ...',
+  '// ... (trimmed — ~19,800 lines of unrelated service code) ...',
   '',
-  // --- server/src/services/heartbeat.ts, inside executeRun (~L10060-10072) ---
-  '    try {',
-  '    const agent = await getAgent(run.agentId);',
-  '    if (!agent) {',
-  '      await setRunStatus(runId, "failed", {',
-  '        error: "Agent not found",',
-  '        errorCode: "agent_not_found",',
-  '        finishedAt: new Date(),',
-  '      });',
-  '      await setWakeupStatus(run.wakeupRequestId, "failed", {',
-  '        finishedAt: new Date(),',
-  '        error: "Agent not found",',
-  '      });',
-  '      const failedRun = await getRun(runId);',
-  '      if (failedRun) await releaseIssueExecutionAndPromote(failedRun);',
-  '      return;',
-  '    }',
-  '',
-  '    const runtime = await ensureRuntimeState(agent);',
-  '    const context = parseObject(run.contextSnapshot);',
-  '    const taskKey = deriveTaskKeyWithHeartbeatFallback(context, null);',
-  '    const sessionCodec = getAdapterSessionCodec(agent.adapterType);',
-  '    const issueId = readNonEmptyString(context.issueId);',
-  '    let issueContext = issueId ? await getIssueExecutionContext(agent.companyId, issueId) : null;',
-  '    const issueDependencyReadiness = issueId',
-  '      ? await issuesSvc.listDependencyReadiness(agent.companyId, [issueId]).then((rows) => rows.get(issueId) ?? null)',
-  '      : null;',
+  // --- server/src/services/heartbeat.ts, inside executeRun (~L20195-20205) ---
+  '      const taskKey = deriveTaskKeyWithHeartbeatFallback(context, null);',
+  '      const sessionCodec = getAdapterSessionCodec(agent.adapterType);',
+  '      const issueId = readNonEmptyString(context.issueId);',
+  '      let issueContext = issueId',
+  '        ? await getIssueExecutionContext(agent.companyId, issueId)',
+  '        : null;',
+  '      const issueDependencyReadiness = issueId',
+  '        ? await issuesSvc',
+  '            .listDependencyReadiness(agent.companyId, [issueId])',
+  '            .then((rows) => rows.get(issueId) ?? null)',
+  '        : null;',
 ].join("\n");
 
 test("transform inserts the import right after the issues.js import", () => {
@@ -351,8 +336,8 @@ test("transform fails loudly when the import anchor has drifted", () => {
 
 test("transform fails loudly when the logic anchor has drifted", () => {
   const driftedFixture = VENDORED_FIXTURE.replace(
-    "let issueContext = issueId ? await getIssueExecutionContext(agent.companyId, issueId) : null;",
-    "let issueContext = issueId ? await getIssueExecutionContextV2(agent.companyId, issueId) : null;",
+    "? await getIssueExecutionContext(agent.companyId, issueId)",
+    "? await getIssueExecutionContextV2(agent.companyId, issueId)",
   );
   const result = applyMetadataFastpath(driftedFixture);
   assert.equal(result.applied, false);
