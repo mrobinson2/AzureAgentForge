@@ -16,6 +16,7 @@ import hashlib
 import hmac
 import json
 import logging
+import math
 import os
 import re
 import time
@@ -23,6 +24,7 @@ import traceback
 from collections import defaultdict
 from datetime import date
 from typing import Any
+from uuid import UUID, uuid4
 
 import litellm
 from anthropic import AsyncAnthropic
@@ -44,6 +46,13 @@ import waste_breakers
 # docs/design/router-resilience-pack.md.
 import circuit_breaker
 import kill_switch
+from tenant_budget_client import (
+    TenantBudgetBlocked,
+    TenantBudgetClient,
+    TenantBudgetError,
+    TenantBudgetUnavailable,
+)
+from tenant_identity import TenantIdentityError, TenantPrincipal, verify_tenant_token
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s %(message)s")
 log = logging.getLogger("router")
@@ -414,6 +423,99 @@ _spend: dict[str, float] = defaultdict(float)
 # is still tracked for the daily rollup).
 _spend_by_caller: dict[str, float] = defaultdict(float)
 PER_CALLER_DAILY_USD: float = float(os.environ.get("PER_CALLER_DAILY_USD", "0") or 0)
+
+# Optional durable tenant budget authority. When configured, non-streaming chat
+# calls reserve an operator-defined maximum before provider dispatch and settle
+# to actual cost afterward. Both URL and key are required; streaming remains
+# disabled on this path until usage-aware settlement is implemented.
+_TENANT_BUDGET_CONTROL_PLANE_URL = os.environ.get(
+    "TENANT_BUDGET_CONTROL_PLANE_URL", ""
+).strip()
+_TENANT_BUDGET_API_KEY = os.environ.get("TENANT_BUDGET_API_KEY", "").strip()
+_TENANT_BUDGET_TOKEN_SECRET = os.environ.get(
+    "TENANT_BUDGET_TOKEN_SECRET", ""
+).strip()
+_TENANT_BUDGET_RESERVATION_USD = os.environ.get(
+    "TENANT_BUDGET_RESERVATION_USD", "0"
+).strip()
+_TENANT_BUDGET_CONFIGURED = bool(
+    _TENANT_BUDGET_CONTROL_PLANE_URL
+    or _TENANT_BUDGET_API_KEY
+    or _TENANT_BUDGET_TOKEN_SECRET
+)
+_tenant_budget_client = (
+    TenantBudgetClient(
+        base_url=_TENANT_BUDGET_CONTROL_PLANE_URL,
+        api_key=_TENANT_BUDGET_API_KEY,
+        timeout_seconds=float(os.environ.get("TENANT_BUDGET_TIMEOUT_SECONDS", "2")),
+    )
+    if _TENANT_BUDGET_CONTROL_PLANE_URL and _TENANT_BUDGET_API_KEY
+    else None
+)
+
+
+def _resolve_tenant_budget_principal(
+    request: Request, *, stream: bool
+) -> TenantPrincipal | None:
+    """Return trusted tenant identity when durable budgeting is enabled."""
+    if not (_TENANT_BUDGET_CONFIGURED or _tenant_budget_client is not None):
+        return None
+    if _tenant_budget_client is None or not _TENANT_BUDGET_TOKEN_SECRET:
+        raise HTTPException(
+            status_code=503,
+            detail="Tenant budget authority is incompletely configured",
+        )
+    tenant_token = (request.headers.get("x-tenant-token") or "").strip()
+    if not tenant_token:
+        raise HTTPException(
+            status_code=401,
+            detail="A signed tenant principal is required for durable budgeting",
+        )
+    try:
+        principal = verify_tenant_token(tenant_token, _TENANT_BUDGET_TOKEN_SECRET)
+    except TenantIdentityError as exc:
+        raise HTTPException(status_code=403, detail="Invalid tenant principal") from exc
+    if stream:
+        raise HTTPException(
+            status_code=400,
+            detail="Streaming is not available with durable tenant budgeting",
+        )
+    return principal
+
+
+async def _reserve_tenant_budget(
+    principal: TenantPrincipal | None,
+) -> tuple[str, str] | None:
+    """Place one server-keyed hold immediately before provider dispatch."""
+    if principal is None:
+        return None
+    try:
+        reservation_amount = float(_TENANT_BUDGET_RESERVATION_USD)
+        if not math.isfinite(reservation_amount) or reservation_amount <= 0:
+            raise ValueError
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=503,
+            detail="Tenant budget reservation amount is not configured",
+        )
+    # Correlation ids are caller-controlled and therefore cannot safely be
+    # used as reservation idempotency keys. Mint one per accepted HTTP call.
+    request_id = uuid4().hex
+    try:
+        reservation = await _tenant_budget_client.reserve(
+            tenant_id=principal.tenant_id,
+            caller_id=principal.user_id,
+            request_id=request_id,
+            reserved_usd=_TENANT_BUDGET_RESERVATION_USD,
+            day=str(date.today()),
+        )
+    except TenantBudgetBlocked as exc:
+        raise HTTPException(status_code=429, detail="Tenant daily budget exceeded") from exc
+    except TenantBudgetUnavailable as exc:
+        raise HTTPException(status_code=503, detail="Tenant budget authority unavailable") from exc
+    if reservation.decision == "block":
+        raise HTTPException(status_code=429, detail="Tenant daily budget exceeded")
+    return principal.tenant_id, request_id
 
 
 def _reset_if_new_day() -> None:
@@ -1166,6 +1268,19 @@ def resolve_caller_id(headers) -> str | None:
         if v:
             return str(v)[:200]
     return None
+
+
+def resolve_tenant_id(headers) -> str | None:
+    """Return a canonical UUID tenant id; reject spoofable free-form values."""
+    if not headers:
+        return None
+    value = headers.get("x-tenant-id") or headers.get("X-Tenant-Id")
+    if not value:
+        return None
+    try:
+        return str(UUID(str(value)))
+    except (ValueError, TypeError, AttributeError):
+        return None
 
 
 OBSERVABILITY_ENABLED = os.environ.get("OBSERVABILITY_ENABLED", "").strip().lower() in (
@@ -2205,6 +2320,8 @@ async def chat_completions(request: Request):
     t_start = time.monotonic()
     body = await request.json()
     _validate_request(body)
+    stream = bool(body.get("stream", False))
+    tenant_principal = _resolve_tenant_budget_principal(request, stream=stream)
 
     # aaf-0005: wire the per-caller cost ledger into the request path. Resolve the
     # caller (agent/tenant) id, reject over-budget callers (429) BEFORE spending on
@@ -2212,7 +2329,11 @@ async def chat_completions(request: Request):
     # it. Fails open when PER_CALLER_DAILY_USD is unset or the request is
     # unattributed (is_over_caller_budget returns False), so this can never block
     # traffic when cost governance is not configured.
-    caller = resolve_caller_id(request.headers)
+    caller = (
+        tenant_principal.user_id
+        if tenant_principal is not None
+        else resolve_caller_id(request.headers)
+    )
     if is_over_caller_budget(caller):
         raise HTTPException(status_code=429, detail="Per-caller daily budget exceeded")
     if caller:
@@ -2233,7 +2354,6 @@ async def chat_completions(request: Request):
     # metadata so callers can see the downgrade (empty dicts otherwise).
     bd_headers = _budget_downgrade_headers(body)
     bd_meta = _budget_downgrade_meta(body)
-    stream = bool(body.get("stream", False))
 
     # Capture prompt-cache (and other Anthropic-beta) markers BEFORE handing the
     # body to per-tier callers. The OpenAI client convention is to send these
@@ -2260,6 +2380,8 @@ async def chat_completions(request: Request):
 
     if not _fits_model(tier, estimated, requested_max):
         raise HTTPException(status_code=413, detail="Request exceeds model context limit")
+
+    tenant_budget_hold = await _reserve_tenant_budget(tenant_principal)
 
     fallback_chain = _build_fallback_chain(tier, estimated, requested_max)
 
@@ -2372,6 +2494,24 @@ async def chat_completions(request: Request):
                 )
             continue
 
+        actual_cost = result.pop("__router_cost_usd__", 0.0)
+        settlement_headers: dict[str, str] = {}
+        if tenant_budget_hold is not None:
+            try:
+                await _tenant_budget_client.settle(
+                    tenant_id=tenant_budget_hold[0],
+                    request_id=tenant_budget_hold[1],
+                    actual_usd=str(actual_cost),
+                )
+            except TenantBudgetError as exc:
+                # The hold remains charged, so budget safety is preserved even
+                # when reconciliation is temporarily unavailable.
+                log.error(
+                    "tenant_budget_settlement_pending tenant=%s request=%s error=%s",
+                    tenant_budget_hold[0], tenant_budget_hold[1], exc,
+                )
+                settlement_headers["X-Tenant-Budget-Settlement"] = "pending"
+
         router_meta: dict[str, Any] = {"tier": candidate}
         if position > 0:
             router_meta["fallback_from"] = tier
@@ -2392,11 +2532,21 @@ async def chat_completions(request: Request):
                 else flight_recorder.OUTCOME_SUCCESS
             ),
             served_tier=candidate, served_model=_model, input_tokens=_in, output_tokens=_out,
-            cost_usd=result.pop("__router_cost_usd__", 0.0), breaker_verdicts=breaker_verdicts,
+            cost_usd=actual_cost, breaker_verdicts=breaker_verdicts,
         )
-        return JSONResponse(content=result, headers=bd_headers)
+        return JSONResponse(content=result, headers={**bd_headers, **settlement_headers})
 
     if blocked is not None:
+        if tenant_budget_hold is not None:
+            try:
+                await _tenant_budget_client.release(
+                    tenant_id=tenant_budget_hold[0], request_id=tenant_budget_hold[1]
+                )
+            except TenantBudgetError as exc:
+                log.error(
+                    "tenant_budget_release_pending tenant=%s request=%s error=%s",
+                    tenant_budget_hold[0], tenant_budget_hold[1], exc,
+                )
         _emit_flight_event(
             fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
             input_tokens=estimated, error_class=f"resilience_block:{blocked.code}",
@@ -2404,12 +2554,42 @@ async def chat_completions(request: Request):
         )
         raise blocked
 
+    if tenant_budget_hold is not None:
+        try:
+            await _tenant_budget_client.release(
+                tenant_id=tenant_budget_hold[0], request_id=tenant_budget_hold[1]
+            )
+        except TenantBudgetError as exc:
+            log.error(
+                "tenant_budget_release_pending tenant=%s request=%s error=%s",
+                tenant_budget_hold[0], tenant_budget_hold[1], exc,
+            )
     _emit_flight_event(
         fc_ctx, t_start=t_start, outcome=flight_recorder.OUTCOME_ERROR,
         input_tokens=estimated, error_class="all_tiers_failed",
         breaker_verdicts=breaker_verdicts,
     )
     raise HTTPException(status_code=502, detail="All tiers failed")
+
+
+def _anthropic_budget_http_error(exc: HTTPException) -> JSONResponse:
+    """Keep durable-budget failures parseable by Anthropic-native clients."""
+    if exc.status_code == 429:
+        error_type = "rate_limit_error"
+    elif exc.status_code in {401, 403}:
+        error_type = "authentication_error"
+    elif exc.status_code == 400:
+        error_type = "invalid_request_error"
+    else:
+        error_type = "api_error"
+    message = exc.detail if isinstance(exc.detail, str) else "tenant budget request rejected"
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "type": "error",
+            "error": {"type": error_type, "message": message},
+        },
+    )
 
 
 @app.post("/v1/messages")
@@ -2432,9 +2612,18 @@ async def messages(request: Request):
     _validate_request(body)
     if body.get("max_tokens") is None:
         raise HTTPException(status_code=400, detail="Request must include max_tokens")
+    stream = bool(body.get("stream", False))
+    try:
+        tenant_principal = _resolve_tenant_budget_principal(request, stream=stream)
+    except HTTPException as exc:
+        return _anthropic_budget_http_error(exc)
 
     # aaf-0005: same per-caller budget gate as /v1/chat/completions.
-    caller = resolve_caller_id(request.headers)
+    caller = (
+        tenant_principal.user_id
+        if tenant_principal is not None
+        else resolve_caller_id(request.headers)
+    )
     if is_over_caller_budget(caller):
         raise HTTPException(status_code=429, detail="Per-caller daily budget exceeded")
 
@@ -2510,8 +2699,6 @@ async def messages(request: Request):
                     _BUDGET_ENFORCE_MODE, tier, decision.reason)
 
     cfg = MODELS[tier]
-    stream = bool(body.get("stream", False))
-
     estimated = fc_ctx["prompt_tokens_estimated"]
     requested_max = body.get("max_tokens", cfg["max_tokens"])
     if not _fits_model(tier, estimated, requested_max):
@@ -2552,6 +2739,11 @@ async def messages(request: Request):
             headers=rb.headers,
         )
 
+    try:
+        tenant_budget_hold = await _reserve_tenant_budget(tenant_principal)
+    except HTTPException as exc:
+        return _anthropic_budget_http_error(exc)
+
     if stream:
         _emit_flight_event(
             fc_ctx, t_start=t_start,
@@ -2578,6 +2770,16 @@ async def messages(request: Request):
     try:
         resp = await client.messages.create(**kwargs)
     except Exception as e:
+        if tenant_budget_hold is not None:
+            try:
+                await _tenant_budget_client.release(
+                    tenant_id=tenant_budget_hold[0], request_id=tenant_budget_hold[1]
+                )
+            except TenantBudgetError as release_exc:
+                log.error(
+                    "tenant_budget_release_pending tenant=%s request=%s error=%s",
+                    tenant_budget_hold[0], tenant_budget_hold[1], release_exc,
+                )
         _record_dispatch_outcome(tier, breaker_verdict, e)
         log.warning("messages_failed tier=%s error=%s", tier, e)
         log.debug("messages_failed_traceback tier=%s\n%s", tier, traceback.format_exc())
@@ -2615,13 +2817,28 @@ async def messages(request: Request):
     _usage = getattr(resp, "usage", None)
     _in = int(getattr(_usage, "input_tokens", 0) or 0)
     _out = int(getattr(_usage, "output_tokens", 0) or 0)
+    actual_cost = _estimate_anthropic_cost(_deployment, _in, _out)
+    settlement_headers: dict[str, str] = {}
+    if tenant_budget_hold is not None:
+        try:
+            await _tenant_budget_client.settle(
+                tenant_id=tenant_budget_hold[0],
+                request_id=tenant_budget_hold[1],
+                actual_usd=str(actual_cost),
+            )
+        except TenantBudgetError as exc:
+            log.error(
+                "tenant_budget_settlement_pending tenant=%s request=%s error=%s",
+                tenant_budget_hold[0], tenant_budget_hold[1], exc,
+            )
+            settlement_headers["X-Tenant-Budget-Settlement"] = "pending"
     _emit_flight_event(
         fc_ctx, t_start=t_start,
         outcome=flight_recorder.OUTCOME_DOWNGRADED if bd_meta else flight_recorder.OUTCOME_SUCCESS,
         served_tier=tier, served_model=_deployment, input_tokens=_in, output_tokens=_out,
-        cost_usd=_estimate_anthropic_cost(_deployment, _in, _out), breaker_verdicts=breaker_verdicts,
+        cost_usd=actual_cost, breaker_verdicts=breaker_verdicts,
     )
-    return JSONResponse(content=result, headers=bd_headers)
+    return JSONResponse(content=result, headers={**bd_headers, **settlement_headers})
 
 
 # ─── Embeddings ──────────────────────────────────────────────────────────────
@@ -2737,10 +2954,15 @@ async def embeddings(request: Request):
         raise HTTPException(status_code=400, detail="'input' is required")
     if isinstance(inp, list) and len(inp) > _EMBED_MAX_INPUTS:
         raise HTTPException(status_code=400, detail=f"too many inputs (max {_EMBED_MAX_INPUTS})")
+    tenant_principal = _resolve_tenant_budget_principal(request, stream=False)
 
     # aaf-0005: same per-caller budget gate as the chat endpoints — a caller
     # over its daily cap must not keep spending through the embeddings path.
-    caller = resolve_caller_id(request.headers)
+    caller = (
+        tenant_principal.user_id
+        if tenant_principal is not None
+        else resolve_caller_id(request.headers)
+    )
     if is_over_caller_budget(caller):
         raise HTTPException(status_code=429, detail="Per-caller daily budget exceeded")
 
@@ -2765,6 +2987,8 @@ async def embeddings(request: Request):
         log.warning("budget_enforce mode=%s tier=%s %s (embeddings)",
                     _BUDGET_ENFORCE_MODE, _EMBED_LEDGER_BUCKET, decision.reason)
 
+    tenant_budget_hold = await _reserve_tenant_budget(tenant_principal)
+
     try:
         # _EMBED_LITELLM_MODEL (not _EMBED_MODEL): the openai/ prefix pin is
         # load-bearing against azure.com api_bases — see _pin_embedding_provider.
@@ -2776,6 +3000,16 @@ async def embeddings(request: Request):
             timeout=_EMBED_TIMEOUT_S,
         )
     except Exception as exc:  # noqa: BLE001
+        if tenant_budget_hold is not None:
+            try:
+                await _tenant_budget_client.release(
+                    tenant_id=tenant_budget_hold[0], request_id=tenant_budget_hold[1]
+                )
+            except TenantBudgetError as release_exc:
+                log.error(
+                    "tenant_budget_release_pending tenant=%s request=%s error=%s",
+                    tenant_budget_hold[0], tenant_budget_hold[1], release_exc,
+                )
         # aaf-0016: log the real upstream error, return a generic message so the
         # provider's exception text (endpoint, key hints, internals) isn't echoed.
         log.warning("embeddings call failed: %s", exc)
@@ -2793,16 +3027,38 @@ async def embeddings(request: Request):
         caller=caller, correlation_id=resolve_correlation_id(request.headers),
     )
 
+    settlement_headers: dict[str, str] = {}
+    if tenant_budget_hold is not None:
+        try:
+            await _tenant_budget_client.settle(
+                tenant_id=tenant_budget_hold[0],
+                request_id=tenant_budget_hold[1],
+                actual_usd=str(cost),
+            )
+        except TenantBudgetError as exc:
+            log.error(
+                "tenant_budget_settlement_pending tenant=%s request=%s error=%s",
+                tenant_budget_hold[0], tenant_budget_hold[1], exc,
+            )
+            settlement_headers["X-Tenant-Budget-Settlement"] = "pending"
+
     data = payload.get("data") or []
-    return {
-        "object": "list",
-        "data": [
-            {"object": "embedding", "index": d.get("index", i), "embedding": list(d["embedding"])}
-            for i, d in enumerate(data)
-        ],
-        "model": payload.get("model") or _EMBED_MODEL,
-        "usage": payload.get("usage") or {},
-    }
+    return JSONResponse(
+        content={
+            "object": "list",
+            "data": [
+                {
+                    "object": "embedding",
+                    "index": d.get("index", i),
+                    "embedding": list(d["embedding"]),
+                }
+                for i, d in enumerate(data)
+            ],
+            "model": payload.get("model") or _EMBED_MODEL,
+            "usage": payload.get("usage") or {},
+        },
+        headers=settlement_headers,
+    )
 
 
 @app.get("/health")

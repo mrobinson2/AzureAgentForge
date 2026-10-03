@@ -22,7 +22,7 @@ RUN groupadd --gid 1001 appgroup && \
     useradd --uid 1001 --gid appgroup --shell /bin/bash --create-home appuser
 
 COPY --from=builder /install /usr/local
-COPY --chown=appuser:appgroup main.py budget_enforcement.py flight_recorder.py waste_breakers.py circuit_breaker.py kill_switch.py ./
+COPY --chown=appuser:appgroup main.py budget_enforcement.py tenant_budget_client.py tenant_identity.py flight_recorder.py waste_breakers.py circuit_breaker.py kill_switch.py ./
 
 USER appuser
 

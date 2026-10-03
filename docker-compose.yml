@@ -85,6 +85,15 @@ services:
       # header) | block (429 budget_exceeded). Invalid values fail open to warn.
       BUDGET_ENFORCE_MODE: ${BUDGET_ENFORCE_MODE:-warn}
       BUDGET_FALLBACK_TIER: ${BUDGET_FALLBACK_TIER:-gpt4o-mini}
+      # Optional multi-tenant reference path. Leave all three authority values
+      # empty for ordinary single-tenant/local use. Partial configuration fails
+      # closed. TENANT_BUDGET_TOKEN_SECRET verifies control-plane user tokens;
+      # it is distinct from both router and control-plane API credentials.
+      TENANT_BUDGET_CONTROL_PLANE_URL: ${TENANT_BUDGET_CONTROL_PLANE_URL:-}
+      TENANT_BUDGET_API_KEY: ${TENANT_BUDGET_API_KEY:-}
+      TENANT_BUDGET_TOKEN_SECRET: ${TENANT_BUDGET_TOKEN_SECRET:-}
+      TENANT_BUDGET_RESERVATION_USD: ${TENANT_BUDGET_RESERVATION_USD:-0}
+      TENANT_BUDGET_TIMEOUT_SECONDS: ${TENANT_BUDGET_TIMEOUT_SECONDS:-2}
     ports: ["${ROUTER_PORT:-8080}:8080"]
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://localhost:8080/health').status==200 else 1)\""]

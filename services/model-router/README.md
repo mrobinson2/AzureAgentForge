@@ -125,6 +125,39 @@ Semantics:
 | `BUDGET_FALLBACK_TIER` | Tier served in `downgrade` mode (default: `gpt4o-mini`) |
 | `EMBEDDING_DAILY_BUDGET_USD` | Daily cap for the embeddings bucket (default: `1.00`; `0` disables) |
 
+### Durable per-tenant reservations (reference path)
+
+The optional multi-tenant path uses the experimental control plane as the
+durable budget authority. Before a non-streaming `/v1/chat/completions`, native
+`/v1/messages`, or `/v1/embeddings` call, the router reserves a conservative
+fixed amount in PostgreSQL. It settles the hold to actual model cost on success
+and releases it if every provider fails. A rejected reservation returns 429
+before any provider dispatch. Authority outages fail closed; a settlement
+outage leaves the conservative hold charged and marks the successful response with
+`X-Tenant-Budget-Settlement: pending`.
+
+Tenant identity is not read from `x-tenant-id`. The request must carry a
+control-plane HS256 user token in `x-tenant-token`; tenant and caller are
+derived from its verified claims. The signing secret is separate from
+`ROUTER_API_KEY` and `TENANT_BUDGET_API_KEY`. Reservation IDs are minted by the
+router rather than copied from caller-controlled correlation headers.
+
+| Env var | Purpose |
+|---|---|
+| `TENANT_BUDGET_CONTROL_PLANE_URL` | Base URL for the control-plane internal budget API |
+| `TENANT_BUDGET_API_KEY` | Bearer credential for that internal API |
+| `TENANT_BUDGET_TOKEN_SECRET` | Secret used to verify control-plane user tokens |
+| `TENANT_BUDGET_RESERVATION_USD` | Positive maximum hold placed before each provider call |
+| `TENANT_BUDGET_TIMEOUT_SECONDS` | Authority HTTP timeout (default: `2`) |
+
+Configure URL, API key, and token secret together; partial configuration fails
+closed. This seam covers every non-streaming paid endpoint: chat completions,
+native Messages, and embeddings. Streaming is rejected until usage-aware final
+settlement is implemented. Messages budget errors retain Anthropic's error
+envelope. The standard Terraform stack does not deploy the experimental
+control plane, so these settings are opt-in reference configuration rather
+than a production default.
+
 ## Flight Recorder + Waste Breakers
 
 A replayable, bounded trace of every `/v1/chat/completions` and `/v1/messages` call — who called, requested vs served model, tokens, latency, cost estimate, outcome, and waste-breaker verdicts — plus detection of wasteful call patterns (retry storms, oversized prompts, repeated identical calls). Full design, storage format, and how to replay a trace: [`docs/design/router-flight-recorder.md`](../../docs/design/router-flight-recorder.md).
