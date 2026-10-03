@@ -36,3 +36,4 @@ infrastructure/modules/cloudflare-tunnel/.terraform.lock.hcl
 
 # Security scan artifacts — never publish
 .triage/
+secrets.env
