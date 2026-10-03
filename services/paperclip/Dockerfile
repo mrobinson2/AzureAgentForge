@@ -239,7 +239,7 @@ RUN mkdir -p /tmp/tsx-pkg && cd /tmp/tsx-pkg \
 # `hermes` spawn died instantly with ModuleNotFoundError (adapter_failed →
 # run recovery → issue blocked). The stack's health checks stayed green the
 # whole time; the agent-loop canary (scripts/smoke-canary.sh) caught it.
-FROM python:3.13-slim AS hermes-cli
+FROM python:3.14-slim AS hermes-cli
 
 RUN apt-get update \
  && apt-get install -y --no-install-recommends gcc git \
