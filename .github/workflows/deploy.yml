@@ -176,7 +176,7 @@ jobs:
         with:
           terraform_version: "1.9.5"
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
@@ -335,7 +335,7 @@ jobs:
       - uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: "1.9.5"
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
 
