@@ -1,6 +1,6 @@
 # AzureAgentForge enhancement proposals — October 2026
 
-Status: **proposal; first slices of all four items implemented 2026-10-17/18 (see “Implementation status” at the end)**
+Status: **proposal; first slices of all four items implemented and deployed to dev 2026-10-17/18 (see “Implementation status” at the end)**
 
 Date: 2026-10-17
 
@@ -351,11 +351,11 @@ trusted.
   multi-tenant track and should stay there.
 - The seven items in the August slate remain valid and are not re-argued.
 
-## Implementation status (2026-10-17)
+## Implementation status (2026-10-18)
 
 | Item | Shipped | Not yet |
 | --- | --- | --- |
-| 1. Per-agent Azure identity | `azure_identity` profile block; `infrastructure` and `security` opted in with read-only grants; `scripts/agent-identity-guard.py` in CI; `agent_identities.tf` behind `agent_identities_enabled`; dev plan saved (5 adds). | Token broker and workload-identity exchange; Key Vault scoping of the shared pod identity; replay-fixture assertion. Applying the RBAC plan is an operator action. |
+| 1. Per-agent Azure identity | `azure_identity` profile block; `infrastructure` and `security` opted in with read-only grants; `scripts/agent-identity-guard.py` in CI; `agent_identities.tf` behind `agent_identities_enabled`. **Deployed to dev** 2026-10-18 (operator-applied, 5 adds): `id-agent-infrastructure-dev` with Reader on the resource group, `id-agent-security-dev` with Reader on the resource group and Key Vault Reader on `aaf-vault-dev-kv`; verified with `az role assignment list`. | Token broker and workload-identity exchange; Key Vault scoping of the shared pod identity; replay-fixture assertion. |
 | 2. Governed MCP tool plane | Registry + schema; `mcp_servers` grants validated; `render-hermes-mcp.py` wired into `write-hermes-config.sh`; `deepwiki` (no credential) and `github` (token-gated) registered; Terraform `mcp_servers_enabled` / `mcp_github_enabled`; 17 tests. **Deployed to dev** on paperclip `beb8f03` together with the two upstream v2026.1001.0 boot fixes. | Per-role enforcement through the policy PEP; AAF as an MCP server; stdio servers inside the sandbox provider. |
 | 3. Operator morning brief | `governor/morning_brief.py` + 15 tests; `caj-morning-brief-<env>` job; **deployed to dev**, two successful manual runs. | Teams proactive delivery; Obsidian vault file; scorecard deltas. Runs section needs `paperclip_company_id` set in tfvars (same gap that idles the watchdog job). |
 | 4. Erasure and export | `governor/subject.py` (peppered subject hash); `/admit` tags `internal_metadata.subject_hash`; `GET /subjects/{hash}/export`; two-step `POST /subjects/{hash}/erase` with counts-only audit event; 11 offline tests. **Deployed to dev** on governor `31c6f1b`. | Subject tagging in the Slack/Teams bridges and flight recorder; PaperClip issue references; retention hold policy. |
@@ -386,13 +386,14 @@ the PaperClip roll-forward was re-cut to need neither.
   `scripts/seed-keyvault.sh --vault aaf-vault-dev-kv` (it now generates
   `paperclip-decision-signing-secret`), set
   `paperclip_decision_signing_secret_enabled = true`, and re-apply paperclip.
-- **Per-agent identities** still need a human apply (5 adds, RBAC):
-
-  ```bash
-  terraform -chdir=infrastructure/environments/dev apply tfplan-identities
-  ```
-
-  Re-plan with the same two `-target`s if the saved plan has gone stale.
+- **Per-agent identities**: applied by the operator on 2026-10-18 (the RBAC
+  apply is refused in auto mode, so this stays a human step on every
+  environment). The pattern that worked: re-plan with
+  `-target='module.container_apps.azurerm_user_assigned_identity.agent'
+  -target='module.container_apps.azurerm_role_assignment.agent'` and the
+  runner-IP `TF_VAR_*_allowed_ip_ranges` exported, then
+  `terraform -chdir=infrastructure/environments/dev apply tfplan-identities`
+  straight away; the saved plan goes stale as soon as state moves.
 - **Watchdog and morning-brief runs section**: set `paperclip_company_id` in
   the dev tfvars (PaperClip is internal-ingress only and Postgres is VNet-only,
   so the id must be read from inside the environment).
