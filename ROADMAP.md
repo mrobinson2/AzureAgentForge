@@ -195,6 +195,15 @@ Six merges, one theme: turn a way this platform — or an app it vendors — cou
 
 Full grouped release notes: [`docs/releases/v1.7.0.md`](docs/releases/v1.7.0.md).
 
+## In flight: October 2026 enhancement slate
+
+*In plain terms: three operator-facing capabilities built from parts the platform already had, each shipped as a first slice that is off by default and documented in [`docs/design/enhancement-proposals-2026-10.md`](docs/design/enhancement-proposals-2026-10.md).*
+
+- **Operator morning brief** (`caj-morning-brief-<env>`, governor image): one scheduled message with runs per agent, spend, guardrail trips, pending approvals, and the memory digest — the README's "what happened overnight" question answered from PaperClip, router, and governor sources. Every source is failure-isolated; the brief always lands in the job log and optionally in Slack/Discord. Gated by `morning_brief_enabled`. Deployed to dev.
+- **Governed MCP tool plane, first slice**: `agents/mcp-registry.json` (schema-validated registry with per-server `tools.include` allow-lists and Key Vault-named credentials), `mcp_servers` grants in profiles that `validate_profiles.py` enforces, and boot-time rendering of only the servers named in `AAF_MCP_SERVERS` into the Hermes `mcp_servers` block. Credential-free `deepwiki` and token-gated `github` registered. Per-role enforcement at the tool boundary (the policy-enforcement point) is the follow-up.
+- **Per-agent Azure identities, first slice**: `azure_identity` in a profile materializes one user-assigned managed identity per role with exactly its declared read-only grants, behind `agent_identities_enabled`; `scripts/agent-identity-guard.py` refuses privileged or write-capable roles in CI. The runtime token broker that lets an agent process actually hold its identity is the follow-up.
+- **Not started**: memory subject erasure and export (item 4 of the slate).
+
 ## Post-1.8 horizon
 
 *In plain terms: catch the agent runtime up to the latest upstream version, and close a few loose ends the last few releases created.*

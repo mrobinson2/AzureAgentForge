@@ -1,6 +1,6 @@
 # AzureAgentForge enhancement proposals — October 2026
 
-Status: **proposal; nothing in this document is implemented**
+Status: **proposal; first slices of items 1, 2, and 3 implemented on 2026-10-17 (see “Implementation status” at the end)**
 
 Date: 2026-10-17
 
@@ -350,3 +350,18 @@ trusted.
 - Streaming usage-aware budget settlement is a known follow-on in the
   multi-tenant track and should stay there.
 - The seven items in the August slate remain valid and are not re-argued.
+
+## Implementation status (2026-10-17)
+
+| Item | Shipped | Not yet |
+| --- | --- | --- |
+| 1. Per-agent Azure identity | `azure_identity` profile block; `infrastructure` and `security` opted in with read-only grants; `scripts/agent-identity-guard.py` in CI; `agent_identities.tf` behind `agent_identities_enabled`; dev plan saved (5 adds). | Token broker and workload-identity exchange; Key Vault scoping of the shared pod identity; replay-fixture assertion. Applying the RBAC plan is an operator action. |
+| 2. Governed MCP tool plane | Registry + schema; `mcp_servers` grants validated; `render-hermes-mcp.py` wired into `write-hermes-config.sh`; `deepwiki` (no credential) and `github` (token-gated) registered; Terraform `mcp_servers_enabled` / `mcp_github_enabled`; 17 tests. | Per-role enforcement through the policy PEP; AAF as an MCP server; stdio servers inside the sandbox provider. |
+| 3. Operator morning brief | `governor/morning_brief.py` + 15 tests; `caj-morning-brief-<env>` job; deployed to dev and run once successfully. | Teams proactive delivery; Obsidian vault file; scorecard deltas. Runs section needs `paperclip_company_id` set in tfvars (same gap that idles the watchdog job). |
+| 4. Erasure and export | — | Everything. |
+
+Two pre-existing defects surfaced by the first live brief run and are **not**
+fixed here: the governor's `/digest` returns 500 because the live database has
+no `agent_events` / `feature_flags` tables (the governed-memory migrations were
+never applied to the dev database), and `paperclip_company_id` is unset in the
+dev tfvars so neither the watchdog nor the brief can read PaperClip runs.
