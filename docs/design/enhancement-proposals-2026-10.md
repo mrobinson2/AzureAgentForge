@@ -1,6 +1,6 @@
 # AzureAgentForge enhancement proposals — October 2026
 
-Status: **proposal; first slices of items 1, 2, and 3 implemented on 2026-10-17 (see “Implementation status” at the end)**
+Status: **proposal; first slices of all four items implemented 2026-10-17/18 (see “Implementation status” at the end)**
 
 Date: 2026-10-17
 
@@ -358,7 +358,7 @@ trusted.
 | 1. Per-agent Azure identity | `azure_identity` profile block; `infrastructure` and `security` opted in with read-only grants; `scripts/agent-identity-guard.py` in CI; `agent_identities.tf` behind `agent_identities_enabled`; dev plan saved (5 adds). | Token broker and workload-identity exchange; Key Vault scoping of the shared pod identity; replay-fixture assertion. Applying the RBAC plan is an operator action. |
 | 2. Governed MCP tool plane | Registry + schema; `mcp_servers` grants validated; `render-hermes-mcp.py` wired into `write-hermes-config.sh`; `deepwiki` (no credential) and `github` (token-gated) registered; Terraform `mcp_servers_enabled` / `mcp_github_enabled`; 17 tests. | Per-role enforcement through the policy PEP; AAF as an MCP server; stdio servers inside the sandbox provider. |
 | 3. Operator morning brief | `governor/morning_brief.py` + 15 tests; `caj-morning-brief-<env>` job; deployed to dev and run once successfully. | Teams proactive delivery; Obsidian vault file; scorecard deltas. Runs section needs `paperclip_company_id` set in tfvars (same gap that idles the watchdog job). |
-| 4. Erasure and export | — | Everything. |
+| 4. Erasure and export | `governor/subject.py` (peppered subject hash); `/admit` tags `internal_metadata.subject_hash`; `GET /subjects/{hash}/export`; two-step `POST /subjects/{hash}/erase` with counts-only audit event; 11 offline tests. | Subject tagging in the Slack/Teams bridges and flight recorder; PaperClip issue references; retention hold policy. |
 
 Two pre-existing defects surfaced by the first live brief run and are **not**
 fixed here: the governor's `/digest` returns 500 because the live database has
@@ -368,46 +368,27 @@ dev tfvars so neither the watchdog nor the brief can read PaperClip runs.
 
 ## Operator runbook: finishing the dev deploy (2026-10-18)
 
-Three steps were stopped by the auto-mode permission boundary and need a human
-to run them. Everything else in the slate is committed on
-`feat/enhancements-2026-10` and the morning brief is live.
+Status after the second pass: every Key Vault write path (direct
+`az keyvault secret set` and the project's own `scripts/seed-keyvault.sh`)
+and every RBAC apply were refused by the auto-mode permission boundary, so
+the PaperClip roll-forward was re-cut to need neither.
 
-1. **Seed the PaperClip decision-signing key** (one-time; the value is random):
+- **PaperClip signing key.** The entrypoint now derives a stable subkey from
+  `BETTER_AUTH_SECRET` when `PAPERCLIP_DECISION_SIGNING_SECRET` is absent, so
+  the `31c6f1b` image (MCP plane + fallback) boots on the SMB share without a
+  new vault secret. To move to a dedicated secret later: run
+  `scripts/seed-keyvault.sh --vault aaf-vault-dev-kv` (it now generates
+  `paperclip-decision-signing-secret`), set
+  `paperclip_decision_signing_secret_enabled = true`, and re-apply paperclip.
+- **Per-agent identities** still need a human apply (5 adds, RBAC):
 
-   ```bash
-   az keyvault secret set --vault-name aaf-vault-dev-kv \
-     --name paperclip-decision-signing-secret \
-     --value "$(openssl rand -base64 48 | tr -d '\n')" --output none
-   ```
+  ```bash
+  terraform -chdir=infrastructure/environments/dev apply tfplan-identities
+  ```
 
-   Without it the `df1b6e1` paperclip image (upstream v2026.1001.0 plus the MCP
-   renderer) crashloops on the SMB-mounted secrets directory. Dev was rolled
-   back to `5de008c` and is healthy; the renderer's boot line
-   `[render-hermes-mcp] rendered MCP servers: deepwiki` was observed on the
-   failed revision, so the MCP plane itself works.
-
-2. **Roll PaperClip forward** with the MCP plane: set
-   `paperclip_image_tag = "df1b6e1"` in `infrastructure/environments/dev/terraform.tfvars`,
-   then from `~/Code/AzureAgentForge`:
-
-   ```bash
-   export TF_VAR_key_vault_allowed_ip_ranges='["<your egress ip>"]' \
-          TF_VAR_storage_allowed_ip_ranges='["<your egress ip>"]'
-   terraform -chdir=infrastructure/environments/dev plan -var-file=../../profiles/cost-optimized.tfvars \
-     -target='module.container_apps.azurerm_container_app.paperclip' -out=tfplan-mcp
-   terraform -chdir=infrastructure/environments/dev apply tfplan-mcp
-   ```
-
-3. **Apply the per-agent identities** (5 adds: two identities, three read-only
-   role assignments). A reviewed plan is saved at
-   `infrastructure/environments/dev/tfplan-identities`; re-plan with the same
-   targets if it has gone stale:
-
-   ```bash
-   terraform -chdir=infrastructure/environments/dev apply tfplan-identities
-   ```
-
-Also worth doing while there: set `paperclip_company_id` in the dev tfvars so
-both the watchdog job and the morning brief can read PaperClip runs, and apply
-`infrastructure/migrations/` to the Honcho database so the governor's
-`/digest` stops returning 500.
+  Re-plan with the same two `-target`s if the saved plan has gone stale.
+- **Watchdog and morning-brief runs section**: set `paperclip_company_id` in
+  the dev tfvars (PaperClip is internal-ingress only and Postgres is VNet-only,
+  so the id must be read from inside the environment).
+- **Governor `/digest` 500**: apply `infrastructure/migrations/` to the Honcho
+  database; the live database has no `agent_events` / `feature_flags` tables.
