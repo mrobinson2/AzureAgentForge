@@ -44,6 +44,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.request
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -57,10 +58,12 @@ FAILED_STATUSES = frozenset(
     {"failed", "failure", "error", "errored", "cancelled", "canceled", "timeout", "timed_out", "aborted"}
 )
 
-JWT_SUB = "aaf-morning-brief"
-JWT_SCOPE = "runs:read"
-JWT_ISSUER = "aaf-automation"
-JWT_AUDIENCE = "paperclip"
+# Must match the auth-proxy's expected claims (paperclip.tf sets the issuer /
+# audience env on the PaperClip app; the watchdog uses the same defaults).
+JWT_SUB = os.getenv("BRIEF_JWT_SUB", "morning-brief")
+JWT_SCOPE = ["issues:read", "agents:read"]
+JWT_ISSUER = os.getenv("PAPERCLIP_AUTOMATION_JWT_ISSUER", "automation-agent")
+JWT_AUDIENCE = os.getenv("PAPERCLIP_AUTOMATION_JWT_AUDIENCE", "paperclip-api")
 
 
 # ── pure helpers ─────────────────────────────────────────────────────────────
@@ -290,14 +293,7 @@ def render(
     if approvals is None:
         lines.append(f"  unavailable ({errors.get('approvals', 'no data')})")
     else:
-        text = str(approvals.get("text") or "").strip()
-        unacked = approvals.get("unacked")
-        if text:
-            lines.append("  " + text.splitlines()[0])
-        elif unacked in (0, None):
-            lines.append("  nothing waiting on a human")
-        else:
-            lines.append(f"  {unacked} waiting on a human")
+        lines.append("  " + _approvals_line(approvals))
 
     # Memory
     lines.append("")
@@ -312,6 +308,37 @@ def render(
     if len(body) > MAX_CHARS:
         body = body[: MAX_CHARS - 1] + "…"
     return body
+
+
+def _approvals_line(approvals: dict) -> str:
+    """One line from the governor's /escalation-sla rollup. Structured fields
+    first (total/unacked/breaches/expired); fall back to the report text's
+    first informative line; then the honest zero."""
+    total = approvals.get("total")
+    if isinstance(total, int):
+        unacked = int(approvals.get("unacked") or 0)
+        breaches = int(approvals.get("breaches") or 0)
+        expired = int(approvals.get("expired") or 0)
+        if total == 0:
+            return "nothing waiting on a human (no escalations in window)"
+        parts = [f"{total} opened", f"{unacked} unacked"]
+        if breaches:
+            parts.append(f"{breaches} SLA breached ⚠️")
+        if expired:
+            parts.append(f"{expired} expired")
+        warnings = approvals.get("sla_warnings") or []
+        if warnings:
+            parts.append(f"{len(warnings)} warning(s)")
+        return " · ".join(parts)
+    text = str(approvals.get("text") or "").strip()
+    for line in text.splitlines():
+        line = line.strip()
+        if line and not line.startswith(("⏱", "**", "#")):
+            return line
+    if text:
+        return text.splitlines()[0].strip()
+    unacked = approvals.get("unacked")
+    return "nothing waiting on a human" if unacked in (0, None) else f"{unacked} waiting on a human"
 
 
 def build_payload(text: str, webhook_url: str) -> dict:
@@ -408,6 +435,9 @@ def collect() -> tuple[dict[str, Any], dict[str, str]]:
                     f"{router}/debug/flight-recorder?limit=500",
                     {"Authorization": f"Bearer {router_key}"},
                 )
+            except urllib.error.HTTPError as exc:
+                why = "disabled (FLIGHT_RECORDER_ENABLED=false)" if exc.code == 404 else f"HTTP {exc.code}"
+                print(f"morning_brief: flight recorder {why}", file=sys.stderr, flush=True)
             except Exception as exc:  # noqa: BLE001 — recorder is optional detail
                 print(f"morning_brief: flight recorder unavailable: {exc}", file=sys.stderr, flush=True)
         return summarize_router(health, recorder)

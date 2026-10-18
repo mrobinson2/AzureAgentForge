@@ -42,7 +42,8 @@ RECORDER = {
     ],
 }
 
-SLA = {"text": "Escalations: 2 open, 1 breached", "unacked": 2, "breached": 1}
+SLA = {"text": "⏱️ **Escalation SLA** (1-day window)\nEscalations: 2 open, 1 breached",
+       "total": 3, "unacked": 2, "breaches": 1, "expired": 0, "sla_warnings": []}
 DIGEST = {"text": "📋 Memory digest: 3 durable_fact, 1 needs_review"}
 
 
@@ -94,7 +95,7 @@ def test_render_includes_every_section_and_marks_unavailable():
     assert "Morning brief" in text
     assert "Coder" in text and "Researcher" in text
     assert "claude" in text  # over budget + open breaker
-    assert "2 open, 1 breached" in text
+    assert "3 opened · 2 unacked · 1 SLA breached" in text
     assert "Memory" in text and "unavailable" in text
     assert len(text) <= mb.MAX_CHARS
 
@@ -113,7 +114,7 @@ def test_render_truncates_pathological_input():
 def test_render_quiet_night_still_says_healthy():
     text = mb.render(window_hours=24, now=NOW, runs=mb.summarize_runs([]),
                      router=mb.summarize_router({"tiers": {}}, None),
-                     approvals={"text": "", "unacked": 0}, memory=DIGEST, errors={})
+                     approvals={"text": "", "total": 0, "unacked": 0}, memory=DIGEST, errors={})
     assert "0 completed" in text
     assert "no guardrail trips" in text.lower() or "no trips" in text.lower()
 
@@ -206,3 +207,15 @@ def test_mint_jwt_is_hs256_with_automation_role():
     payload = json.loads(base64.urlsafe_b64decode(pad(p)))
     assert payload["role"] == "automation"
     assert payload["exp"] > payload["iat"]
+    assert payload["iss"] == "automation-agent"
+    assert payload["aud"] == "paperclip-api"
+    assert "issues:read" in payload["scope"]
+
+
+def test_approvals_line_prefers_structured_fields_then_text():
+    assert "nothing waiting" in mb._approvals_line({"total": 0, "unacked": 0})
+    assert mb._approvals_line({"total": 2, "unacked": 1, "breaches": 0}) == "2 opened · 1 unacked"
+    # heading-only text falls through to the first informative line
+    assert mb._approvals_line({"text": "⏱️ **Escalation SLA** (1-day)\n1 open"}) == "1 open"
+    assert "nothing waiting" in mb._approvals_line({"text": "⏱️ **Escalation SLA** (1-day)"}) or \
+        mb._approvals_line({"text": "⏱️ **Escalation SLA** (1-day)"}).startswith("⏱")
