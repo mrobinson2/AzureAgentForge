@@ -411,8 +411,9 @@ RUN chmod +x /usr/local/bin/write-hermes-config.sh
 # the Azure File Share mount can never shadow it.
 COPY apps/paperclip/render-hermes-mcp.py /usr/local/bin/render-hermes-mcp.py
 COPY apps/paperclip/derive-decision-signing-secret.py /usr/local/bin/derive-decision-signing-secret.py
+COPY apps/paperclip/migrate-paperclip-config.py /usr/local/bin/migrate-paperclip-config.py
 COPY agents/mcp-registry.json /opt/aaf/mcp-registry.json
-RUN chmod +x /usr/local/bin/render-hermes-mcp.py /usr/local/bin/derive-decision-signing-secret.py
+RUN chmod +x /usr/local/bin/render-hermes-mcp.py /usr/local/bin/derive-decision-signing-secret.py /usr/local/bin/migrate-paperclip-config.py
 
 # JWT auth proxy for automation API access (automation scripts, CI/CD)
 COPY apps/paperclip/auth-proxy.mjs /app/auth-proxy.mjs
