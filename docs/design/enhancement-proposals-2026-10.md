@@ -373,6 +373,12 @@ Status after the second pass: every Key Vault write path (direct
 and every RBAC apply were refused by the auto-mode permission boundary, so
 the PaperClip roll-forward was re-cut to need neither.
 
+- **Upstream v2026.1001.0 on the SMB share needed two boot fixes**, both in
+  `apps/paperclip/docker-entrypoint.sh` and both unit-tested: the derived
+  decision-signing key below, and `migrate-paperclip-config.py`, which
+  rewrites the legacy flat `config.json` into the strict v1 schema (backup
+  kept beside it) and pins `database.mode` to `postgres`, which upstream reads
+  only from the file.
 - **PaperClip signing key.** The entrypoint now derives a stable subkey from
   `BETTER_AUTH_SECRET` when `PAPERCLIP_DECISION_SIGNING_SECRET` is absent, so
   the `31c6f1b` image (MCP plane + fallback) boots on the SMB share without a
