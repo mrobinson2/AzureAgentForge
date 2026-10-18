@@ -142,6 +142,17 @@ resource "azurerm_container_app" "paperclip" {
   # automation scripts, CI/CD pipelines, and other API callers.
   # This is SEPARATE from PAPERCLIP_AGENT_JWT_SECRET (which is for internal
   # agent-to-Paperclip auth). Generate with: openssl rand -base64 48
+  # Decision-signing key (upstream >= v2026.1001.0). Without this env PaperClip
+  # auto-generates a key under <home>/instances/<id>/secrets and refuses to
+  # start unless that directory is owned by the process user — impossible on
+  # the Azure File Share mount (uid/gid fixed at mount time). Providing the
+  # value via env skips the file path entirely. scripts/seed-keyvault.sh
+  # generates it with the other internal secrets.
+  secret {
+    name                = "paperclip-decision-signing-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-decision-signing-secret"
+    identity            = azurerm_user_assigned_identity.paperclip.id
+  }
   secret {
     name                = "paperclip-automation-jwt-secret"
     key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-jwt-secret"
@@ -309,6 +320,10 @@ resource "azurerm_container_app" "paperclip" {
       env {
         name        = "PAPERCLIP_AUTOMATION_JWT_SECRET"
         secret_name = "paperclip-automation-jwt-secret"
+      }
+      env {
+        name        = "PAPERCLIP_DECISION_SIGNING_SECRET"
+        secret_name = "paperclip-decision-signing-secret"
       }
       env {
         name  = "PAPERCLIP_AUTOMATION_JWT_ISSUER"

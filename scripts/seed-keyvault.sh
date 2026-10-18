@@ -36,6 +36,7 @@ DRY_RUN=0
 GENERATE="postgres-admin-password governor-api-key router-api-key \
 paperclip-admin-password \
 paperclip-agent-jwt-secret paperclip-auth-secret paperclip-automation-jwt-secret \
+paperclip-decision-signing-secret \
 paperclip-automation-token auth-password gateway-token \
 control-plane-operator-key"
 
