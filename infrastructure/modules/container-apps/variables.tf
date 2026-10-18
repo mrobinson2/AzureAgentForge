@@ -593,3 +593,27 @@ variable "memory_digest_cron" {
   description = "Cron expression for the daily memory digest poster job."
   default     = "0 13 * * *"
 }
+
+variable "morning_brief_enabled" {
+  type        = bool
+  description = "Create the operator morning-brief job (governor image). Requires memory_governor_enabled. The brief always lands in the job log; set morning_brief_webhook_url to also post it to chat."
+  default     = false
+}
+
+variable "morning_brief_webhook_url" {
+  type        = string
+  description = "Slack / Discord / generic incoming-webhook URL for the morning brief. Empty = stdout (job log) only."
+  default     = ""
+}
+
+variable "morning_brief_cron" {
+  type        = string
+  description = "Cron expression (UTC) for the morning brief job."
+  default     = "0 12 * * *"
+}
+
+variable "morning_brief_window_hours" {
+  type        = number
+  description = "Look-back window for the morning brief, in hours (1..168)."
+  default     = 24
+}

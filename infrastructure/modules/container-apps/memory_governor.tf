@@ -7,6 +7,7 @@
 #                               contradiction sweep, skill miner).
 #   caj-memory-sweeper-<env>  — nightly TTL sweep job (governor image).
 #   caj-memory-digest-<env>   — daily digest poster (governor image).
+#   caj-morning-brief-<env>   — operator morning brief (governor image).
 #   caj-watchdog-<env>        — self-improvement-loop watchdog (watchdog image).
 #
 # Everything is gated OFF by default (var.memory_governor_enabled = false) and
@@ -499,6 +500,116 @@ resource "azurerm_container_app_job" "memory_digest" {
       env {
         name  = "DIGEST_WEBHOOK_URL"
         value = var.memory_digest_webhook_url
+      }
+    }
+  }
+
+  tags = var.tags
+
+  depends_on = [
+    azurerm_role_assignment.memory_governor_acr_pull,
+    azurerm_role_assignment.memory_governor_kv_reader,
+  ]
+}
+
+# Operator morning brief — one scheduled message answering "what happened
+# overnight": runs per agent, spend, guardrail trips, pending approvals, and
+# the memory digest, composed from PaperClip + router + governor sources
+# (governor/morning_brief.py). The brief is always printed to the job log; it
+# is also POSTed when morning_brief_webhook_url is set. Gated separately from
+# the digest so it can run with no chat target at all.
+resource "azurerm_container_app_job" "morning_brief" {
+  count                        = var.memory_governor_enabled && var.morning_brief_enabled ? 1 : 0
+  name                         = "caj-morning-brief-${var.environment}"
+  container_app_environment_id = local.container_app_environment_id
+  resource_group_name          = var.resource_group_name
+  location                     = var.location
+  workload_profile_name        = "Consumption"
+
+  replica_timeout_in_seconds = 300
+  replica_retry_limit        = 1
+
+  schedule_trigger_config {
+    cron_expression          = var.morning_brief_cron
+    parallelism              = 1
+    replica_completion_count = 1
+  }
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.memory_governor[0].id]
+  }
+
+  registry {
+    server   = var.container_registry_login_server
+    identity = azurerm_user_assigned_identity.memory_governor[0].id
+  }
+
+  secret {
+    name                = "governor-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/governor-api-key"
+    identity            = azurerm_user_assigned_identity.memory_governor[0].id
+  }
+  secret {
+    name                = "paperclip-automation-jwt-secret"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-jwt-secret"
+    identity            = azurerm_user_assigned_identity.memory_governor[0].id
+  }
+  secret {
+    name                = "router-api-key"
+    key_vault_secret_id = "${var.key_vault_uri}secrets/router-api-key"
+    identity            = azurerm_user_assigned_identity.memory_governor[0].id
+  }
+
+  template {
+    container {
+      name    = "morning-brief"
+      image   = "${var.container_registry_login_server}/memory-governor:${var.memory_governor_image_tag}"
+      cpu     = 0.25
+      memory  = "0.5Gi"
+      command = ["python", "-m", "governor.morning_brief"]
+
+      env {
+        name  = "GOVERNOR_BASE_URL"
+        value = "http://ca-memory-governor-${var.environment}"
+      }
+      env {
+        name        = "GOVERNOR_API_KEY"
+        secret_name = "governor-api-key"
+      }
+      env {
+        # The router sidecar sits behind the hermes app's internal ingress —
+        # the same base the generated Hermes config uses (OPENAI_BASE_URL).
+        name  = "ROUTER_BASE_URL"
+        value = "http://ca-hermes-${var.environment}"
+      }
+      env {
+        name        = "ROUTER_API_KEY"
+        secret_name = "router-api-key"
+      }
+      env {
+        name  = "PAPERCLIP_BASE_URL"
+        value = "http://ca-paperclip-${var.environment}"
+      }
+      env {
+        name  = "PAPERCLIP_COMPANY_ID"
+        value = var.paperclip_company_id
+      }
+      env {
+        name        = "PAPERCLIP_AUTOMATION_JWT_SECRET"
+        secret_name = "paperclip-automation-jwt-secret"
+      }
+      env {
+        name  = "BRIEF_WEBHOOK_URL"
+        value = var.morning_brief_webhook_url
+      }
+      env {
+        name  = "BRIEF_WINDOW_HOURS"
+        value = tostring(var.morning_brief_window_hours)
+      }
+      env {
+        name  = "BRIEF_TITLE"
+        value = "AzureAgentForge ${var.environment}"
       }
     }
   }

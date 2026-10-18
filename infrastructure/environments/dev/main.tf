@@ -184,6 +184,12 @@ module "container_apps" {
   memory_governor_enabled        = var.memory_governor_enabled
   memory_planner_agent_allowlist = var.memory_planner_agent_allowlist
 
+  # Operator morning brief job (governor image). Off by default; the brief is
+  # always printed to the job log and optionally posted to a chat webhook.
+  morning_brief_enabled     = var.morning_brief_enabled
+  morning_brief_webhook_url = var.morning_brief_webhook_url
+  morning_brief_cron        = var.morning_brief_cron
+
   # aaf-0015: no module default — must be set explicitly per environment in
   # tfvars so dev/prod never silently share a governed-memory workspace.
   honcho_workspace_name = var.honcho_workspace_name
