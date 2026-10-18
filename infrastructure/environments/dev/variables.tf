@@ -345,6 +345,12 @@ variable "mcp_github_enabled" {
   default     = false
 }
 
+variable "agent_identities_enabled" {
+  description = "Create per-agent managed identities for roles that declare azure_identity (agents/profiles). Off by default."
+  type        = bool
+  default     = false
+}
+
 variable "memory_planner_agent_allowlist" {
   description = "Comma-separated agent slugs the retrieval planner may inject for (canary). Empty = nobody, even with MEMORY_PLANNER_ENABLED on."
   type        = string

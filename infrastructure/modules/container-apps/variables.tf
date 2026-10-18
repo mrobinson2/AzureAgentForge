@@ -439,6 +439,12 @@ variable "mcp_github_enabled" {
   default     = false
 }
 
+variable "agent_identities_enabled" {
+  description = "Materialize one user-assigned managed identity per agent role that declares azure_identity in agents/profiles, with exactly its declared role assignments. Off by default; the runtime token broker is a follow-up."
+  type        = bool
+  default     = false
+}
+
 variable "exa_search_enabled" {
   description = "Enable the exa-search wrapper inside paperclip (mounts EXA_API_KEY from the KV secret exa-api-key). Semantic web search alongside brave-search; opt-in because it needs an Exa key seeded into Key Vault first. Default off."
   type        = bool

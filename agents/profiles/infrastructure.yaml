@@ -7,3 +7,12 @@ model_tier: standard
 toolsets: [terminal, file]
 reports_to: Orchestrator
 daily_budget_usd: 0.50
+azure_identity:
+  enabled: true
+  reason: >-
+    Runs az/terraform read paths against the platform resource group; needs an identity Azure can audit separately from the shared pod identity.
+  role_assignments:
+    - scope: resource_group
+      role: Reader
+      reason: Inspect container apps, jobs, and logs without any write path.
+

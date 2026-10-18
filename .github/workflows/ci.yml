@@ -115,6 +115,10 @@ jobs:
           pip install -r agents/requirements-dev.txt
           python agents/validate_profiles.py
           pytest -q agents/tests
+      - name: agent identity guard (per-agent Azure RBAC blast radius)
+        run: |
+          python scripts/agent-identity-guard.py
+          pytest -q tests/agent-identity-guard
       - name: replay fixtures
         run: python tests/replay/validate_fixtures.py
       - name: model-router
