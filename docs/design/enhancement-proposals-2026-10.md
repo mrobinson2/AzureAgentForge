@@ -365,3 +365,49 @@ fixed here: the governor's `/digest` returns 500 because the live database has
 no `agent_events` / `feature_flags` tables (the governed-memory migrations were
 never applied to the dev database), and `paperclip_company_id` is unset in the
 dev tfvars so neither the watchdog nor the brief can read PaperClip runs.
+
+## Operator runbook: finishing the dev deploy (2026-10-18)
+
+Three steps were stopped by the auto-mode permission boundary and need a human
+to run them. Everything else in the slate is committed on
+`feat/enhancements-2026-10` and the morning brief is live.
+
+1. **Seed the PaperClip decision-signing key** (one-time; the value is random):
+
+   ```bash
+   az keyvault secret set --vault-name aaf-vault-dev-kv \
+     --name paperclip-decision-signing-secret \
+     --value "$(openssl rand -base64 48 | tr -d '\n')" --output none
+   ```
+
+   Without it the `df1b6e1` paperclip image (upstream v2026.1001.0 plus the MCP
+   renderer) crashloops on the SMB-mounted secrets directory. Dev was rolled
+   back to `5de008c` and is healthy; the renderer's boot line
+   `[render-hermes-mcp] rendered MCP servers: deepwiki` was observed on the
+   failed revision, so the MCP plane itself works.
+
+2. **Roll PaperClip forward** with the MCP plane: set
+   `paperclip_image_tag = "df1b6e1"` in `infrastructure/environments/dev/terraform.tfvars`,
+   then from `~/Code/AzureAgentForge`:
+
+   ```bash
+   export TF_VAR_key_vault_allowed_ip_ranges='["<your egress ip>"]' \
+          TF_VAR_storage_allowed_ip_ranges='["<your egress ip>"]'
+   terraform -chdir=infrastructure/environments/dev plan -var-file=../../profiles/cost-optimized.tfvars \
+     -target='module.container_apps.azurerm_container_app.paperclip' -out=tfplan-mcp
+   terraform -chdir=infrastructure/environments/dev apply tfplan-mcp
+   ```
+
+3. **Apply the per-agent identities** (5 adds: two identities, three read-only
+   role assignments). A reviewed plan is saved at
+   `infrastructure/environments/dev/tfplan-identities`; re-plan with the same
+   targets if it has gone stale:
+
+   ```bash
+   terraform -chdir=infrastructure/environments/dev apply tfplan-identities
+   ```
+
+Also worth doing while there: set `paperclip_company_id` in the dev tfvars so
+both the watchdog job and the morning brief can read PaperClip runs, and apply
+`infrastructure/migrations/` to the Honcho database so the governor's
+`/digest` stops returning 500.
