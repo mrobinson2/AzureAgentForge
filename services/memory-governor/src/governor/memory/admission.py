@@ -64,6 +64,10 @@ class AdmitRequest:
     ttl_days: float | None = None
     pin_request: bool = False
     planner_hint: str | None = None
+    # Peppered hash of the end user this memory is about (governor.subject);
+    # None for agent-only memories. Stored in internal_metadata.subject_hash so
+    # per-person export/erase can find it without the raw identifier.
+    subject_hash: str | None = None
 
 
 @dataclass
@@ -228,7 +232,8 @@ async def _write_document(req: AdmitRequest, cr: ClassificationResult) -> str:
             planner_hint, internal_metadata)
            VALUES ($1, $2, 'explicit', $3, $4, $5, $6, 'pending', $7, $8, $9,
                    $10, $11, $12, $13, $14, $15, $16, $17, $18,
-                   jsonb_build_object('governed', true, 'pin_candidate', $19::boolean))""",
+                   jsonb_build_object('governed', true, 'pin_candidate', $19::boolean,
+                                      'subject_hash', $20::text))""",
         doc_id,
         req.content,
         req.observer,
@@ -248,6 +253,7 @@ async def _write_document(req: AdmitRequest, cr: ClassificationResult) -> str:
         cr.is_always_on_candidate,
         req.planner_hint,
         cr.is_pinned_candidate,
+        req.subject_hash,
     )
     return doc_id
 
