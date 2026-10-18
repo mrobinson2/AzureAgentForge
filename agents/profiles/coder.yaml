@@ -7,3 +7,4 @@ model_tier: standard
 toolsets: [terminal, file, browser]
 reports_to: Orchestrator
 daily_budget_usd: 0.50
+mcp_servers: [deepwiki, github]

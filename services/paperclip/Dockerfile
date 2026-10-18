@@ -11,11 +11,11 @@
 # Port: 3100 (Paperclip default)
 # Data: /paperclip (mount an Azure File Share here for persistence)
 
-ARG PAPERCLIP_VERSION=v2026.707.0
+ARG PAPERCLIP_VERSION=v2026.1001.0
 # Guard against git-tag drift: the build fails if the cloned tag resolves to a
 # commit other than this. Resolve with:
 #   git ls-remote https://github.com/paperclipai/paperclip refs/tags/<tag>
-ARG PAPERCLIP_EXPECTED_SHA=390627b46eb333309d357004384b220ecf8a65af
+ARG PAPERCLIP_EXPECTED_SHA=8f8a0ab7effbd6a0584107d8038736c134ee5047
 ARG NODE_VERSION=lts-trixie-slim
 
 # ── Stage 0: upstream-style base image ────────────────────────────────────────
@@ -54,7 +54,7 @@ WORKDIR /app
 # Clone the pinned release tag, then verify the resolved commit matches the
 # expected SHA. A git tag is not immutable; this fails the build on tag drift.
 # CACHE_BUST invalidates Docker layer cache so a version change actually takes effect.
-ARG CACHE_BUST=2026-07-11
+ARG CACHE_BUST=2026-10-03
 RUN echo "cache-bust=${CACHE_BUST}" \
  && git clone --depth=1 --branch ${PAPERCLIP_VERSION} \
     https://github.com/paperclipai/paperclip.git . \
@@ -78,23 +78,17 @@ FROM deps AS build
 # the patch had been a build-time no-op for the entire lifetime of
 # this pin. See docs/research/paperclip-version-upgrade-analysis.md §3.)
 
-# Fix plugin SDK gap: sessions.sendMessage/agents.invoke don't deliver prompt to agent.
-# Patch plugin-host-services.ts to materialize a backing issue per call so the existing
-# assignee-wake path delivers the prompt via issue body.
-COPY apps/paperclip/patch-plugin-host.mjs /tmp/patch-plugin-host.mjs
-RUN node /tmp/patch-plugin-host.mjs
+# (patch-plugin-host.mjs deleted as part of the v2026.1001.0 bump — upstream
+# sendMessage/invoke now deliver the prompt natively via the
+# `paperclipAgentMessage` contextSnapshot key, which enrichWakeContextSnapshot
+# reads as first-class wake content. The backing-issue workaround is obsolete.)
 
-# Restore pre-gate plugin secret-refs resolver. A later upstream change
-# ("fail closed plugin secret refs") replaced the entire
-# createPluginSecretsHandler.resolve() body with an unconditional throw,
-# breaking every plugin that resolves a secret-ref at init (e.g. the
-# discord plugin's discordBotTokenRef). The stated rationale is
-# cross-tenancy isolation, which doesn't apply to AzureAgentForge's single-operator
-# deployment. The patch restores the pre-gate implementation verbatim
-# from commit 87011615^. Drop this patch once upstream lands "company-
-# scoped plugin config" and the gate's followup work.
-COPY apps/paperclip/patch-plugin-secrets-handler.mjs /tmp/patch-plugin-secrets-handler.mjs
-RUN node /tmp/patch-plugin-secrets-handler.mjs
+# (patch-plugin-secrets-handler.mjs deleted as part of the v2026.1001.0 bump —
+# its stated drop condition landed: upstream now ships company-scoped plugin
+# config with real secret bindings (companySecretBindings) and a working
+# createPluginSecretsHandler.resolve(). NOTE: string secret-refs now throw;
+# a plugin secret (e.g. the discord plugin's bot token) must be registered as
+# a company secret binding instead of a raw ref.)
 
 # Extend plugin-worker-manager env-var allow-list for paperclip-plugin-discord.
 # Secrets stay file-mounted under /secrets/<name>; this only passes through
@@ -116,6 +110,37 @@ RUN node /tmp/patch-plugin-worker-manager.mjs
 # executeRun) has drifted. Tests: tests/paperclip/metadata-fastpath.test.mjs
 COPY apps/paperclip/patch-metadata-fastpath.mjs /tmp/patch-metadata-fastpath.mjs
 RUN node /tmp/patch-metadata-fastpath.mjs
+
+# Rust toolchain for the vendored runner binary. Since v2026.1001.0 the
+# server build runs `prepare:runner-vendor`, which builds
+# @paperclipai/paperclip-runner — including `cargo build ... paperclip-runnerd`.
+# Mirror upstream's own rust-toolchain stage (their Dockerfile): pinned,
+# checksum-verified rustup; the compiler version itself comes from the
+# runner package's rust-toolchain.toml (`rustup show` installs it). gcc/
+# libc6-dev/pkg-config because rustup (unlike apt cargo) pulls no C
+# toolchain and build scripts die on "linker `cc` not found" without one.
+ENV RUSTUP_HOME=/usr/local/rustup \
+    CARGO_HOME=/usr/local/cargo \
+    PATH=/usr/local/cargo/bin:$PATH
+ARG RUSTUP_VERSION=1.29.0
+ARG RUSTUP_SHA256_AMD64=4acc9acc76d5079515b46346a485974457b5a79893cfb01112423c89aeb5aa10
+ARG RUSTUP_SHA256_ARM64=9732d6c5e2a098d3521fca8145d826ae0aaa067ef2385ead08e6feac88fa5792
+RUN set -eux; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends gcc libc6-dev pkg-config; \
+    rm -rf /var/lib/apt/lists/*; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+      amd64) rustTarget="x86_64-unknown-linux-gnu"; sha256="$RUSTUP_SHA256_AMD64" ;; \
+      arm64) rustTarget="aarch64-unknown-linux-gnu"; sha256="$RUSTUP_SHA256_ARM64" ;; \
+      *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSLo /tmp/rustup-init "https://static.rust-lang.org/rustup/archive/${RUSTUP_VERSION}/${rustTarget}/rustup-init"; \
+    echo "${sha256}  /tmp/rustup-init" | sha256sum -c -; \
+    chmod +x /tmp/rustup-init; \
+    /tmp/rustup-init -y --no-modify-path --profile minimal --default-toolchain none; \
+    rm /tmp/rustup-init; \
+    cd /app/packages/paperclip-runner && rustup show
 
 # Build all packages
 RUN pnpm --filter @paperclipai/ui build
@@ -379,6 +404,16 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 # unit-testable: tests/paperclip/hermes-config-template.test.mjs.
 COPY apps/paperclip/write-hermes-config.sh /usr/local/bin/write-hermes-config.sh
 RUN chmod +x /usr/local/bin/write-hermes-config.sh
+
+# Governed MCP tool plane — the renderer appends `mcp_servers:` to the Hermes
+# config at boot from the platform registry, for the servers named in
+# AAF_MCP_SERVERS only (unset = inert). Registry lives outside HERMES_HOME so
+# the Azure File Share mount can never shadow it.
+COPY apps/paperclip/render-hermes-mcp.py /usr/local/bin/render-hermes-mcp.py
+COPY apps/paperclip/derive-decision-signing-secret.py /usr/local/bin/derive-decision-signing-secret.py
+COPY apps/paperclip/migrate-paperclip-config.py /usr/local/bin/migrate-paperclip-config.py
+COPY agents/mcp-registry.json /opt/aaf/mcp-registry.json
+RUN chmod +x /usr/local/bin/render-hermes-mcp.py /usr/local/bin/derive-decision-signing-secret.py /usr/local/bin/migrate-paperclip-config.py
 
 # JWT auth proxy for automation API access (automation scripts, CI/CD)
 COPY apps/paperclip/auth-proxy.mjs /app/auth-proxy.mjs

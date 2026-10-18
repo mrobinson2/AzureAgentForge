@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "AzureAgentForge MCP server registry",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "servers"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "integer", "const": 1 },
+    "notes": { "type": "array", "items": { "type": "string" } },
+    "servers": {
+      "type": "object",
+      "minProperties": 1,
+      "propertyNames": { "pattern": "^[a-z][a-z0-9_]{1,31}$" },
+      "additionalProperties": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["description", "owner", "risk", "transport", "tools"],
+        "properties": {
+          "description": { "type": "string", "minLength": 10 },
+          "owner": { "type": "string", "minLength": 1 },
+          "risk": { "type": "string", "enum": ["read", "write", "destructive"] },
+          "transport": { "type": "string", "enum": ["http", "stdio"] },
+          "url": { "type": "string", "pattern": "^https://" },
+          "command": { "type": "string", "minLength": 1 },
+          "args": { "type": "array", "items": { "type": "string" } },
+          "auth": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["secret_env", "key_vault_secret"],
+            "properties": {
+              "header": { "type": "string", "minLength": 1 },
+              "scheme": { "type": "string", "enum": ["Bearer", "Token", "Basic", "raw"] },
+              "env_var": { "type": "string", "pattern": "^[A-Z][A-Z0-9_]*$" },
+              "secret_env": { "type": "string", "pattern": "^MCP_[A-Z0-9_]+$" },
+              "key_vault_secret": { "type": "string", "pattern": "^mcp-[a-z0-9-]+$" }
+            }
+          },
+          "timeout": { "type": "number", "exclusiveMinimum": 0 },
+          "tools": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["include"],
+            "properties": {
+              "include": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "minLength": 1 } },
+              "exclude": { "type": "array", "items": { "type": "string" } },
+              "prompts": { "type": "boolean" },
+              "resources": { "type": "boolean" }
+            }
+          }
+        },
+        "allOf": [
+          { "if": { "properties": { "transport": { "const": "http" } } }, "then": { "required": ["url"] } },
+          { "if": { "properties": { "transport": { "const": "stdio" } } }, "then": { "required": ["command"] } }
+        ]
+      }
+    }
+  }
+}

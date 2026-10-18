@@ -7,3 +7,15 @@ model_tier: standard
 toolsets: [terminal, file]
 reports_to: Infrastructure
 daily_budget_usd: 0.50
+azure_identity:
+  enabled: true
+  reason: >-
+    Reviews deployed configuration and Key Vault secret inventory (names, not values).
+  role_assignments:
+    - scope: resource_group
+      role: Reader
+      reason: Read-only review of deployed resources.
+    - scope: key_vault
+      role: Key Vault Reader
+      reason: List secret metadata and expiry; never read values.
+

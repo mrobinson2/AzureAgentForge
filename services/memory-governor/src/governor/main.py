@@ -20,7 +20,9 @@ from typing import Any
 from fastapi import Depends, FastAPI, Header, HTTPException
 from pydantic import BaseModel, Field
 
-from . import config, db, digest, escalation_sla
+from datetime import datetime, timezone
+
+from . import config, db, digest, escalation_sla, subject as subject_mod
 from . import memory_digest as mem_digest  # `memory_digest` below is the /digest handler
 from .memory import admission, planner
 
@@ -156,6 +158,10 @@ class AdmitBody(BaseModel):
     verification_state: str | None = None
     confidence_score: float | None = None
     half_life_days: float | None = None
+    # Raw provider-scoped end-user id (e.g. "teams:<aadObjectId>"). Hashed
+    # server-side; the raw value is never stored. Optional: agent-only memories
+    # carry no subject and are excluded from per-person export/erase.
+    subject: str | None = Field(default=None, max_length=512)
     ttl_days: float | None = None
     pin_request: bool = False
     planner_hint: str | None = None
@@ -172,6 +178,8 @@ async def admit(body: AdmitBody) -> dict[str, Any]:
     fields = body.model_dump()
     fields["verification_state"] = None  # force admission's default classification
     fields["source_type"] = None  # treat source as a hint to derive, not a trust seed
+    raw_subject = fields.pop("subject", None)
+    fields["subject_hash"] = subject_mod.hash_subject(raw_subject) if raw_subject else None
     result = await admission.admit(admission.AdmitRequest(**fields))
     return result.__dict__
 
@@ -631,6 +639,107 @@ async def memory_digest_endpoint(limit: int = mem_digest.DEFAULT_LIMIT) -> dict[
     stats = await _memory_digest_stats(limit)
     stats["text"] = mem_digest.format_memory_digest(stats)
     return stats
+
+
+# ---------------------------------------------------------------------------
+# /subjects/{hash} — per-person export and two-step erase over governed memory
+# (docs/design/enhancement-proposals-2026-10.md §4). Operator-authenticated,
+# workspace-scoped, keyed by the peppered subject hash writers attach at
+# /admit. Export is read-only. Erase is two calls: a dry run that returns the
+# counts and a request_id, then the same call with confirm=true echoing that
+# id (valid for the UTC day), which blanks content, tombstones the rows, and
+# emits a subject_erased event with counts only.
+# ---------------------------------------------------------------------------
+
+_SUBJECT_DOC_COLUMNS = """id, content, memory_class, memory_scope_kind, memory_scope_id,
+                   source_type, verification_state, created_by_peer, created_at, expires_at"""
+
+
+def _require_subject_hash(subject_hash: str) -> None:
+    if not subject_mod.is_subject_hash(subject_hash):
+        raise HTTPException(status_code=422, detail="subject_hash must be 64 lowercase hex chars")
+
+
+@app.get("/subjects/{subject_hash}/export", dependencies=[Depends(require_key)])
+async def subject_export(subject_hash: str, workspace_name: str, limit: int = 500) -> dict[str, Any]:
+    _require_subject_hash(subject_hash)
+    limit = max(1, min(int(limit), 5000))
+    p = await db.pool()
+    docs = await p.fetch(
+        f"""SELECT {_SUBJECT_DOC_COLUMNS}
+            FROM documents
+            WHERE workspace_name = $1
+              AND internal_metadata->>'subject_hash' = $2
+              AND deleted_at IS NULL
+            ORDER BY created_at
+            LIMIT $3""",
+        workspace_name, subject_hash, limit,
+    )
+    sessions = await p.fetch(
+        """SELECT id, session_id, content, created_by_peer, expires_at
+           FROM session_memory
+           WHERE workspace_name = $1
+             AND peer_id = $2
+           ORDER BY id
+           LIMIT $3""",
+        workspace_name, subject_hash, limit,
+    )
+    return subject_mod.build_export_bundle(subject_hash, workspace_name, docs, sessions)
+
+
+class SubjectEraseBody(BaseModel):
+    workspace_name: str
+    confirm: bool = False
+    request_id: str | None = None
+    actor: str = "operator"
+
+
+@app.post("/subjects/{subject_hash}/erase", dependencies=[Depends(require_key)])
+async def subject_erase(subject_hash: str, body: SubjectEraseBody) -> dict[str, Any]:
+    _require_subject_hash(subject_hash)
+    day = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    expected = subject_mod.erase_request_id(subject_hash, body.workspace_name, day)
+    p = await db.pool()
+    counts = await p.fetchrow(
+        """SELECT
+             (SELECT count(*) FROM documents
+               WHERE workspace_name = $1 AND internal_metadata->>'subject_hash' = $2
+                 AND deleted_at IS NULL) AS documents,
+             (SELECT count(*) FROM session_memory
+               WHERE workspace_name = $1 AND peer_id = $2) AS session_memories""",
+        body.workspace_name, subject_hash,
+    )
+    found = {"documents": int(counts["documents"] or 0), "session_memories": int(counts["session_memories"] or 0)}
+    if not body.confirm:
+        return {"status": "dry_run", "request_id": expected, "would_erase": found,
+                "note": "re-send with confirm=true and this request_id (valid today, UTC) to erase"}
+    if body.request_id != expected:
+        raise HTTPException(status_code=409, detail="request_id does not match this subject/workspace/day — run the dry run again")
+    erased_docs = await p.fetchval(
+        """WITH t AS (
+             UPDATE documents
+                SET content = '', deleted_at = now(),
+                    internal_metadata = internal_metadata || jsonb_build_object('erased', true)
+              WHERE workspace_name = $1 AND internal_metadata->>'subject_hash' = $2
+                AND deleted_at IS NULL
+              RETURNING 1)
+           SELECT count(*) FROM t""",
+        body.workspace_name, subject_hash,
+    )
+    erased_sessions = await p.fetchval(
+        """WITH t AS (
+             DELETE FROM session_memory
+              WHERE workspace_name = $1 AND peer_id = $2
+              RETURNING 1)
+           SELECT count(*) FROM t""",
+        body.workspace_name, subject_hash,
+    )
+    result = {"documents": int(erased_docs or 0), "session_memories": int(erased_sessions or 0)}
+    await db.emit_event(
+        "subject_erased", body.actor,
+        {"subject_hash": subject_hash, "workspace": body.workspace_name, "request_id": expected, "erased": result},
+    )
+    return {"status": "erased", "request_id": expected, "erased": result}
 
 
 @app.get("/escalation-sla", dependencies=[Depends(require_key)])

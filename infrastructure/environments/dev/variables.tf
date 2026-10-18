@@ -314,6 +314,49 @@ variable "memory_governor_enabled" {
   default     = false
 }
 
+variable "morning_brief_enabled" {
+  description = "Create the operator morning-brief job (needs memory_governor_enabled). Off by default."
+  type        = bool
+  default     = false
+}
+
+variable "morning_brief_webhook_url" {
+  description = "Slack / Discord / generic incoming-webhook URL for the morning brief. Empty = job log only."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "morning_brief_cron" {
+  description = "Cron expression (UTC) for the morning brief job."
+  type        = string
+  default     = "0 12 * * *"
+}
+
+variable "mcp_servers_enabled" {
+  description = "MCP servers (agents/mcp-registry.json names) the paperclip/Hermes runtime renders at boot. Empty = inert."
+  type        = list(string)
+  default     = []
+}
+
+variable "mcp_github_enabled" {
+  description = "Mount mcp-github-token from Key Vault as MCP_GITHUB_TOKEN (GitHub remote MCP). Provision the secret first."
+  type        = bool
+  default     = false
+}
+
+variable "agent_identities_enabled" {
+  description = "Create per-agent managed identities for roles that declare azure_identity (agents/profiles). Off by default."
+  type        = bool
+  default     = false
+}
+
+variable "paperclip_decision_signing_secret_enabled" {
+  description = "Mount the dedicated Key Vault decision-signing secret into paperclip. Off = derived from BETTER_AUTH_SECRET at boot."
+  type        = bool
+  default     = false
+}
+
 variable "memory_planner_agent_allowlist" {
   description = "Comma-separated agent slugs the retrieval planner may inject for (canary). Empty = nobody, even with MEMORY_PLANNER_ENABLED on."
   type        = string

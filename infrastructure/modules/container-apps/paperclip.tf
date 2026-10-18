@@ -142,6 +142,20 @@ resource "azurerm_container_app" "paperclip" {
   # automation scripts, CI/CD pipelines, and other API callers.
   # This is SEPARATE from PAPERCLIP_AGENT_JWT_SECRET (which is for internal
   # agent-to-Paperclip auth). Generate with: openssl rand -base64 48
+  # Decision-signing key (upstream >= v2026.1001.0). Without this env PaperClip
+  # auto-generates a key under <home>/instances/<id>/secrets and refuses to
+  # start unless that directory is owned by the process user — impossible on
+  # the Azure File Share mount (uid/gid fixed at mount time). Providing the
+  # value via env skips the file path entirely. scripts/seed-keyvault.sh
+  # generates it with the other internal secrets.
+  dynamic "secret" {
+    for_each = var.paperclip_decision_signing_secret_enabled ? [1] : []
+    content {
+      name                = "paperclip-decision-signing-secret"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-decision-signing-secret"
+      identity            = azurerm_user_assigned_identity.paperclip.id
+    }
+  }
   secret {
     name                = "paperclip-automation-jwt-secret"
     key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-automation-jwt-secret"
@@ -190,6 +204,19 @@ resource "azurerm_container_app" "paperclip" {
   # system that isn't easy to provision programmatically). The Phase 1B
   # plugin code prefers process.env.DISCORD_BOT_TOKEN over the ref path.
   # Gated behind discord_enabled so the KV secret is not required when Discord is off.
+  # GitHub remote MCP credential — rendered into the Hermes mcp_servers block
+  # only when AAF_MCP_SERVERS names "github" AND this secret is present.
+  # Provision before enabling:
+  #   az keyvault secret set --vault-name <kv> --name mcp-github-token --value "<fine-grained PAT>"
+  dynamic "secret" {
+    for_each = var.mcp_github_enabled ? [1] : []
+    content {
+      name                = "mcp-github-token"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/mcp-github-token"
+      identity            = azurerm_user_assigned_identity.paperclip.id
+    }
+  }
+
   dynamic "secret" {
     for_each = var.discord_enabled ? [1] : []
     content {
@@ -297,6 +324,15 @@ resource "azurerm_container_app" "paperclip" {
         name        = "PAPERCLIP_AUTOMATION_JWT_SECRET"
         secret_name = "paperclip-automation-jwt-secret"
       }
+      # When disabled, docker-entrypoint.sh derives a stable subkey from
+      # BETTER_AUTH_SECRET instead (apps/paperclip/derive-decision-signing-secret.py).
+      dynamic "env" {
+        for_each = var.paperclip_decision_signing_secret_enabled ? [1] : []
+        content {
+          name        = "PAPERCLIP_DECISION_SIGNING_SECRET"
+          secret_name = "paperclip-decision-signing-secret"
+        }
+      }
       env {
         name  = "PAPERCLIP_AUTOMATION_JWT_ISSUER"
         value = "automation-agent"
@@ -336,6 +372,22 @@ resource "azurerm_container_app" "paperclip" {
       env {
         name  = "HERMES_HOME"
         value = "/paperclip/.hermes"
+      }
+
+      # ── Governed MCP tool plane ────────────────────────────────────────
+      # write-hermes-config.sh renders agents/mcp-registry.json entries named
+      # here into config.yaml `mcp_servers`, each with its registry tool
+      # allow-list. Empty = nothing rendered (inert).
+      env {
+        name  = "AAF_MCP_SERVERS"
+        value = join(",", var.mcp_servers_enabled)
+      }
+      dynamic "env" {
+        for_each = var.mcp_github_enabled ? [1] : []
+        content {
+          name        = "MCP_GITHUB_TOKEN"
+          secret_name = "mcp-github-token"
+        }
       }
 
       # ── Honcho Memory Service ─────────────────────────────────────────

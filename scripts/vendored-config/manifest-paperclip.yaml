@@ -12,7 +12,7 @@
 # services/paperclip/Dockerfile (ARG) and docker-compose.yml. On a version
 # bump the guard fails until someone re-validates this list against the new
 # release and updates the pin — deliberately loud.
-pinned_version: v2026.707.0
+pinned_version: v2026.1001.0
 
 accepted_env:
   - key: DATABASE_URL
@@ -33,3 +33,7 @@ accepted_env:
     consumer: upstream agent runtime — API base URL for in-container agents
   - key: LOG_LEVEL
     consumer: upstream server — logger level
+  - key: PAPERCLIP_DEPLOYMENT_MODE
+    consumer: upstream server — server/src/config.ts reads it ahead of config.json deploymentMode (v2026.1001.0); also read by apps/paperclip/migrate-paperclip-config.py, which the .sh/.mjs scanner cannot see
+  - key: PAPERCLIP_DEPLOYMENT_EXPOSURE
+    consumer: upstream server — server/src/config.ts reads it ahead of config.json server.exposure (v2026.1001.0); also read by apps/paperclip/migrate-paperclip-config.py

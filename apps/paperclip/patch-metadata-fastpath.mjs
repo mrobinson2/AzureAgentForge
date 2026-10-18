@@ -48,10 +48,9 @@
  *
  * Applies at build time to the TypeScript source, before `pnpm --filter
  * @paperclipai/server build` — the same stage/timing as this repo's other
- * server/src/*.ts patches (patch-plugin-host.mjs, patch-plugin-secrets-
- * handler.mjs, patch-plugin-worker-manager.mjs), and strictly before the
- * tsc build: editing the .ts source after compilation would be a silent
- * no-op.
+ * server/src/*.ts patch (patch-plugin-worker-manager.mjs), and strictly
+ * before the tsc build: editing the .ts source after compilation would be
+ * a silent no-op.
  *
  * Idempotent. FATAL (exit 1) if either anchor can't be located — better a
  * loud build break than a silently un-patched image.
@@ -76,8 +75,12 @@ const IMPORT_INSERT = `import { classifyMetadataQuestion, buildMetadataAnswer } 
 // ── Anchor 2: the point in executeRun where `issueId` and `issueContext`
 // (title/description) are both first resolved, before the auto-checkout
 // branch and everything that exists purely to prepare an adapter spawn.
-const LOGIC_ANCHOR = `    const issueId = readNonEmptyString(context.issueId);
-    let issueContext = issueId ? await getIssueExecutionContext(agent.companyId, issueId) : null;`;
+// (v2026.1001.0: upstream re-indented executeRun's body to 6 spaces and
+// wrapped the ternary across lines; same two statements, same locals.)
+const LOGIC_ANCHOR = `      const issueId = readNonEmptyString(context.issueId);
+      let issueContext = issueId
+        ? await getIssueExecutionContext(agent.companyId, issueId)
+        : null;`;
 
 const LOGIC_INSERT = `
     // [aaf-patched ${MARKER}] ZERO-LLM platform-metadata fastpath. Dark

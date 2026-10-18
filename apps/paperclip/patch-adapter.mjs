@@ -186,7 +186,7 @@ if (!execute.includes("env.PAPERCLIP_AGENT_SLUG")) {
 // deployment learning: patching only the dist left runs passing the
 // auto-resolved provider (direct vendor endpoint → thinking 400 → plan_only →
 // blocked), so the provider pin must land in the TS source too.
-// FAIL-LOUD: this repo pins PAPERCLIP_VERSION=v2026.707.0 (which ships the
+// FAIL-LOUD: this repo pins PAPERCLIP_VERSION=v2026.1001.0 (which ships the
 // workspace adapter), so a missing adapter or missing anchor is a build error
 // — exit non-zero rather than ship an image whose agent runs bypass the router.
 const WS_ADAPTER_CANDIDATES = [
@@ -219,7 +219,7 @@ const WS_ADAPTER_CANDIDATES = [
   if (!wsHandled) {
     console.error(
       "[patch-adapter] FATAL: workspace adapter @paperclipai/hermes-paperclip-adapter not found — " +
-      "the vendored PaperClip (v2026.707.x) loads it at runtime; without this patch agent runs " +
+      "the vendored PaperClip (v2026.7xx+) loads it at runtime; without this patch agent runs " +
       "bypass the router. Checked: " + WS_ADAPTER_CANDIDATES.join(", ")
     );
     process.exit(1);

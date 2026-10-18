@@ -44,66 +44,17 @@ else
   echo "[entrypoint] Workspaces on persistent SMB mount (PAPERCLIP_WORKSPACES_TMPFS not set; agents must default file writes to /tmp/)"
 fi
 
-# ── Write config.json from env vars if it doesn't already exist ───────────────
+# ── config.json: create / migrate / sync (upstream >= v2026.1001.0 schema) ──
+# Upstream validates config.json strictly ($meta/database/logging/server/
+# telemetry required) and reads database.mode ONLY from the file. The legacy
+# flat file earlier images wrote is invalid under that schema and the server
+# refuses to start. migrate-paperclip-config.py creates a v1 file, migrates a
+# legacy one (backup kept beside it), or syncs env-controlled fields into an
+# existing v1 file. Env still wins at runtime for everything it covers.
 CONFIG_FILE="${PAPERCLIP_HOME}/instances/default/config.json"
-if [ ! -f "${CONFIG_FILE}" ]; then
-  cat > "${CONFIG_FILE}" <<EOF
-{
-  "instanceId": "${PAPERCLIP_INSTANCE_ID:-default}",
-  "publicUrl": "${PAPERCLIP_PUBLIC_URL:-http://localhost:3100}",
-  "allowedHostnames": "${PAPERCLIP_ALLOWED_HOSTNAMES:-localhost}",
-  "deploymentMode": "${PAPERCLIP_DEPLOYMENT_MODE:-authenticated}",
-  "deploymentExposure": "${PAPERCLIP_DEPLOYMENT_EXPOSURE:-private}"
-}
-EOF
-  echo "[entrypoint] Initialised Paperclip config at ${CONFIG_FILE}"
-fi
-
-# Sync env-var-controlled fields into an existing config.
-# The file is only created above on first start, so env changes on subsequent
-# restarts (e.g. after az containerapp update) would otherwise be silently ignored.
-python3 - "${CONFIG_FILE}" <<'PYEOF'
-import json, os, sys
-path = sys.argv[1]
-try:
-    with open(path) as f:
-        cfg = json.load(f)
-    changed = False
-    for key, env_var in [
-        ("publicUrl",          "PAPERCLIP_PUBLIC_URL"),
-        ("allowedHostnames",   "PAPERCLIP_ALLOWED_HOSTNAMES"),
-        ("deploymentMode",     "PAPERCLIP_DEPLOYMENT_MODE"),
-        ("deploymentExposure", "PAPERCLIP_DEPLOYMENT_EXPOSURE"),
-    ]:
-        val = os.environ.get(env_var)
-        if not val:
-            continue
-        if key == "allowedHostnames":
-            # Parse comma-separated list; write only the first valid hostname.
-            # The board-mutation-guard does a direct string comparison against
-            # this value — a comma-joined string is treated as one hostname and
-            # never matches a real Host header.  Use a single canonical hostname
-            # (the public URL hostname).  Update Terraform to pass one value.
-            parsed = [h.strip() for h in val.split(",") if h.strip()]
-            new_val = parsed[0] if parsed else val
-            if len(parsed) > 1:
-                print("[entrypoint] WARN: PAPERCLIP_ALLOWED_HOSTNAMES has "
-                      + str(len(parsed)) + " hostnames; writing first value only ("
-                      + new_val + "). Update Terraform var to a single hostname.",
-                      file=sys.stderr)
-        else:
-            new_val = val
-        if cfg.get(key) != new_val:
-            cfg[key] = new_val
-            changed = True
-            print("[entrypoint]   config.json: " + key + " -> " + new_val, file=sys.stderr)
-    if changed:
-        with open(path, "w") as f:
-            json.dump(cfg, f, indent=2)
-        print("[entrypoint] Synced Paperclip config.json from env vars", file=sys.stderr)
-except Exception as e:
-    print("[entrypoint] WARNING: could not sync config: " + str(e), file=sys.stderr)
-PYEOF
+mkdir -p "$(dirname "${CONFIG_FILE}")"
+python3 /usr/local/bin/migrate-paperclip-config.py "${CONFIG_FILE}" \
+  || echo "[entrypoint] WARNING: config.json migration failed — see the line above" >&2
 
 # ── Redirect Hermes SQLite DBs to /tmp (real filesystem, no SMB locking) ─────
 # Azure File Share (SMB) does not support the POSIX byte-range locks that
@@ -219,6 +170,24 @@ echo "[entrypoint] Skills manifests available at ${MANIFESTS_DIR}"
 chown -R node:node "${HERMES_HOME:-/paperclip/.hermes}" 2>/dev/null || true
 
 # ── JWT Auth Proxy for automation API access ─────────────────────────────────
+# ── Decision-signing key (upstream >= v2026.1001.0) ──────────────────────────
+# PaperClip refuses to start unless PAPERCLIP_DECISION_SIGNING_SECRET is set OR
+# its auto-generated key directory is owned by the process user — impossible on
+# the SMB share. Prefer the Key Vault-mounted env (paperclip.tf); otherwise
+# derive a stable, purpose-bound subkey from BETTER_AUTH_SECRET so the server
+# boots and signatures survive restarts. Never printed.
+if [ -z "${PAPERCLIP_DECISION_SIGNING_SECRET:-}" ] || [ "${PAPERCLIP_DECISION_SIGNING_SECRET:-}" = "__unset__" ]; then
+  if DERIVED="$(python3 /usr/local/bin/derive-decision-signing-secret.py 2>/dev/null)" && [ -n "${DERIVED}" ]; then
+    export PAPERCLIP_DECISION_SIGNING_SECRET="${DERIVED}"
+    echo "[entrypoint] Decision-signing key derived from BETTER_AUTH_SECRET (set paperclip_decision_signing_secret_enabled to use a dedicated Key Vault secret)"
+  else
+    echo "[entrypoint] WARNING: no decision-signing key available (BETTER_AUTH_SECRET unset) — upstream may refuse to start on the SMB share"
+  fi
+  unset DERIVED
+else
+  echo "[entrypoint] Decision-signing key provided via PAPERCLIP_DECISION_SIGNING_SECRET"
+fi
+
 # When PAPERCLIP_AUTOMATION_JWT_SECRET is set, the auth proxy sits on port 3100
 # (the public port) and forwards to Paperclip on port 3099 (internal).
 # Browser traffic passes through transparently. JWT bearer tokens are validated

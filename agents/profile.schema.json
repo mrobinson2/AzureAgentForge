@@ -3,21 +3,119 @@
   "title": "AzureAgentForge agent profile",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "role", "description", "model_tier", "toolsets"],
+  "required": [
+    "name",
+    "role",
+    "description",
+    "model_tier",
+    "toolsets"
+  ],
   "properties": {
-    "name": { "type": "string", "minLength": 1 },
-    "role": { "type": "string", "minLength": 1 },
-    "description": { "type": "string", "minLength": 10 },
-    "model_tier": { "type": "string", "enum": ["frontier", "standard", "economy"] },
-    "toolsets": {
-      "type": "array", "minItems": 1, "uniqueItems": true,
-      "items": { "type": "string", "enum": ["terminal", "file", "browser"] }
+    "name": {
+      "type": "string",
+      "minLength": 1
     },
-    "reports_to": { "type": ["string", "null"] },
+    "role": {
+      "type": "string",
+      "minLength": 1
+    },
+    "description": {
+      "type": "string",
+      "minLength": 10
+    },
+    "model_tier": {
+      "type": "string",
+      "enum": [
+        "frontier",
+        "standard",
+        "economy"
+      ]
+    },
+    "toolsets": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "enum": [
+          "terminal",
+          "file",
+          "browser"
+        ]
+      }
+    },
+    "reports_to": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "daily_budget_usd": {
       "type": "number",
       "minimum": 0,
       "description": "Per-agent cost ceiling in USD/day (a cap, not a spend forecast). Summed and projected to a 30-day month by scripts/roster-cost-gate.py against PLATFORM_MONTHLY_BUDGET_USD in docker-compose.yml. See docs/design/roster-cost-gate.md."
+    },
+    "mcp_servers": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-z][a-z0-9_]{1,31}$"
+      },
+      "description": "MCP servers this role may use, by registry name (agents/mcp-registry.json). Every name must be registered; validate_profiles.py enforces it. The platform renders only the servers named in AAF_MCP_SERVERS at boot, so a grant here is a declared intent the deployment must also enable."
+    },
+    "azure_identity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "enabled",
+        "reason",
+        "role_assignments"
+      ],
+      "description": "Opt this role into its own Azure user-assigned managed identity with exactly the listed role assignments (Terraform: agent_identities_enabled). scripts/agent-identity-guard.py refuses broad or privileged roles. Design: docs/design/enhancement-proposals-2026-10.md item 1.",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 10
+        },
+        "role_assignments": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "scope",
+              "role",
+              "reason"
+            ],
+            "properties": {
+              "scope": {
+                "type": "string",
+                "enum": [
+                  "resource_group",
+                  "key_vault"
+                ]
+              },
+              "role": {
+                "type": "string",
+                "minLength": 1
+              },
+              "reason": {
+                "type": "string",
+                "minLength": 10
+              },
+              "allow_write": {
+                "type": "boolean",
+                "description": "Required (true) for any role that can change state; the guard rejects write-capable roles without it."
+              }
+            }
+          }
+        }
+      }
     }
   }
 }

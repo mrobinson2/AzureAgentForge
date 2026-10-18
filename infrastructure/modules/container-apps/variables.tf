@@ -427,6 +427,30 @@ variable "brave_search_enabled" {
   default     = true
 }
 
+variable "mcp_servers_enabled" {
+  description = "MCP servers (names from agents/mcp-registry.json) rendered into the Hermes config at boot via AAF_MCP_SERVERS. Empty = the MCP tool plane is inert. A credential-gated server also needs its Key Vault secret and the matching *_enabled flag."
+  type        = list(string)
+  default     = []
+}
+
+variable "mcp_github_enabled" {
+  description = "Mount Key Vault secret mcp-github-token as MCP_GITHUB_TOKEN inside paperclip (the GitHub remote MCP credential). Provision the secret before enabling; also add \"github\" to mcp_servers_enabled."
+  type        = bool
+  default     = false
+}
+
+variable "agent_identities_enabled" {
+  description = "Materialize one user-assigned managed identity per agent role that declares azure_identity in agents/profiles, with exactly its declared role assignments. Off by default; the runtime token broker is a follow-up."
+  type        = bool
+  default     = false
+}
+
+variable "paperclip_decision_signing_secret_enabled" {
+  description = "Mount Key Vault secret paperclip-decision-signing-secret as PAPERCLIP_DECISION_SIGNING_SECRET (seed-keyvault.sh generates it). Off = the entrypoint derives a stable subkey from BETTER_AUTH_SECRET so upstream >= v2026.1001.0 boots on the SMB share."
+  type        = bool
+  default     = false
+}
+
 variable "exa_search_enabled" {
   description = "Enable the exa-search wrapper inside paperclip (mounts EXA_API_KEY from the KV secret exa-api-key). Semantic web search alongside brave-search; opt-in because it needs an Exa key seeded into Key Vault first. Default off."
   type        = bool
@@ -592,4 +616,28 @@ variable "memory_digest_cron" {
   type        = string
   description = "Cron expression for the daily memory digest poster job."
   default     = "0 13 * * *"
+}
+
+variable "morning_brief_enabled" {
+  type        = bool
+  description = "Create the operator morning-brief job (governor image). Requires memory_governor_enabled. The brief always lands in the job log; set morning_brief_webhook_url to also post it to chat."
+  default     = false
+}
+
+variable "morning_brief_webhook_url" {
+  type        = string
+  description = "Slack / Discord / generic incoming-webhook URL for the morning brief. Empty = stdout (job log) only."
+  default     = ""
+}
+
+variable "morning_brief_cron" {
+  type        = string
+  description = "Cron expression (UTC) for the morning brief job."
+  default     = "0 12 * * *"
+}
+
+variable "morning_brief_window_hours" {
+  type        = number
+  description = "Look-back window for the morning brief, in hours (1..168)."
+  default     = 24
 }
