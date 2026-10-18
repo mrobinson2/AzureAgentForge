@@ -58,4 +58,24 @@ prompt_caching:
   cache_ttl: 1h
 HERMES_EOF
 chown node:node "${HERMES_CONFIG}" 2>/dev/null || true
+
+# ── MCP servers (governed tool plane) ────────────────────────────────────────
+# Append the `mcp_servers:` block rendered from the platform registry. Off by
+# default: AAF_MCP_SERVERS unset/empty renders nothing. The renderer reads ONLY
+# the registry and the per-server secret env it names (never the router key),
+# and a server whose secret is unset is skipped loudly. A renderer failure must
+# not abort boot — the MCP plane is optional; the base config above is not.
+AAF_MCP_REGISTRY="${AAF_MCP_REGISTRY:-/opt/aaf/mcp-registry.json}"
+AAF_MCP_RENDERER="${AAF_MCP_RENDERER:-/usr/local/bin/render-hermes-mcp.py}"
+if [ -n "${AAF_MCP_SERVERS:-}" ]; then
+  if [ -f "${AAF_MCP_REGISTRY}" ] && [ -f "${AAF_MCP_RENDERER}" ] && command -v python3 >/dev/null 2>&1; then
+    if python3 "${AAF_MCP_RENDERER}" --registry "${AAF_MCP_REGISTRY}" >> "${HERMES_CONFIG}"; then
+      :
+    else
+      echo "[write-hermes-config] WARNING: MCP renderer failed — config written without mcp_servers" >&2
+    fi
+  else
+    echo "[write-hermes-config] WARNING: AAF_MCP_SERVERS set but registry/renderer/python3 missing — no mcp_servers rendered" >&2
+  fi
+fi
 echo "[write-hermes-config] Wrote Hermes config at ${HERMES_CONFIG} (provider=custom api_mode=chat_completions base_url=${HERMES_BASE_URL_DEFAULT})"

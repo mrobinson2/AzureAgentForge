@@ -80,6 +80,26 @@ Each profile is a YAML file in [`../agents/profiles/`](../agents/profiles/) vali
 | `file`     | File read/write access                   |
 | `browser`  | Web browsing and HTTP fetch capability   |
 
+### `mcp_servers` grants (optional)
+
+A role may list MCP servers it is allowed to use, by name from the platform
+registry [`../agents/mcp-registry.json`](../agents/mcp-registry.json):
+
+```yaml
+mcp_servers: [deepwiki, github]
+```
+
+`validate_profiles.py` rejects a grant that is not registered. The registry
+declares each server's transport, the Key Vault secret that credentials it, and
+an explicit `tools.include` allow-list that Hermes enforces per server. At
+container boot `write-hermes-config.sh` renders only the servers named in the
+deployment's `AAF_MCP_SERVERS` (Terraform `mcp_servers_enabled`) into the Hermes
+`mcp_servers` block; a credential-gated server whose secret is absent is skipped
+with a warning. The plane is inert until a deployment enables a server. Today the
+grant is a validated declaration of intent; per-role enforcement at the tool
+boundary is the policy-enforcement-point follow-up described in
+[`design/enhancement-proposals-2026-10.md`](design/enhancement-proposals-2026-10.md).
+
 ## Example profile
 
 ```yaml

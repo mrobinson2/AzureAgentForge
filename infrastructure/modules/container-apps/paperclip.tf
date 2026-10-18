@@ -190,6 +190,19 @@ resource "azurerm_container_app" "paperclip" {
   # system that isn't easy to provision programmatically). The Phase 1B
   # plugin code prefers process.env.DISCORD_BOT_TOKEN over the ref path.
   # Gated behind discord_enabled so the KV secret is not required when Discord is off.
+  # GitHub remote MCP credential — rendered into the Hermes mcp_servers block
+  # only when AAF_MCP_SERVERS names "github" AND this secret is present.
+  # Provision before enabling:
+  #   az keyvault secret set --vault-name <kv> --name mcp-github-token --value "<fine-grained PAT>"
+  dynamic "secret" {
+    for_each = var.mcp_github_enabled ? [1] : []
+    content {
+      name                = "mcp-github-token"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/mcp-github-token"
+      identity            = azurerm_user_assigned_identity.paperclip.id
+    }
+  }
+
   dynamic "secret" {
     for_each = var.discord_enabled ? [1] : []
     content {
@@ -336,6 +349,22 @@ resource "azurerm_container_app" "paperclip" {
       env {
         name  = "HERMES_HOME"
         value = "/paperclip/.hermes"
+      }
+
+      # ── Governed MCP tool plane ────────────────────────────────────────
+      # write-hermes-config.sh renders agents/mcp-registry.json entries named
+      # here into config.yaml `mcp_servers`, each with its registry tool
+      # allow-list. Empty = nothing rendered (inert).
+      env {
+        name  = "AAF_MCP_SERVERS"
+        value = join(",", var.mcp_servers_enabled)
+      }
+      dynamic "env" {
+        for_each = var.mcp_github_enabled ? [1] : []
+        content {
+          name        = "MCP_GITHUB_TOKEN"
+          secret_name = "mcp-github-token"
+        }
       }
 
       # ── Honcho Memory Service ─────────────────────────────────────────

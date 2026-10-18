@@ -190,6 +190,10 @@ module "container_apps" {
   morning_brief_webhook_url = var.morning_brief_webhook_url
   morning_brief_cron        = var.morning_brief_cron
 
+  # Governed MCP tool plane (paperclip/Hermes). Empty list = inert.
+  mcp_servers_enabled = var.mcp_servers_enabled
+  mcp_github_enabled  = var.mcp_github_enabled
+
   # aaf-0015: no module default — must be set explicitly per environment in
   # tfvars so dev/prod never silently share a governed-memory workspace.
   honcho_workspace_name = var.honcho_workspace_name

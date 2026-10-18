@@ -1,0 +1,47 @@
+{
+  "$schema": "./mcp-registry.schema.json",
+  "version": 1,
+  "notes": [
+    "Platform registry of MCP servers an agent role may be granted (docs/design/enhancement-proposals-2026-10.md, item 2).",
+    "A profile grants a server by name in its `mcp_servers` list; agents/validate_profiles.py rejects grants that are not registered here.",
+    "At container boot apps/paperclip/render-hermes-mcp.py renders the servers named in AAF_MCP_SERVERS into the Hermes config.yaml `mcp_servers` block.",
+    "A server with `auth.secret_env` is rendered only when that env var is set (Key Vault-mounted); it is skipped, loudly, otherwise. Nothing else from the environment is ever copied into the config.",
+    "`tools.include` is the least-privilege allow-list Hermes enforces per server; keep it explicit for anything that can write."
+  ],
+  "servers": {
+    "deepwiki": {
+      "description": "DeepWiki: read-only documentation and Q&A over public GitHub repositories. No credential.",
+      "owner": "platform",
+      "risk": "read",
+      "transport": "http",
+      "url": "https://mcp.deepwiki.com/mcp",
+      "tools": {
+        "include": ["read_wiki_structure", "read_wiki_contents", "ask_question"],
+        "prompts": false,
+        "resources": false
+      }
+    },
+    "github": {
+      "description": "GitHub remote MCP. Read-only tool filter by default; widen `tools.include` deliberately per deployment.",
+      "owner": "platform",
+      "risk": "write",
+      "transport": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "auth": {
+        "header": "Authorization",
+        "scheme": "Bearer",
+        "secret_env": "MCP_GITHUB_TOKEN",
+        "key_vault_secret": "mcp-github-token"
+      },
+      "tools": {
+        "include": [
+          "get_file_contents", "search_code", "search_repositories",
+          "list_issues", "get_issue", "list_pull_requests", "get_pull_request",
+          "get_pull_request_diff", "list_commits", "get_commit"
+        ],
+        "prompts": false,
+        "resources": false
+      }
+    }
+  }
+}

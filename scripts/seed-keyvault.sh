@@ -45,7 +45,7 @@ control-plane-operator-key"
 # external loop below, which seeds a non-empty placeholder for any you don't set.
 EXTERNAL="ai-foundry-api-key brave-search-api-key cf-tunnel-token claude-api-key \
 claude-base-url discord-bot-token gpt4o-api-key grok-api-key grok-base-url \
-gws-credentials kimi-api-key kimi-base-url openai-api-key paperclip-admin-email \
+gws-credentials kimi-api-key kimi-base-url mcp-github-token openai-api-key paperclip-admin-email \
 phi-api-key phi-base-url telegram-bot-token postgres-connection-string \
 paperclip-db-url"
 

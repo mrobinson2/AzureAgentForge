@@ -333,6 +333,18 @@ variable "morning_brief_cron" {
   default     = "0 12 * * *"
 }
 
+variable "mcp_servers_enabled" {
+  description = "MCP servers (agents/mcp-registry.json names) the paperclip/Hermes runtime renders at boot. Empty = inert."
+  type        = list(string)
+  default     = []
+}
+
+variable "mcp_github_enabled" {
+  description = "Mount mcp-github-token from Key Vault as MCP_GITHUB_TOKEN (GitHub remote MCP). Provision the secret first."
+  type        = bool
+  default     = false
+}
+
 variable "memory_planner_agent_allowlist" {
   description = "Comma-separated agent slugs the retrieval planner may inject for (canary). Empty = nobody, even with MEMORY_PLANNER_ENABLED on."
   type        = string

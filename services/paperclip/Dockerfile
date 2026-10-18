@@ -405,6 +405,14 @@ RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 COPY apps/paperclip/write-hermes-config.sh /usr/local/bin/write-hermes-config.sh
 RUN chmod +x /usr/local/bin/write-hermes-config.sh
 
+# Governed MCP tool plane — the renderer appends `mcp_servers:` to the Hermes
+# config at boot from the platform registry, for the servers named in
+# AAF_MCP_SERVERS only (unset = inert). Registry lives outside HERMES_HOME so
+# the Azure File Share mount can never shadow it.
+COPY apps/paperclip/render-hermes-mcp.py /usr/local/bin/render-hermes-mcp.py
+COPY agents/mcp-registry.json /opt/aaf/mcp-registry.json
+RUN chmod +x /usr/local/bin/render-hermes-mcp.py
+
 # JWT auth proxy for automation API access (automation scripts, CI/CD)
 COPY apps/paperclip/auth-proxy.mjs /app/auth-proxy.mjs
 # auth-proxy.mjs imports ./approval.mjs (the HITL action-approval gate). It must

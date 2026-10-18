@@ -427,6 +427,18 @@ variable "brave_search_enabled" {
   default     = true
 }
 
+variable "mcp_servers_enabled" {
+  description = "MCP servers (names from agents/mcp-registry.json) rendered into the Hermes config at boot via AAF_MCP_SERVERS. Empty = the MCP tool plane is inert. A credential-gated server also needs its Key Vault secret and the matching *_enabled flag."
+  type        = list(string)
+  default     = []
+}
+
+variable "mcp_github_enabled" {
+  description = "Mount Key Vault secret mcp-github-token as MCP_GITHUB_TOKEN inside paperclip (the GitHub remote MCP credential). Provision the secret before enabling; also add \"github\" to mcp_servers_enabled."
+  type        = bool
+  default     = false
+}
+
 variable "exa_search_enabled" {
   description = "Enable the exa-search wrapper inside paperclip (mounts EXA_API_KEY from the KV secret exa-api-key). Semantic web search alongside brave-search; opt-in because it needs an Exa key seeded into Key Vault first. Default off."
   type        = bool
