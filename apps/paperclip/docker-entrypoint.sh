@@ -219,6 +219,24 @@ echo "[entrypoint] Skills manifests available at ${MANIFESTS_DIR}"
 chown -R node:node "${HERMES_HOME:-/paperclip/.hermes}" 2>/dev/null || true
 
 # ── JWT Auth Proxy for automation API access ─────────────────────────────────
+# ── Decision-signing key (upstream >= v2026.1001.0) ──────────────────────────
+# PaperClip refuses to start unless PAPERCLIP_DECISION_SIGNING_SECRET is set OR
+# its auto-generated key directory is owned by the process user — impossible on
+# the SMB share. Prefer the Key Vault-mounted env (paperclip.tf); otherwise
+# derive a stable, purpose-bound subkey from BETTER_AUTH_SECRET so the server
+# boots and signatures survive restarts. Never printed.
+if [ -z "${PAPERCLIP_DECISION_SIGNING_SECRET:-}" ] || [ "${PAPERCLIP_DECISION_SIGNING_SECRET:-}" = "__unset__" ]; then
+  if DERIVED="$(python3 /usr/local/bin/derive-decision-signing-secret.py 2>/dev/null)" && [ -n "${DERIVED}" ]; then
+    export PAPERCLIP_DECISION_SIGNING_SECRET="${DERIVED}"
+    echo "[entrypoint] Decision-signing key derived from BETTER_AUTH_SECRET (set paperclip_decision_signing_secret_enabled to use a dedicated Key Vault secret)"
+  else
+    echo "[entrypoint] WARNING: no decision-signing key available (BETTER_AUTH_SECRET unset) — upstream may refuse to start on the SMB share"
+  fi
+  unset DERIVED
+else
+  echo "[entrypoint] Decision-signing key provided via PAPERCLIP_DECISION_SIGNING_SECRET"
+fi
+
 # When PAPERCLIP_AUTOMATION_JWT_SECRET is set, the auth proxy sits on port 3100
 # (the public port) and forwards to Paperclip on port 3099 (internal).
 # Browser traffic passes through transparently. JWT bearer tokens are validated

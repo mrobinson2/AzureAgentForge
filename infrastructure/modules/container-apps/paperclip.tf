@@ -148,10 +148,13 @@ resource "azurerm_container_app" "paperclip" {
   # the Azure File Share mount (uid/gid fixed at mount time). Providing the
   # value via env skips the file path entirely. scripts/seed-keyvault.sh
   # generates it with the other internal secrets.
-  secret {
-    name                = "paperclip-decision-signing-secret"
-    key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-decision-signing-secret"
-    identity            = azurerm_user_assigned_identity.paperclip.id
+  dynamic "secret" {
+    for_each = var.paperclip_decision_signing_secret_enabled ? [1] : []
+    content {
+      name                = "paperclip-decision-signing-secret"
+      key_vault_secret_id = "${var.key_vault_uri}secrets/paperclip-decision-signing-secret"
+      identity            = azurerm_user_assigned_identity.paperclip.id
+    }
   }
   secret {
     name                = "paperclip-automation-jwt-secret"
@@ -321,9 +324,14 @@ resource "azurerm_container_app" "paperclip" {
         name        = "PAPERCLIP_AUTOMATION_JWT_SECRET"
         secret_name = "paperclip-automation-jwt-secret"
       }
-      env {
-        name        = "PAPERCLIP_DECISION_SIGNING_SECRET"
-        secret_name = "paperclip-decision-signing-secret"
+      # When disabled, docker-entrypoint.sh derives a stable subkey from
+      # BETTER_AUTH_SECRET instead (apps/paperclip/derive-decision-signing-secret.py).
+      dynamic "env" {
+        for_each = var.paperclip_decision_signing_secret_enabled ? [1] : []
+        content {
+          name        = "PAPERCLIP_DECISION_SIGNING_SECRET"
+          secret_name = "paperclip-decision-signing-secret"
+        }
       }
       env {
         name  = "PAPERCLIP_AUTOMATION_JWT_ISSUER"

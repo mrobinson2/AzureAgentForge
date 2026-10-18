@@ -410,8 +410,9 @@ RUN chmod +x /usr/local/bin/write-hermes-config.sh
 # AAF_MCP_SERVERS only (unset = inert). Registry lives outside HERMES_HOME so
 # the Azure File Share mount can never shadow it.
 COPY apps/paperclip/render-hermes-mcp.py /usr/local/bin/render-hermes-mcp.py
+COPY apps/paperclip/derive-decision-signing-secret.py /usr/local/bin/derive-decision-signing-secret.py
 COPY agents/mcp-registry.json /opt/aaf/mcp-registry.json
-RUN chmod +x /usr/local/bin/render-hermes-mcp.py
+RUN chmod +x /usr/local/bin/render-hermes-mcp.py /usr/local/bin/derive-decision-signing-secret.py
 
 # JWT auth proxy for automation API access (automation scripts, CI/CD)
 COPY apps/paperclip/auth-proxy.mjs /app/auth-proxy.mjs

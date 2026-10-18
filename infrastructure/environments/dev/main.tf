@@ -197,6 +197,9 @@ module "container_apps" {
   # Per-agent Azure identities (roles that declare azure_identity). Off by default.
   agent_identities_enabled = var.agent_identities_enabled
 
+  # Dedicated decision-signing secret (off = derived from BETTER_AUTH_SECRET at boot).
+  paperclip_decision_signing_secret_enabled = var.paperclip_decision_signing_secret_enabled
+
   # aaf-0015: no module default — must be set explicitly per environment in
   # tfvars so dev/prod never silently share a governed-memory workspace.
   honcho_workspace_name = var.honcho_workspace_name

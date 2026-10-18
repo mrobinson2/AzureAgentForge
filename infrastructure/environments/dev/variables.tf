@@ -351,6 +351,12 @@ variable "agent_identities_enabled" {
   default     = false
 }
 
+variable "paperclip_decision_signing_secret_enabled" {
+  description = "Mount the dedicated Key Vault decision-signing secret into paperclip. Off = derived from BETTER_AUTH_SECRET at boot."
+  type        = bool
+  default     = false
+}
+
 variable "memory_planner_agent_allowlist" {
   description = "Comma-separated agent slugs the retrieval planner may inject for (canary). Empty = nobody, even with MEMORY_PLANNER_ENABLED on."
   type        = string

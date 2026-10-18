@@ -445,6 +445,12 @@ variable "agent_identities_enabled" {
   default     = false
 }
 
+variable "paperclip_decision_signing_secret_enabled" {
+  description = "Mount Key Vault secret paperclip-decision-signing-secret as PAPERCLIP_DECISION_SIGNING_SECRET (seed-keyvault.sh generates it). Off = the entrypoint derives a stable subkey from BETTER_AUTH_SECRET so upstream >= v2026.1001.0 boots on the SMB share."
+  type        = bool
+  default     = false
+}
+
 variable "exa_search_enabled" {
   description = "Enable the exa-search wrapper inside paperclip (mounts EXA_API_KEY from the KV secret exa-api-key). Semantic web search alongside brave-search; opt-in because it needs an Exa key seeded into Key Vault first. Default off."
   type        = bool
